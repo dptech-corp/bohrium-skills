@@ -347,6 +347,52 @@ requests.post(f"{BASE}/job_group/{job_group_id}/modify",
     json={"name": "new-group-name"})
 ```
 
+### 直接用 API 提交任务（不经 bohr CLI）
+
+`bohr job submit` 底层不是单个接口，而是**按顺序组合调用多个接口**：① 建任务组（可选）→ ② 建 job 拿上传凭证 → ③ 把输入 zip 上传到 tiefblue → ④ 正式提交调度。
+
+```python
+import os, json, base64, requests
+
+AK = os.environ["BOHR_ACCESS_KEY"]
+PROJECT_ID = int(os.environ["PROJECT_ID"])
+BASE = "https://open.bohrium.com/openapi/v4"
+H = {"Authorization": f"Bearer {AK}", "Content-Type": "application/json"}
+
+# ① 创建任务组（已有组可跳过，直接用其 groupId 作为 BohrGroupId）
+group_id = requests.post(f"{BASE}/job_group/add", headers=H,
+    json={"projectId": PROJECT_ID, "name": "my-batch"}).json()["data"]["groupId"]
+
+# ② 创建 job，拿上传凭证
+d = requests.post(f"{BASE}/job/create", headers=H,
+    json={"name": "my-job", "BohrGroupId": group_id, "projectId": PROJECT_ID}).json()["data"]
+job_id, store_host, store_path, token = d["jobId"], d["storeHost"], d["storePath"], d["token"]
+
+# ③ 把 input.zip 上传到 tiefblue（<~50MB 用二进制直传；更大走 /api/upload/multipart/*）
+object_key = store_path + "input.zip"
+xsp = base64.b64encode(json.dumps({
+    "path": object_key,
+    "option": {"contentDisposition": 'attachment; filename="input.zip"'},
+}).encode()).decode()
+with open("input.zip", "rb") as f:
+    requests.post(f"{store_host}/api/upload/binary",
+        headers={"Authorization": f"Bearer {token}", "X-Storage-Param": xsp},
+        data=f.read())
+
+# ④ 正式提交调度（jobType 固定 "container"，ossPath 为数组）
+resp = requests.post(f"{BASE}/job/add", headers=H, json={
+    "jobId": job_id, "jobType": "container", "projectId": PROJECT_ID,
+    "jobGroupId": group_id, "jobName": "my-job",
+    "scassType": "c2_m4_cpu",
+    "imageName": "registry.dp.tech/dptech/ubuntu:20.04-py3.10",
+    "cmd": "bash run.sh", "platform": "ali",
+    "ossPath": [object_key], "inputFileType": 3, "inputFileMethod": 1, "nnode": 1,
+}).json()
+print(resp)  # {"code": 0, "data": {"jobId": ..., "bohrJobId": ..., "jobGroupId": ...}}
+```
+
+> **验证状态（2026-07-16，正式 AK 于 open.bohrium.com）**：①②③④ 四步已端到端验证通过——④ `job/add` 返回 `{code:0, data:{jobId, bohrJobId, jobGroupId}}`，任务进入调度。用 `v4` 版本、`ossPath` 传**数组**、`jobType` 固定 `container`。返回的 `jobId` 可用于 `POST /openapi/v4/job/kill/{jobId}` 终止。
+
 ---
 
 ## 任务状态码

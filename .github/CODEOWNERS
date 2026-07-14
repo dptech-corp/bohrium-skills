@@ -1,0 +1,45 @@
+# Bohrium OpenAPI — 代码/文档认责 (GitHub CODEOWNERS)
+#
+# 每个模块的接口契约以 zh|en/<skill>/SKILL.md 为准（openapi.json 由其派生）。
+# 在对应团队填入 @org/team 后，触及该模块 SKILL.md 的 PR 会自动请求其 review，
+# 从而把「谁改契约」和「谁负责」绑定。owners.yaml 保存联系方式/后端仓库等元信息。
+#
+# 语法: <path pattern>  <@user 或 @org/team>
+# 填写示例: /zh/bohrium-job/    @dptech-corp/compute-team
+
+# 全局兜底（OpenAPI 文档基建的维护者）
+/docs/api/            @dptech-corp/openapi-maintainers
+/tools/whoowns.py     @dptech-corp/openapi-maintainers
+/.github/CODEOWNERS   @dptech-corp/openapi-maintainers
+
+# 各模块契约文档 —— 请对应团队认领（把上面的占位团队替换为真实 @org/team）
+/zh/bohrium-dataset/         @dptech-corp/openapi-maintainers
+/en/bohrium-dataset/         @dptech-corp/openapi-maintainers
+/zh/bohrium-file/            @dptech-corp/openapi-maintainers
+/en/bohrium-file/            @dptech-corp/openapi-maintainers
+/zh/bohrium-job/             @dptech-corp/openapi-maintainers
+/en/bohrium-job/             @dptech-corp/openapi-maintainers
+/zh/bohrium-knowledge-base/  @dptech-corp/openapi-maintainers
+/en/bohrium-knowledge-base/  @dptech-corp/openapi-maintainers
+/zh/bohrium-lkm/             @dptech-corp/openapi-maintainers
+/en/bohrium-lkm/             @dptech-corp/openapi-maintainers
+/zh/bohrium-mentor/          @dptech-corp/openapi-maintainers
+/en/bohrium-mentor/          @dptech-corp/openapi-maintainers
+/zh/bohrium-node/            @dptech-corp/openapi-maintainers
+/en/bohrium-node/            @dptech-corp/openapi-maintainers
+/zh/bohrium-paper-search/    @dptech-corp/openapi-maintainers
+/en/bohrium-paper-search/    @dptech-corp/openapi-maintainers
+/zh/bohrium-pdf-parser/      @dptech-corp/openapi-maintainers
+/en/bohrium-pdf-parser/      @dptech-corp/openapi-maintainers
+/zh/bohrium-project/         @dptech-corp/openapi-maintainers
+/en/bohrium-project/         @dptech-corp/openapi-maintainers
+/zh/bohrium-image/           @dptech-corp/openapi-maintainers
+/en/bohrium-image/           @dptech-corp/openapi-maintainers
+/zh/bohrium-scholar-search/  @dptech-corp/openapi-maintainers
+/en/bohrium-scholar-search/  @dptech-corp/openapi-maintainers
+/zh/bohrium-sciencepedia/    @dptech-corp/openapi-maintainers
+/en/bohrium-sciencepedia/    @dptech-corp/openapi-maintainers
+/zh/bohrium-tools/           @dptech-corp/openapi-maintainers
+/en/bohrium-tools/           @dptech-corp/openapi-maintainers
+/zh/bohrium-web-search/      @dptech-corp/openapi-maintainers
+/en/bohrium-web-search/      @dptech-corp/openapi-maintainers

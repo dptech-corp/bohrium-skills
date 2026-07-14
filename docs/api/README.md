@@ -46,3 +46,15 @@
 - 导入频率：`每隔 3 小时`
 - 数据源：`Git 仓库` 连接 `dptech-corp/bohrium-skills`，文件路径 `docs/api/openapi.json`（或用该文件 raw URL + Basic Auth）
 - 导入模式：`智能合并`
+
+## 认责与追溯
+
+底层服务由各团队开发，本仓库集中维护契约文档。认责链路：
+
+- **契约归属**：每个模块的接口契约以 `zh|en/<skill>/SKILL.md` 为准（`openapi.json` 由其派生）。`.github/CODEOWNERS` 将触及某模块 SKILL.md 的 PR 自动指派给该团队 review —— 谁改契约、谁负责就此绑定。
+- **模块注册表**：`docs/api/owners.yaml` 记录每个模块的 `path_prefixes` 与 `team/owner/contact/service_repo/oncall`。各团队认领即填入自己的信息。
+- **从日志定位责任人**：`python3 tools/whoowns.py "<路径或日志行>"`，按最长前缀匹配得出模块、团队、联系方式与契约文档；`--json` 输出便于 Agent 调用。
+- **改动审计**：`git blame zh/<skill>/SKILL.md` 查最近改动人；PR #编号 追溯到具体变更与讨论。
+- **规范内嵌**：`openapi.json` 每个 tag 上带 `x-owner`（由 owners.yaml 注入），Agent 读 spec 即可知道归属。
+
+运维流程示例：拿到日志 → `whoowns.py` 定位模块与团队 → 按 owners.yaml 联系方式派单 → 团队改 SKILL.md → PR 经 CODEOWNERS review 合并 → Apifox 自动同步。

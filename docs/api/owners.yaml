@@ -1,0 +1,159 @@
+# Bohrium OpenAPI — 模块认责注册表 (module ownership registry)
+#
+# 用途：把「日志里的接口路径」映射到「负责的团队/人」，用于快速追溯与派单。
+# 查询：python3 tools/whoowns.py "<路径或日志行>"
+#
+# path_prefixes 已按模块填好（powers whoowns，勿随意改）；
+# team/owner/contact/service_repo/oncall 由各模块负责团队自行填写并在 PR 中维护。
+# 空字段表示尚未认领 —— 认领即把自己填进去，责任随之明确。
+
+modules:
+  bohrium-dataset:
+    tag: "数据集 (bohrium-dataset)"
+    skill_doc: zh/bohrium-dataset/SKILL.md
+    path_prefixes: ["/openapi/v2/ds/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-file:
+    tag: "文件盘 (bohrium-file)"
+    skill_doc: zh/bohrium-file/SKILL.md
+    path_prefixes: ["/openapi/v1/file/", "/openapi/v2/file/", "/openapi/v1/ak/get"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-job:
+    tag: "计算任务 (bohrium-job)"
+    skill_doc: zh/bohrium-job/SKILL.md
+    path_prefixes: ["/openapi/v1/job/", "/openapi/v1/job_group/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-knowledge-base:
+    tag: "知识库 (bohrium-knowledge-base)"
+    skill_doc: zh/bohrium-knowledge-base/SKILL.md
+    path_prefixes: ["/openapi/v2/knowledge/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-lkm:
+    tag: "大知识模型 (bohrium-lkm)"
+    skill_doc: zh/bohrium-lkm/SKILL.md
+    path_prefixes: ["/openapi/v1/lkm/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-mentor:
+    tag: "AI 科学小导师 (bohrium-mentor)"
+    skill_doc: zh/bohrium-mentor/SKILL.md
+    path_prefixes: ["/openapi/v2/sigma-search/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-node:
+    tag: "开发节点 (bohrium-node)"
+    skill_doc: zh/bohrium-node/SKILL.md
+    path_prefixes: ["/openapi/v2/node/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-paper-search:
+    tag: "论文与专利搜索 (bohrium-paper-search)"
+    skill_doc: zh/bohrium-paper-search/SKILL.md
+    path_prefixes: ["/openapi/v2/paper/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-pdf-parser:
+    tag: "PDF 解析 (bohrium-pdf-parser)"
+    skill_doc: zh/bohrium-pdf-parser/SKILL.md
+    path_prefixes: ["/openapi/v2/parse/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-project:
+    tag: "项目管理 (bohrium-project)"
+    skill_doc: zh/bohrium-project/SKILL.md
+    path_prefixes: ["/openapi/v2/project/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-image:
+    tag: "容器镜像 (bohrium-image)"
+    skill_doc: zh/bohrium-image/SKILL.md
+    path_prefixes: ["/openapi/v2/image/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-scholar-search:
+    tag: "学者搜索 (bohrium-scholar-search)"
+    skill_doc: zh/bohrium-scholar-search/SKILL.md
+    path_prefixes: ["/openapi/v2/paper-server/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-sciencepedia:
+    tag: "科学百科 (bohrium-sciencepedia)"
+    skill_doc: zh/bohrium-sciencepedia/SKILL.md
+    path_prefixes: ["/openapi/v2/literature-sage/wiki_v2/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-tools:
+    tag: "科学工具库 (bohrium-tools)"
+    skill_doc: zh/bohrium-tools/SKILL.md
+    path_prefixes: ["/openapi/v2/literature-sage/tool/"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""
+
+  bohrium-web-search:
+    tag: "网页搜索 (bohrium-web-search)"
+    skill_doc: zh/bohrium-web-search/SKILL.md
+    path_prefixes: ["/openapi/v2/search/web"]
+    team: ""
+    owner: ""
+    contact: ""
+    service_repo: ""
+    oncall: ""

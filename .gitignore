@@ -20,3 +20,6 @@ bin/bohrium-skills-cli.exe
 
 # Local reference checkout used for implementation notes
 references/
+# Reference source clones (contain other teams' source + production access keys — never commit)
+_ref/
+/bohrctl/

@@ -1,24 +1,24 @@
 ---
 name: bohrium-lkm
-description: "Large Knowledge Model (LKM) via open.bohrium.com (v1). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, or submitting feedback on LKM content/service. NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), single PDF parsing (use bohrium-pdf-parser)."
+description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, or submitting feedback on LKM content/service. NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), single PDF parsing (use bohrium-pdf-parser)."
 ---
 
 # SKILL: Bohrium LKM (大知识模型)
 
 ## 概述
 
-通过 `open.bohrium.com` 的 LKM (Large Knowledge Model) v1 端点，对科研文献中抽取出的知识进行检索与追溯：搜索命题/研究问题/摘要命中、检索推理链、查看论文级知识图谱、追溯单条命题的支撑推理、按 ID 批量水合节点详情。
+通过 `open.bohrium.com` 的 LKM (Large Knowledge Model) v2 端点，对科研文献中抽取出的知识进行检索与追溯：搜索命题/研究问题/摘要命中、检索推理链、查看论文级知识图谱、追溯单条命题的支撑推理、按 ID 批量水合节点详情。
 
 **核心能力：**
 
 | 端点 | 功能 |
 |------|------|
-| `POST /v1/lkm/search` | 公开检索：召回 claim / question / abstract 命中；claim 还可按 conclusion / premise 角色检索 |
-| `POST /v1/lkm/reasoning/search` | 推理链检索：按论证过程相似性召回整条推理链 |
-| `POST /v1/lkm/papers/graph` | 论文级知识图谱：返回某篇论文抽取出的完整 graph |
-| `GET /v1/lkm/claims/{id}/reasoning` | 单条命题推理链：查某条 claim 为什么成立 |
-| `POST /v1/lkm/variables/batch` | 批量水合：按节点 ID 列表批量取详情 |
-| `POST /v1/lkm/feedback` | 提交反馈：对 LKM 服务/数据提交缺陷 / 需求 / 问题 |
+| `POST /v2/lkm/search` | 公开检索：召回 claim / question / abstract 命中；claim 还可按 conclusion / premise 角色检索 |
+| `POST /v2/lkm/reasoning/search` | 推理链检索：按论证过程相似性召回整条推理链 |
+| `POST /v2/lkm/papers/graph` | 论文级知识图谱：返回某篇论文抽取出的完整 graph |
+| `GET /v2/lkm/claims/{id}/reasoning` | 单条命题推理链：查某条 claim 为什么成立 |
+| `POST /v2/lkm/variables/batch` | 批量水合：按节点 ID 列表批量取详情 |
+| `POST /v2/lkm/feedback` | 提交反馈：对 LKM 服务/数据提交缺陷 / 需求 / 问题 |
 
 **怎么选入口：**
 
@@ -110,7 +110,7 @@ export BOHR_ACCESS_KEY=<YOUR_BOHR_ACCESS_KEY>
 import os, requests
 
 AK = os.environ["BOHR_ACCESS_KEY"]
-BASE = "https://open.bohrium.com/openapi/v1/lkm"
+BASE = "https://open.bohrium.com/openapi/v2/lkm"
 H = {"Authorization": f"Bearer {AK}", "Content-Type": "application/json"}
 
 def lkm_data(r):
@@ -480,7 +480,7 @@ else:
 
 ```bash
 AK="$BOHR_ACCESS_KEY"
-BASE="https://open.bohrium.com/openapi/v1/lkm"
+BASE="https://open.bohrium.com/openapi/v2/lkm"
 
 # POST 示例（其它 POST 接口同理：仅换 path 与 body）
 curl -s -X POST "$BASE/search" \

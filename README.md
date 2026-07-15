@@ -84,10 +84,11 @@ export BOHR_ACCESS_KEY="your_access_key_here"
 | bohrium-sandbox | 收费 | 见定价页 | 元/小时 | 开机后收取机时费，价格见 Node 定价页 |
 | bohrium-paper-search | 收费 | 0.05 元/次起 | 元/次 | 论文：普通版(type 0) 0.05、加强版(type 1) 0.1 元/次；专利：type 0 0.1、type 1 0.3、type 2 0.5 元/次 |
 | bohrium-pdf-parser | 收费 | 0.05 元/页 | 元/页 | 触发 PDF 解析时收取，查询结果免费 |
-| bohrium-lkm | 收费 | 定价中，待补充 | 元/次 | 定价中，待补充 |
+| bohrium-lkm | 收费 | 0.05 元/次 | 元/次 | 命中计费接口每次 0.05 元（search、reasoning/search、papers/graph、claims/{id}/reasoning、variables/batch） |
 | bohrium-mentor | 收费 | 2.0 元/次 | 元/次 | 创建会话时收取，2 元/次 或 200 光子/次 |
+| bohrium-sciencepedia | 收费 | 0.01 元/次起 | 元/次 | article、keyword、knowledge_graph 各 0.02 元/次；search/universal、get_wiki_index 各 0.01 元/次 |
+| bohrium-tools | 收费 | 0.01 元/次起 | 元/次 | search/hybrid 0.01 元/次；detail 0.02 元/次 |
 | bohrium-dataset / bohrium-image / bohrium-project / bohrium-knowledge-base / bohrium-scholar-search / bohrium-web-search | 免费 | - | - | - |
-| bohrium-sciencepedia | 免费 | - | - | 限时免费，定价中，待补充 |
 
 ---
 

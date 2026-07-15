@@ -3535,7 +3535,7 @@
         }
       }
     },
-    "/openapi/v1/lkm/search": {
+    "/openapi/v2/lkm/search": {
       "post": {
         "tags": [
           "大知识模型 (bohrium-lkm)"
@@ -3609,7 +3609,7 @@
         }
       }
     },
-    "/openapi/v1/lkm/reasoning/search": {
+    "/openapi/v2/lkm/reasoning/search": {
       "post": {
         "tags": [
           "大知识模型 (bohrium-lkm)"
@@ -3664,7 +3664,7 @@
         }
       }
     },
-    "/openapi/v1/lkm/papers/graph": {
+    "/openapi/v2/lkm/papers/graph": {
       "post": {
         "tags": [
           "大知识模型 (bohrium-lkm)"
@@ -3707,7 +3707,7 @@
         }
       }
     },
-    "/openapi/v1/lkm/claims/{id}/reasoning": {
+    "/openapi/v2/lkm/claims/{id}/reasoning": {
       "get": {
         "tags": [
           "大知识模型 (bohrium-lkm)"
@@ -3761,7 +3761,7 @@
         }
       }
     },
-    "/openapi/v1/lkm/variables/batch": {
+    "/openapi/v2/lkm/variables/batch": {
       "post": {
         "tags": [
           "大知识模型 (bohrium-lkm)"
@@ -3798,7 +3798,7 @@
         }
       }
     },
-    "/openapi/v1/lkm/feedback": {
+    "/openapi/v2/lkm/feedback": {
       "post": {
         "tags": [
           "大知识模型 (bohrium-lkm)"

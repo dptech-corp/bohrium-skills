@@ -1,24 +1,24 @@
 ---
 name: bohrium-lkm
-description: "Large Knowledge Model (LKM) via open.bohrium.com (v1). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, or submitting feedback on LKM content/service. NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), single PDF parsing (use bohrium-pdf-parser)."
+description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, or submitting feedback on LKM content/service. NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), single PDF parsing (use bohrium-pdf-parser)."
 ---
 
 # SKILL: Bohrium LKM (Large Knowledge Model)
 
 ## Overview
 
-LKM (Large Knowledge Model) v1 endpoints on `open.bohrium.com` let you search and trace knowledge extracted from scientific literature: search claim/question/abstract knowledge hits, retrieve reasoning chains, view a paper-level knowledge graph, trace the reasoning behind a single claim, and batch-hydrate node details by ID.
+LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search and trace knowledge extracted from scientific literature: search claim/question/abstract knowledge hits, retrieve reasoning chains, view a paper-level knowledge graph, trace the reasoning behind a single claim, and batch-hydrate node details by ID.
 
 **Core capabilities:**
 
 | Endpoint | Function |
 |----------|----------|
-| `POST /v1/lkm/search` | Public search: recall claim / question / abstract hits; claim scopes may also target conclusion / premise roles |
-| `POST /v1/lkm/reasoning/search` | Reasoning chain search: recall whole chains by argument similarity |
-| `POST /v1/lkm/papers/graph` | Paper-level knowledge graph: full graph extracted from a paper |
-| `GET /v1/lkm/claims/{id}/reasoning` | Single-claim reasoning chain: why a claim holds |
-| `POST /v1/lkm/variables/batch` | Batch hydration: fetch node details by an ID list |
-| `POST /v1/lkm/feedback` | Submit feedback: report a bug / feature request / question about LKM content or service |
+| `POST /v2/lkm/search` | Public search: recall claim / question / abstract hits; claim scopes may also target conclusion / premise roles |
+| `POST /v2/lkm/reasoning/search` | Reasoning chain search: recall whole chains by argument similarity |
+| `POST /v2/lkm/papers/graph` | Paper-level knowledge graph: full graph extracted from a paper |
+| `GET /v2/lkm/claims/{id}/reasoning` | Single-claim reasoning chain: why a claim holds |
+| `POST /v2/lkm/variables/batch` | Batch hydration: fetch node details by an ID list |
+| `POST /v2/lkm/feedback` | Submit feedback: report a bug / feature request / question about LKM content or service |
 
 **Choosing an entry point:**
 
@@ -110,7 +110,7 @@ Configure `~/.openclaw/openclaw.json`; OpenClaw injects `env.BOHR_ACCESS_KEY` in
 import os, requests
 
 AK = os.environ["BOHR_ACCESS_KEY"]
-BASE = "https://open.bohrium.com/openapi/v1/lkm"
+BASE = "https://open.bohrium.com/openapi/v2/lkm"
 H = {"Authorization": f"Bearer {AK}", "Content-Type": "application/json"}
 
 def lkm_data(r):
@@ -480,7 +480,7 @@ Auth and `code` handling are identical across endpoints. One POST and one GET sh
 
 ```bash
 AK="$BOHR_ACCESS_KEY"
-BASE="https://open.bohrium.com/openapi/v1/lkm"
+BASE="https://open.bohrium.com/openapi/v2/lkm"
 
 # POST example (other POST endpoints work the same: just change path and body)
 curl -s -X POST "$BASE/search" \

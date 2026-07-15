@@ -84,10 +84,11 @@ Charged skills bill your account balance per call or per compute-hour. Check you
 | bohrium-sandbox | Yes | See pricing page | ¥/hour | Compute-hour fee after machine starts; see Node pricing page |
 | bohrium-paper-search | Yes | From ¥0.05/call | ¥/call | Paper: standard (type 0) ¥0.05, enhanced (type 1) ¥0.1/call; Patent: type 0 ¥0.1, type 1 ¥0.3, type 2 ¥0.5/call |
 | bohrium-pdf-parser | Yes | ¥0.05/page | ¥/page | Charged on trigger; fetching results is free |
-| bohrium-lkm | Yes | TBD | ¥/call | Pricing in progress, TBD |
+| bohrium-lkm | Yes | ¥0.05/call | ¥/call | ¥0.05 per billable call (search, reasoning/search, papers/graph, claims/{id}/reasoning, variables/batch); feedback is free |
 | bohrium-mentor | Yes | ¥2.0/call | ¥/call | Charged on session creation; ¥2/call or 200 photons/call |
+| bohrium-sciencepedia | Yes | From ¥0.01/call | ¥/call | article, keyword, knowledge_graph ¥0.02/call each; search/universal, get_wiki_index ¥0.01/call each; other sub-endpoints free |
+| bohrium-tools | Yes | From ¥0.01/call | ¥/call | search/hybrid ¥0.01/call; detail ¥0.02/call; other sub-endpoints free |
 | bohrium-dataset / bohrium-image / bohrium-project / bohrium-knowledge-base / bohrium-scholar-search / bohrium-web-search | Free | - | - | - |
-| bohrium-sciencepedia | Free | - | - | Free for a limited time, pricing TBD |
 
 ---
 

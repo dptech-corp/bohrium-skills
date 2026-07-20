@@ -6327,6 +6327,346 @@
           }
         }
       }
+    },
+    "/openapi/v4/job_group/add": {
+      "post": {
+        "tags": [
+          "计算任务 (bohrium-job)"
+        ],
+        "summary": "创建任务组",
+        "description": "**提交任务流程第 1 步（可选）**。创建任务组（job group），用于把多个 job 归入同一组。已有任务组可跳过本步，直接在 `job/create` 传 `BohrGroupId`。\n\n> 提交一个任务需按顺序组合调用：① `job_group/add`（可选）→ ② `job/create`（拿上传凭证）→ ③ 上传输入文件到 tiefblue → ④ `job/add`（正式调度）。\n\n**已用正式 AccessKey 在 `https://open.bohrium.com` 验证通过。**",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "projectId"
+                ],
+                "properties": {
+                  "projectId": {
+                    "type": "integer",
+                    "description": "项目 ID"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "任务组名称"
+                  }
+                }
+              },
+              "example": {
+                "projectId": 123456,
+                "name": "my-batch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "groupId": {
+                          "type": "integer",
+                          "description": "新建任务组 ID，供后续 job/create 的 BohrGroupId 使用"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "code": 0,
+                  "data": {
+                    "groupId": 7248822
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi/v4/job/create": {
+      "post": {
+        "tags": [
+          "计算任务 (bohrium-job)"
+        ],
+        "summary": "创建任务并获取上传凭证",
+        "description": "**提交任务流程第 2 步**。创建 job 记录并返回输入文件上传凭证。\n\n返回的 `token` + `storeHost` + `storePath` 用于**第 3 步**：把输入目录打包成 `input.zip` 后上传到 `{storeHost}/api/upload/binary`（小于 ~50MB 用二进制直传；更大走分片 `/api/upload/multipart/*`）。上传请求头：`Authorization: Bearer {token}`、`X-Storage-Param: {base64(JSON)}`（`{\"path\": objectKey, \"option\": {\"contentDisposition\": \"attachment; filename=\\\"input.zip\\\"\"}}`），其中 `objectKey = storePath + \"input.zip\"`。上传得到的 `objectKey` 即第 4 步 `job/add` 的 `ossPath`。\n\n**已用正式 AccessKey 验证通过（含 tiefblue 上传，返回 `{code:0}`）。**",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "projectId"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "任务名称"
+                  },
+                  "BohrGroupId": {
+                    "type": "integer",
+                    "description": "任务组 ID（第 1 步返回的 groupId）；不传或 0 时后端按需处理"
+                  },
+                  "projectId": {
+                    "type": "integer",
+                    "description": "项目 ID"
+                  }
+                }
+              },
+              "example": {
+                "name": "my-training-job",
+                "BohrGroupId": 7248822,
+                "projectId": 123456
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "jobId": {
+                          "type": "integer",
+                          "description": "新建任务 ID，供第 4 步 job/add 使用"
+                        },
+                        "jobGroupId": {
+                          "type": "integer",
+                          "description": "所属任务组 ID"
+                        },
+                        "storeHost": {
+                          "type": "string",
+                          "description": "tiefblue 存储主机，如 https://tiefblue.dp.tech"
+                        },
+                        "storePath": {
+                          "type": "string",
+                          "description": "输入文件存储前缀，如 511942/job/20403829/input/"
+                        },
+                        "token": {
+                          "type": "string",
+                          "description": "tiefblue 上传用的临时 JWT（放到上传请求的 Authorization: Bearer）"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "code": 0,
+                  "data": {
+                    "jobId": 20403829,
+                    "jobGroupId": 7248822,
+                    "storeHost": "https://tiefblue.dp.tech",
+                    "storePath": "511942/job/20403829/input/",
+                    "token": "eyJhbGciOi..."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi/v4/job/add": {
+      "post": {
+        "tags": [
+          "计算任务 (bohrium-job)"
+        ],
+        "summary": "提交任务（正式调度）",
+        "description": "**提交任务流程第 4 步（最后一步）**。用第 2 步的 `jobId` 和第 3 步上传得到的 `ossPath` 提交任务，开始调度执行。\n\n**已用正式 AccessKey 在 `https://open.bohrium.com` 端到端验证通过**（返回 `{code:0, data:{jobId, bohrJobId, jobGroupId}}`，任务进入调度）。注意 `ossPath` 为**数组**、`jobType` 固定 `container`。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "jobId",
+                  "jobType",
+                  "projectId",
+                  "scassType",
+                  "imageName",
+                  "cmd",
+                  "ossPath"
+                ],
+                "properties": {
+                  "jobId": {
+                    "type": "integer",
+                    "description": "第 2 步 job/create 返回的 jobId"
+                  },
+                  "jobType": {
+                    "type": "string",
+                    "description": "任务类型，固定为 container",
+                    "example": "container"
+                  },
+                  "projectId": {
+                    "type": "integer",
+                    "description": "项目 ID"
+                  },
+                  "jobGroupId": {
+                    "type": "integer",
+                    "description": "任务组 ID（第 1 步返回的 groupId）"
+                  },
+                  "jobName": {
+                    "type": "string",
+                    "description": "任务名称"
+                  },
+                  "scassType": {
+                    "type": "string",
+                    "description": "机器规格，如 c2_m4_cpu、c4_m15_1 * NVIDIA T4"
+                  },
+                  "imageName": {
+                    "type": "string",
+                    "description": "完整镜像地址，如 registry.dp.tech/dptech/deepmd-kit:3.1.1"
+                  },
+                  "cmd": {
+                    "type": "string",
+                    "description": "执行命令，用相对路径"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "description": "计算平台，如 ali"
+                  },
+                  "ossPath": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "第 3 步上传得到的 objectKey 数组（storePath + input.zip）"
+                  },
+                  "inputFileType": {
+                    "type": "integer",
+                    "description": "输入文件类型，zip 输入固定 3"
+                  },
+                  "inputFileMethod": {
+                    "type": "integer",
+                    "description": "输入文件方式，固定 1"
+                  },
+                  "nnode": {
+                    "type": "integer",
+                    "description": "并行节点数，默认 1"
+                  },
+                  "diskSize": {
+                    "type": "integer",
+                    "description": "磁盘大小(GB)"
+                  },
+                  "logFiles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "运行期可实时查看的日志文件"
+                  },
+                  "outFiles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "需回收下载的结果文件，为空保留全部"
+                  },
+                  "datasetPath": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "挂载的数据集路径"
+                  },
+                  "maxRunTime": {
+                    "type": "integer",
+                    "description": "最大运行时间（分钟），超时自动终止"
+                  },
+                  "maxRescheduleTimes": {
+                    "type": "integer",
+                    "description": "异常中断后自动重试次数"
+                  }
+                }
+              },
+              "example": {
+                "jobId": 20403829,
+                "jobType": "container",
+                "projectId": 123456,
+                "jobGroupId": 7248822,
+                "jobName": "my-training-job",
+                "scassType": "c2_m4_cpu",
+                "imageName": "registry.dp.tech/dptech/ubuntu:20.04-py3.10",
+                "cmd": "bash run.sh",
+                "platform": "ali",
+                "ossPath": [
+                  "511942/job/20403829/input/input.zip"
+                ],
+                "inputFileType": 3,
+                "inputFileMethod": 1,
+                "nnode": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "jobId": {
+                          "type": "integer",
+                          "description": "调度侧任务 ID（可用于 v4/job/kill、job/{id} 查询）"
+                        },
+                        "bohrJobId": {
+                          "type": "integer",
+                          "description": "Bohrium 任务 ID（即第 2 步的 jobId）"
+                        },
+                        "jobGroupId": {
+                          "type": "integer",
+                          "description": "调度侧任务组 ID"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "code": 0,
+                  "data": {
+                    "jobId": 23055278,
+                    "bohrJobId": 20403829,
+                    "jobGroupId": 16378848
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

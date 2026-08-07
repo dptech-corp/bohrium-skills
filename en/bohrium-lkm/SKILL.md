@@ -7,13 +7,13 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 
 ## Overview
 
-LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search and trace knowledge extracted from scientific literature: search claim/question/abstract knowledge hits, retrieve reasoning chains, view a paper-level knowledge graph, trace the reasoning behind a single claim, and batch-hydrate node details by ID.
+LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search and trace knowledge extracted from scientific literature: search abstract/claim/question/reasoning-chain hits, retrieve complete reasoning chains, view a paper-level knowledge graph, trace the reasoning behind a single claim, and batch-hydrate node details by ID.
 
 **Core capabilities:**
 
 | Endpoint | Function |
 |----------|----------|
-| `POST /v2/lkm/search` | Public search: recall claim / question / abstract hits; claim scopes may also target conclusion / premise roles |
+| `POST /v2/lkm/search` | Public search: recall abstract / claim / question / reasoning_chain hits; claim and question scopes may also target specific roles |
 | `POST /v2/lkm/reasoning/search` | Reasoning chain search: recall whole chains by argument similarity |
 | `POST /v2/lkm/papers/graph` | Paper-level knowledge graph: full graph extracted from a paper |
 | `GET /v2/lkm/claims/{id}/reasoning` | Single-claim reasoning chain: why a claim holds |
@@ -22,7 +22,7 @@ LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search an
 
 **Choosing an entry point:**
 
-- Find claims/questions/abstracts by keyword/semantics → `/search`
+- Find claims, questions, abstracts, or reasoning chains by keyword/semantics → `/search`
 - Find whole reasoning chains whose research/experimental process is similar (not just a single matching claim) → `/reasoning/search`
 - Open one paper and view its full structured graph → `/papers/graph`
 - Have a claim ID, want its reasoning chain → `/claims/{id}/reasoning`
@@ -129,7 +129,7 @@ The examples below call `lkm_data(r)` so the documented `code` contract is alway
 
 ## 1. Public search — `POST /search`
 
-Recall claim / question / abstract hits in LKM via natural language. By default, the server aggregates by paper and returns one representative main hit per paper, with additional same-paper hits in `related`. It returns hits and paper metadata, not full reasoning chains.
+Recall abstract / claim / question / reasoning_chain hits in LKM via natural language. By default, the server aggregates by paper and returns one representative main hit per paper, with additional same-paper hits in `related`. It returns hits and paper metadata, not full reasoning chains.
 
 ```python
 r = requests.post(f"{BASE}/search", headers=H, json={
@@ -137,7 +137,10 @@ r = requests.post(f"{BASE}/search", headers=H, json={
     "keywords": ["real-world contexts", "industrial production", "inquiry learning"],
     "retrieval_mode": "hybrid",
     "sort_by": "comprehensive",  # optional; default comprehensive; or relevance/recent/journal
-    "scopes": ["claim", "question", "abstract", "conclusion", "premise"],
+    "scopes": [
+        "abstract", "claim", "premise", "conclusion", "question",
+        "problem", "open_question", "subproblem", "reasoning_chain",
+    ],
     # "filters": {
     #     "paper_ids": ["811977903947382784"],  # plain numeric IDs, no paper: prefix
     #     "dois": ["10.1038/s41586-021-03381-x"],
@@ -166,7 +169,7 @@ for v in data["variables"]:
 | `keywords` | string[] | no | Up to 10, ≤100 chars each; put terms/materials/methods/abbreviations, not full sentences |
 | `retrieval_mode` | string | no | `hybrid`(default, semantic+lexical) / `semantic`(vector only, faster) / `lexical`(keyword only) |
 | `sort_by` | string | no | Sort strategy, default `comprehensive` when omitted: `relevance`(pure relevance, most on-target top hit) / `recent`(prefers newer once relevance bar is met) / `journal`(prefers high-quality journals once relevance bar is met) / `comprehensive`(relevance+recency+quality+diversity combined) |
-| `scopes` | string[] | no | Restrict hit scope: node types `claim` / `question` / `abstract`, or claim roles `conclusion` / `premise`; omit = no restriction |
+| `scopes` | string[] | no | Restrict hit scope. The 9 valid values are `abstract`, `claim`, `premise`, `conclusion`, `question`, `problem`, `open_question`, `subproblem`, and `reasoning_chain`; omit = no restriction |
 | `filters.visibility` | string | no | Content visibility, usually `public` |
 | `filters.role` | string | no | Restrict claim role: `conclusion`/`premise`/`highlight` |
 | `filters.paper_ids` | string[] | no | Restrict recall to papers, plain numeric IDs, **no `paper:` prefix**, up to 50 |
@@ -184,8 +187,8 @@ for v in data["variables"]:
 | Field | Description |
 |-------|-------------|
 | `data.variables[]` | Main result list after aggregation; each row is the representative hit for roughly one paper. `id` is the hit object ID. |
-| `data.variables[].type` | `claim`, `question`, or `abstract` |
-| `data.variables[].role` | Claim role: `conclusion` / `premise`, etc. |
+| `data.variables[].type` | Top-level hit type: `claim`, `question`, `abstract`, or `reasoning_chain` |
+| `data.variables[].role` | Specific role: claim hits use `premise` / `conclusion`; question hits use `problem` / `open_question` / `subproblem` |
 | `data.variables[].score` / `rerank_score` | Retrieval rank score — **not credibility/evidence strength**, do not show as confidence |
 | `data.variables[].has_reasoning` | Whether the claim has a traceable reasoning chain (prefer `true` when showing reasoning) |
 | `data.variables[].provenance.source_packages` | Source paper package IDs |
@@ -196,6 +199,8 @@ for v in data["variables"]:
 **Constraints and policy:**
 
 - `paper_ids`, `dois`, and `title` are intersected (AND). If any dimension resolves to no papers, the whole result is empty.
+- Scope hierarchy: `claim` contains `premise` / `conclusion`, while `question` contains `problem` / `open_question` / `subproblem`; `abstract` and `reasoning_chain` are standalone scopes. Use a parent scope to recall every role in that class, or a child scope to target one role.
+- **Compatibility note:** all question hits, including main results and hits in `related`, no longer return a blanket `premise` in `role`; they now return `problem`, `open_question`, or `subproblem` according to their semantics. Clients must not identify questions with `role == "premise"`.
 - `abstract` hits are paper-level context for judging relevance or RAG background. Do **not** use them as claims and do not request reasoning chains from them.
 - When `reasoning_only=true`, `scopes` must be omitted or `["claim"]` / `["conclusion"]`, and `filters.role` must be omitted or `conclusion`; conflicts return `290002`.
 

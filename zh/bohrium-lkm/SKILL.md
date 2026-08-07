@@ -7,13 +7,13 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 
 ## 概述
 
-通过 `open.bohrium.com` 的 LKM (Large Knowledge Model) v2 端点，对科研文献中抽取出的知识进行检索与追溯：搜索命题/研究问题/摘要命中、检索推理链、查看论文级知识图谱、追溯单条命题的支撑推理、按 ID 批量水合节点详情。
+通过 `open.bohrium.com` 的 LKM (Large Knowledge Model) v2 端点，对科研文献中抽取出的知识进行检索与追溯：搜索摘要/命题/研究问题/推理链命中、检索完整推理链、查看论文级知识图谱、追溯单条命题的支撑推理、按 ID 批量水合节点详情。
 
 **核心能力：**
 
 | 端点 | 功能 |
 |------|------|
-| `POST /v2/lkm/search` | 公开检索：召回 claim / question / abstract 命中；claim 还可按 conclusion / premise 角色检索 |
+| `POST /v2/lkm/search` | 公开检索：召回 abstract / claim / question / reasoning_chain 命中；claim 和 question 还可按具体角色检索 |
 | `POST /v2/lkm/reasoning/search` | 推理链检索：按论证过程相似性召回整条推理链 |
 | `POST /v2/lkm/papers/graph` | 论文级知识图谱：返回某篇论文抽取出的完整 graph |
 | `GET /v2/lkm/claims/{id}/reasoning` | 单条命题推理链：查某条 claim 为什么成立 |
@@ -22,7 +22,7 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 
 **怎么选入口：**
 
-- 按关键词/语义找命题、问题或论文摘要 → `/search`
+- 按关键词/语义找命题、问题、论文摘要或推理链 → `/search`
 - 想找"论证/实验过程"相似的整条推理链（而非单个命题）→ `/reasoning/search`
 - 打开一篇论文看完整结构化图谱 → `/papers/graph`
 - 已有 claim ID，想看推理链 → `/claims/{id}/reasoning`
@@ -129,7 +129,7 @@ def lkm_data(r):
 
 ## 1. 公开检索 — `POST /search`
 
-用自然语言召回 LKM 中的 claim / question / abstract 命中。服务端默认按论文聚合，返回每篇论文最相关的一条主命中，同论文其它命中放到 `related`。返回的是检索命中和论文元信息，不是完整推理链。
+用自然语言召回 LKM 中的 abstract / claim / question / reasoning_chain 命中。服务端默认按论文聚合，返回每篇论文最相关的一条主命中，同论文其它命中放到 `related`。返回的是检索命中和论文元信息，不是完整推理链。
 
 ```python
 r = requests.post(f"{BASE}/search", headers=H, json={
@@ -137,7 +137,10 @@ r = requests.post(f"{BASE}/search", headers=H, json={
     "keywords": ["real-world contexts", "industrial production", "inquiry learning"],
     "retrieval_mode": "hybrid",
     "sort_by": "comprehensive",  # 可选，默认 comprehensive；可选 relevance/recent/journal
-    "scopes": ["claim", "question", "abstract", "conclusion", "premise"],
+    "scopes": [
+        "abstract", "claim", "premise", "conclusion", "question",
+        "problem", "open_question", "subproblem", "reasoning_chain",
+    ],
     # "filters": {
     #     "paper_ids": ["811977903947382784"],  # 纯数字 ID，不带 paper: 前缀
     #     "dois": ["10.1038/s41586-021-03381-x"],
@@ -166,7 +169,7 @@ for v in data["variables"]:
 | `keywords` | string[] | 否 | 关键词，最多 10 个、每个 ≤100 字；放术语/材料名/方法名/缩写，不要塞整句 |
 | `retrieval_mode` | string | 否 | `hybrid`(默认,语义+关键词) / `semantic`(仅语义,更快) / `lexical`(仅关键词) |
 | `sort_by` | string | 否 | 排序策略，不传默认 `comprehensive`：`relevance`(纯相关性,首位最准) / `recent`(相关达标前提下偏新) / `journal`(相关达标前提下偏高质量期刊) / `comprehensive`(相关+时效+质量+多样性综合) |
-| `scopes` | string[] | 否 | 限定命中范围：节点类型 `claim` / `question` / `abstract`，或 claim 角色 `conclusion` / `premise`；省略=不限定 |
+| `scopes` | string[] | 否 | 限定命中范围，共 9 个合法值：`abstract`、`claim`、`premise`、`conclusion`、`question`、`problem`、`open_question`、`subproblem`、`reasoning_chain`；省略=不限定 |
 | `filters.visibility` | string | 否 | 内容可见性，通常 `public` |
 | `filters.role` | string | 否 | 限定 claim 角色：`conclusion`/`premise`/`highlight` |
 | `filters.paper_ids` | string[] | 否 | 按论文维度限定召回范围，纯数字论文 ID，**不带 `paper:` 前缀**，最多 50 个 |
@@ -184,8 +187,8 @@ for v in data["variables"]:
 | 字段 | 说明 |
 |------|------|
 | `data.variables[]` | 聚合后的主结果列表；每条约等于一篇 paper 的代表命中。`id` 是命中对象 ID。 |
-| `data.variables[].type` | `claim` / `question` / `abstract` |
-| `data.variables[].role` | claim 角色：`conclusion` / `premise` 等 |
+| `data.variables[].type` | 命中的高层类型：`claim` / `question` / `abstract` / `reasoning_chain` |
+| `data.variables[].role` | 具体角色：claim 命中为 `premise` / `conclusion`；question 命中为 `problem` / `open_question` / `subproblem` |
 | `data.variables[].score` / `rerank_score` | 检索排序分数，**不等于可信度/证据强度**，不要当置信度展示 |
 | `data.variables[].has_reasoning` | 该 claim 是否有推理链可追溯（展示推理时优先选 `true`） |
 | `data.variables[].provenance.source_packages` | 来源论文包 ID 列表 |
@@ -196,6 +199,8 @@ for v in data["variables"]:
 **约束与使用策略：**
 
 - `paper_ids`、`dois`、`title` 同时给定时取交集（AND）；任一维度命中为空则整体返回空结果。
+- `scopes` 的层级为：`claim` 包含 `premise` / `conclusion`，`question` 包含 `problem` / `open_question` / `subproblem`；`abstract` 与 `reasoning_chain` 是独立范围。传父级 scope 可召回该类全部角色，传子级 scope 可只召回对应角色。
+- **兼容提醒：** 所有 question 命中（包括主结果与 `related` 中的命中）的 `role` 不再统一返回 `premise`，而是按语义返回 `problem`、`open_question` 或 `subproblem`。调用方不要再用 `role == "premise"` 判断 question。
 - `abstract` 是论文级背景上下文，适合快速判断论文相关性或做 RAG 背景；不要当 claim 用，也不要追 reasoning。
 - `reasoning_only=true` 时，`scopes` 必须省略或 `["claim"]` / `["conclusion"]`，`filters.role` 必须省略或 `conclusion`；冲突会返回 `290002`。
 

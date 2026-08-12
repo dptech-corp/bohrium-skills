@@ -1,6 +1,6 @@
 ---
 name: bohrium-pdf-parser
-description: "Parse PDF documents via open.bohrium.com. Use when: user asks about extracting text, tables, charts, formulas, or molecules from PDF files on Bohrium, submitting PDFs by URL or file upload. NOT for: file management, dataset management, or knowledge base operations."
+description: "Use when extracting text, tables, charts, formulas, or molecules from PDF files through Bohrium OpenAPI, including URL submission, file upload, asynchronous polling, or per-page results."
 ---
 
 # SKILL: Bohrium PDF Parser
@@ -72,8 +72,7 @@ r = requests.post(f"{BASE}/trigger-url-async", headers=HEADERS_JSON, json={
 })
 data = r.json()
 token = data["token"]
-print(f"Token: {token}, Status: {data['status']}")
-# Token: 57d12c5a-..., Status: undefined
+print(f"Token: {token}, PDF pages: {data.get('page_count')}")
 ```
 
 **Response Fields:**
@@ -81,9 +80,11 @@ print(f"Token: {token}, Status: {data['status']}")
 | Field | Description |
 |-------|-------------|
 | `token` | Task identifier for querying results |
-| `status` | Initial status is `undefined` |
-| `created_time` | Creation time |
-| `time_dict` | Per-stage timing (only `download_pdf` at this point) |
+| `page_count` | Total pages in the source PDF |
+| `model_version` | Parser model version selected for the task |
+| `model_version_source` | Source of the model-version selection |
+
+An asynchronous submission response does not guarantee `status`, `created_time`, or `time_dict`. Read task status from the subsequent `/get-result` response.
 
 ---
 
@@ -136,7 +137,8 @@ print(f"Status: {data['status']}, Content length: {len(data.get('content', ''))}
 | `status` | `success` / `undefined` (processing) / `failed` |
 | `token` | Task identifier |
 | `content` | Extracted text (LaTeX markup format) |
-| `pages_dict` | Per-page result dictionary |
+| `pages_dict` | Result list, not a dictionary; even with `pages=[0]`, its length may equal the source PDF's total pages, so do not infer processed pages from its length or guess the meaning of uninspected elements |
+| `result_schema_version` | Upstream result schema version; preserve it when processing or forwarding structured results |
 | `lang` | Detected language (`en` / `zh` etc.) |
 | `proc_page` / `total_page` | Processed / total pages |
 | `proc_textual` / `total_textual` | Processed / total text blocks |
@@ -288,3 +290,4 @@ curl -s -X POST "$BASE/get-result" \
 | Connection timeout | Domain/network issue | Use `open.bohrium.com`; test connectivity via `curl -I https://open.bohrium.com/openapi` |
 | Content has LaTeX markup | Normal behavior | Results use `\begin{title}` etc. to mark structure; post-process to extract plain text |
 | Large file parses slowly | Many pages or complex content | Use `pages` parameter to limit scope |
+| `pages_dict` is longer than requested pages | List length does not necessarily equal processed pages | Use `proc_page` / `total_page` for progress and inspect the required elements themselves; do not rely on list length |

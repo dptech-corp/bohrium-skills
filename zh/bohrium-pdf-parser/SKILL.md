@@ -1,6 +1,6 @@
 ---
 name: bohrium-pdf-parser
-description: "Parse PDF documents via Bohrium open API. Use when: user asks about extracting text, tables, charts, formulas, or molecules from PDF files on Bohrium, submitting PDFs by URL or file upload. NOT for: file management, dataset management, or knowledge base operations."
+description: "Use when extracting text, tables, charts, formulas, or molecules from PDF files through Bohrium OpenAPI, including URL submission, file upload, asynchronous polling, or per-page results."
 ---
 
 # SKILL: Bohrium PDF 解析
@@ -29,6 +29,8 @@ BOHR_ACCESS_KEY 从 OpenClaw 配置文件 `~/.openclaw/openclaw.json` 中读取�
 ```
 
 OpenClaw 会自动将 `env.BOHR_ACCESS_KEY` 注入到运行环境。
+
+Python 示例依赖第三方包 `requests`。运行前先确认 `python -c "import requests"` 成功；当前环境无法提供该依赖时，改用本文的 `curl` 示例。
 
 ## 通用代码模板
 
@@ -101,7 +103,7 @@ r = requests.post(f"{BASE}/trigger-url-async", headers=HEADERS_JSON, json={
 })
 data = r.json()
 token = data["token"]
-print(f"Token: {token}, Status: {data['status']}")
+print(f"Token: {token}, PDF pages: {data.get('page_count')}")
 ```
 
 **响应字段：**
@@ -109,12 +111,12 @@ print(f"Token: {token}, Status: {data['status']}")
 | 字段 | 说明 |
 |------|------|
 | `token` | 任务标识，用于查询结果（网关自动生成） |
-| `status` | 初始状态为 `undefined` |
-| `created_time` | 创建时间 |
 | `page_count` | PDF 总页数 |
-| `time_dict` | 各阶段耗时 |
+| `model_version` | 本次任务使用的解析模型版本 |
+| `model_version_source` | 模型版本选择来源 |
 
 > URL 方式下网关会自动注入 `token` 字段，客户端无需自行生成。
+> 异步提交响应不保证返回 `status`、`created_time` 或 `time_dict`；任务状态以随后 `/get-result` 的响应为准。
 
 ---
 
@@ -179,7 +181,8 @@ print(f"Status: {data['status']}, Content length: {len(data.get('content', ''))}
 | `status` | `success` / `undefined`（排队中）/ `processing` / `failed` |
 | `token` | 任务标识 |
 | `content` | 解析出的文本（LaTeX 标记格式） |
-| `pages_dict` | 按页的解析结果列表（当前接口返回 list，不要假设为 dict） |
+| `pages_dict` | 结果列表（不是 dict）；即使 `pages=[0]`，列表长度也可能等于源 PDF 总页数，不要用其长度推断处理页数，也不要猜测未检查元素的语义 |
+| `result_schema_version` | 上游返回的结果结构版本；处理或转交结构化结果时一并保留 |
 | `lang` | 检测到的语言（`en` / `zh` 等） |
 | `proc_page` / `total_page` | 已处理/总页数 |
 | `proc_textual` / `total_textual` | 已处理/总文本块数 |
@@ -319,3 +322,5 @@ curl -s -X POST "$BASE/get-result" \
 | content 含 LaTeX 标记 | 正常行为 | 解析结果用 `\begin{title}` 等标记段落结构，需后处理提取纯文本 |
 | 大文件解析慢 | 页数多或内容复杂 | 用 `pages` 参数指定需要的页码，减少解析范围 |
 | `figure` 返回 403 | AccessKey 无该模块权限 | 设置 `figure: 0` 禁用，或联系平台开通权限 |
+| `ModuleNotFoundError: requests` | 当前 Python 环境未安装 `requests` | 使用已提供该依赖的环境，或改用本文的 `curl` 示例 |
+| `pages_dict` 长度大于请求页数 | 列表长度与实际处理页数不一定一致 | 使用 `proc_page` / `total_page` 判断处理进度，并检查所需元素本身，不要依赖列表长度 |

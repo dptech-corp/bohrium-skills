@@ -30,8 +30,6 @@ BOHR_ACCESS_KEY 从 OpenClaw 配置文件 `~/.openclaw/openclaw.json` 中读取�
 
 OpenClaw 会自动将 `env.BOHR_ACCESS_KEY` 注入到运行环境。
 
-Python 示例依赖第三方包 `requests`。运行前先确认 `python -c "import requests"` 成功；当前环境无法提供该依赖时，改用本文的 `curl` 示例。
-
 ## 通用代码模板
 
 ```python
@@ -322,5 +320,4 @@ curl -s -X POST "$BASE/get-result" \
 | content 含 LaTeX 标记 | 正常行为 | 解析结果用 `\begin{title}` 等标记段落结构，需后处理提取纯文本 |
 | 大文件解析慢 | 页数多或内容复杂 | 用 `pages` 参数指定需要的页码，减少解析范围 |
 | `figure` 返回 403 | AccessKey 无该模块权限 | 设置 `figure: 0` 禁用，或联系平台开通权限 |
-| `ModuleNotFoundError: requests` | 当前 Python 环境未安装 `requests` | 使用已提供该依赖的环境，或改用本文的 `curl` 示例 |
 | `pages_dict` 长度大于请求页数 | 列表长度与实际处理页数不一定一致 | 使用 `proc_page` / `total_page` 判断处理进度，并检查所需元素本身，不要依赖列表长度 |

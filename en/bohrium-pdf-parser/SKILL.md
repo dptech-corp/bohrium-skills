@@ -30,8 +30,6 @@ BOHR_ACCESS_KEY is read from the OpenClaw config `~/.openclaw/openclaw.json`:
 
 OpenClaw automatically injects `env.BOHR_ACCESS_KEY` into the runtime.
 
-The Python examples require the third-party `requests` package. First verify that `python -c "import requests"` succeeds; if the current environment cannot provide it, use the `curl` examples in this skill.
-
 ## Common Code Template
 
 ```python
@@ -292,5 +290,4 @@ curl -s -X POST "$BASE/get-result" \
 | Connection timeout | Domain/network issue | Use `open.bohrium.com`; test connectivity via `curl -I https://open.bohrium.com/openapi` |
 | Content has LaTeX markup | Normal behavior | Results use `\begin{title}` etc. to mark structure; post-process to extract plain text |
 | Large file parses slowly | Many pages or complex content | Use `pages` parameter to limit scope |
-| `ModuleNotFoundError: requests` | The current Python environment lacks `requests` | Use an environment that provides it, or use the `curl` examples in this skill |
 | `pages_dict` is longer than requested pages | List length does not necessarily equal processed pages | Use `proc_page` / `total_page` for progress and inspect the required elements themselves; do not rely on list length |

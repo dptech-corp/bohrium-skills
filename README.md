@@ -68,7 +68,7 @@ export BOHR_ACCESS_KEY="your_access_key_here"
 | [bohrium-tools](zh/bohrium-tools/SKILL.md) | 科学工具库 — 按领域/子领域浏览、混合检索工具、查看工具详情与分类 |
 | [bohrium-web-search](zh/bohrium-web-search/SKILL.md) | 网页搜索 — 代理 searchapi.io 做开放互联网检索 |
 | [bohrium-sandbox](zh/bohrium-sandbox/SKILL.md) | 云沙箱 — 按需创建临时云 VM，运行 shell/Python |
-| [bohrium-lkm](zh/bohrium-lkm/SKILL.md) | 大知识模型 — 知识节点检索、推理链检索、论文知识图谱、追溯 claim 依据、批量节点水合、提交反馈 |
+| [bohrium-lkm](zh/bohrium-lkm/SKILL.md) | 大知识模型 — 知识节点检索、推理链检索、论文知识图谱、追溯 claim 依据、批量节点水合、上传 PDF 异步抽取、提交反馈 |
 | [bohrium-mentor](zh/bohrium-mentor/SKILL.md) | AI 科学小导师 — 基于深度推理的科学问答，自动检索文献并结构化作答 |
 
 ---

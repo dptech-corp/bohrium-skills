@@ -1,13 +1,13 @@
 ---
 name: bohrium-lkm
-description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, or submitting feedback on LKM content/service. NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), single PDF parsing (use bohrium-pdf-parser)."
+description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, submitting feedback on LKM content/service, or uploading a local paper PDF to asynchronously extract structured knowledge (questions, conclusions, reasoning steps). NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), PDF layout/text/table/formula extraction (use bohrium-pdf-parser)."
 ---
 
 # SKILL: Bohrium LKM (大知识模型)
 
 ## 概述
 
-通过 `open.bohrium.com` 的 LKM (Large Knowledge Model) v2 端点，对科研文献中抽取出的知识进行检索与追溯：搜索摘要/命题/研究问题/推理链命中、检索完整推理链、查看论文级知识图谱、追溯单条命题的支撑推理、按 ID 批量水合节点详情。
+通过 `open.bohrium.com` 的 LKM (Large Knowledge Model) v2 端点，对科研文献中抽取出的知识进行检索、追溯，或把手头的论文 PDF 异步抽成结构化知识：搜索摘要/命题/研究问题/推理链命中、检索完整推理链、查看已入库论文的 paper-level graph、追溯单条命题的支撑推理、按 ID 批量水合节点详情、上传 PDF 抽取研究问题/结论/推理步骤。
 
 **核心能力：**
 
@@ -15,16 +15,20 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 |------|------|
 | `POST /v2/lkm/search` | 公开检索：召回 abstract / claim / question / reasoning_chain 命中；claim 和 question 还可按具体角色检索 |
 | `POST /v2/lkm/reasoning/search` | 推理链检索：按论证过程相似性召回整条推理链 |
-| `POST /v2/lkm/papers/graph` | 论文级知识图谱：返回某篇论文抽取出的完整 graph |
+| `POST /v2/lkm/papers/graph` | 已入库论文的 paper-level graph（`papers[]` + `graph.nodes` / `graph.edges`） |
 | `GET /v2/lkm/claims/{id}/reasoning` | 单条命题推理链：查某条 claim 为什么成立 |
 | `POST /v2/lkm/variables/batch` | 批量水合：按节点 ID 列表批量取详情 |
 | `POST /v2/lkm/feedback` | 提交反馈：对 LKM 服务/数据提交缺陷 / 需求 / 问题 |
+| `POST /v2/lkm/parse/task` | 上传 PDF，创建异步抽取任务 |
+| `GET /v2/lkm/parse/task/{task_id}` | 查询抽取进度（`status` 决定下一步，`stage` 做进度文案） |
+| `GET /v2/lkm/parse/task/{task_id}/result` | 取抽取结果：成功是扁平图谱，部分完成/失败是 `files` |
 
 **怎么选入口：**
 
 - 按关键词/语义找命题、问题、论文摘要或推理链 → `/search`
 - 想找"论证/实验过程"相似的整条推理链（而非单个命题）→ `/reasoning/search`
-- 打开一篇论文看完整结构化图谱 → `/papers/graph`
+- 打开 LKM 里**已入库**的一篇论文看 nodes/edges 图谱 → `/papers/graph`
+- 手头只有 PDF，库里可能还没有这篇，或要自己跑一遍抽取 → `/parse/task`（见第 7 节）
 - 已有 claim ID，想看推理链 → `/claims/{id}/reasoning`
 - 已有一组节点 ID，想批量补全详情 → `/variables/batch`
 - 想对某个节点/论文或服务本身提交缺陷/需求/问题 → `/feedback`
@@ -33,20 +37,22 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 
 - 通用论文关键词搜索 → `bohrium-paper-search`
 - 知识库文件管理 → `bohrium-knowledge-base`
-- PDF 单篇解析 → `bohrium-pdf-parser`
+- PDF 版面 / 文本 / 表格 / 公式抽取 → `bohrium-pdf-parser`（不是 LKM 知识图谱）
 
 **无 CLI 支持** — 通过 HTTP API 操作。
 
 ## 接口调用关系
 
-把 5 个检索类接口分成两类：
+把接口分成三类：
 
 - **自然语言检索入口**（只需 `query`，无需预先知道任何 ID）：`/search`、`/reasoning/search`
 - **基于标识/ID 的查询**（需先有论文标识或节点 ID）：`/papers/graph`（论文 `package_id`/`paper_id`/`doi`/`title`）、`/claims/{id}/reasoning`（claim `gcn_` ID）、`/variables/batch`（节点 `gcn_` ID）
+- **上传 PDF 异步抽取**（只需本地 PDF）：`POST /parse/task` → `GET /parse/task/{task_id}` → `GET /parse/task/{task_id}/result`
 
 （`/feedback` 是独立的写入接口，不在下面的检索数据流中，详见第 6 节。）
 
 > `/papers/graph` 若已知 DOI 或标题，也可不依赖其它接口、直接作为起点；否则其 `package_id`/`paper_id` 通常来自 `/search`、`/reasoning/search` 返回的论文元数据。
+> 用户上传了 PDF、库里不一定有这篇：用 `/parse/task`，不要拿 `pdf_md5` 去调 `/papers/graph`。
 
 检索入口的输出（节点 ID、论文 ID）正是下游接口的输入。`/search` 默认按 paper 聚合：主结果 `variables[]` 每条约等于一篇论文的代表命中，同论文的其它命中折叠进 `related`。`abstract` 是论文级背景上下文，不要当 claim 使用，也不要拿去追 reasoning。
 
@@ -54,9 +60,12 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 flowchart TD
     search["/search 节点检索"]
     rsearch["/reasoning/search 推理链检索"]
-    pgraph["/papers/graph 论文图谱"]
+    pgraph["/papers/graph 已入库论文图谱"]
     creason["/claims/{id}/reasoning 单条推理链"]
     batch["/variables/batch 批量水合"]
+    parse["POST /parse/task 上传 PDF"]
+    pstatus["GET /parse/task/{id} 进度"]
+    presult["GET /parse/task/{id}/result 扁平图谱"]
 
     search -->|"variables[].id (gcn_)"| creason
     search -->|"variables[].id (gcn_)"| batch
@@ -67,6 +76,10 @@ flowchart TD
     pgraph -->|"conclusion 节点 global_id"| creason
     pgraph -->|"任意节点 global_id (gcn_)"| batch
     creason -->|"任意节点 global_id (gcn_)"| batch
+    parse --> pstatus
+    pstatus -->|"succeeded / partial / failed"| presult
+    presult -->|"global_id 非空"| creason
+    presult -->|"global_id 非空"| batch
 ```
 
 **ID 流转：**
@@ -75,8 +88,11 @@ flowchart TD
 |------|------|------|
 | `search` 的 `variables[].id`；graph 节点的 `global_id` | 全局节点 ID `gcn_...` | `variables/batch`（任意节点）；`claims/{id}/reasoning`（仅 `has_reasoning=true` 的 conclusion） |
 | 各接口 `papers`/`paper` 元数据；`reasoning_chains[].paper_id` | 论文 ID（`paper:<数字>` 或纯数字串） | `papers/graph`（`package_id`/`paper_id`）；`reasoning/search` 的 `filters.paper_ids`（纯数字、无 `paper:` 前缀） |
+| `POST /parse/task` 的 `data.task_id` | 解析任务 ID | `GET /parse/task/{task_id}`、`GET /parse/task/{task_id}/result` |
+| parse 成功结果里的 `variables[].global_id`（非空） | 全局节点 ID `gcn_...` | 同上一行的 `gcn_` 下游 |
+| parse 成功结果里的 `local_id`（如 `paper:6::P1`） | 本篇局部 ID | **不能**传给 `/claims/{id}/reasoning` 或 `/variables/batch` |
 
-**陷阱：** 不要把 graph 本地节点 ID（如 `paper:...::conclusion_3`）当成全局 `gcn_` ID 或论文 ID 往下游传——`claims/{id}/reasoning` 会返回 `290004`，`variables/batch` 会把它放进 `not_found`。
+**陷阱：** 不要把 graph / parse 的本地节点 ID（如 `paper:...::conclusion_3`）当成全局 `gcn_` ID 或论文 ID 往下游传——`claims/{id}/reasoning` 会返回 `290004`，`variables/batch` 会把它放进 `not_found`。也不要把 parse 的扁平图谱塞进 `/papers/graph` 的 nodes/edges 渲染逻辑。
 
 > `/feedback` 可选地复用上游产出的全局节点 ID（`gcn_id`）或论文元数据 ID（`paper_metadata_id`）来定位反馈对象，二者互斥。
 
@@ -414,6 +430,48 @@ print("feedback id:", fb["id"])
 
 ---
 
+## 7. 上传 PDF 异步抽取 — `/parse/task`
+
+手头只有 PDF、库里可能还没有这篇，或要自己跑一遍抽取时，用这一组接口。提交成功只表示任务已受理，不表示图谱已经出来。
+
+和 `/papers/graph` 的分工：上传 PDF、看「我这份文件」的结果用本系列；查 LKM 里已入库论文的 paper-level graph 用 `/papers/graph`。两套 JSON 不一样，不要混用渲染逻辑。
+
+可运行的端到端脚本：`scripts/parse_paper.py`。
+
+**提交 `POST /parse/task`：**
+
+| 字段 | 位置 | 必填 | 说明 |
+|------|------|------|------|
+| `file` | multipart | 是 | 字段名必须是 `file`，内容必须是 PDF，默认不超过 64 MiB。不要再传 `doi` / `arxiv_id` |
+| `Authorization` | header | 是 | `Bearer $BOHR_ACCESS_KEY` |
+
+提交成功（`code=0`）返回 `task_id` / `pdf_md5` / `status` / `cache_hit` / `created_at`。`cache_hit=true` 表示复用了已有结果，不必按新任务长时间轮询；它也可能是 `partial`，不等于一定有完整图谱。同一份 PDF 再次提交会复用进度，不要靠反复提交催进度。
+
+**进度 `GET /parse/task/{task_id}`：**
+
+用 `status` 决定下一步，用 `stage` 做进度文案（不要把 `step0` 这种内部名直接展示给用户）：
+
+| status | 下一步 |
+|--------|--------|
+| `queued` / `running` | 继续轮询本接口 |
+| `succeeded` | 调结果接口取扁平图谱 |
+| `partial` | 调结果接口取中间 XML；不要当完整图谱 |
+| `failed` | 展示 `failed_reason`（先映射成可读说明） |
+
+`stage` 常见顺序：`metadata` → `ocr` → `step0` → `step1` → `step2_3` → `step4` → `graph` → `done`。`step2_3` 是 step2/step3 并行，耗时往往更长。`queued` / `running` 时去调结果接口会得到 `290017`，这不是任务丢了。
+
+**结果 `GET /parse/task/{task_id}/result`：**
+
+| 情况 | `data` 形状 |
+|------|-------------|
+| `succeeded` | **直接**是 `variables` / `factors` / `motivations` / `stats`，没有 `papers[]`，也没有 nodes/edges |
+| `partial` / `failed` | `task_id` / `status` / `stage` / `failed_reason` / `files`（step1–step4 XML 预签名链接，会过期） |
+| 仍在排队或执行中 | `code=290017`，回到进度接口 |
+
+成功结果里的 `local_id` 不能传给 `/claims/{id}/reasoning` 或 `/variables/batch`；只有 `global_id` 有值时才是 LKM 全局 ID。`parameters` / `metadata` 是 JSON 字符串，需要自己 parse。综述、多摘要合集等常在 step0 停下，`files` 为空是预期行为。
+
+---
+
 ## graph 公共说明（端点 2 / 3 / 4 共享）
 
 `graph` 由 `nodes` 和 `edges` 组成，可直接用于前端图谱渲染。
@@ -479,6 +537,20 @@ else:
 
 ---
 
+## 典型工作流：上传 PDF 抽取结构化知识
+
+> 思路：提交 PDF → 看 `cache_hit` → 轮询进度 → 按终态读结果。完整脚本见 `scripts/parse_paper.py`。
+
+```python
+# python3 scripts/parse_paper.py paper.pdf --out result.json
+```
+
+- `succeeded`：按扁平 `variables` / `factors` / `motivations` 消费；`local_id` 不要拿去追 reasoning。
+- `partial` / `failed`：展示失败原因；只在 `files` 非空时提供中间 XML。
+- 不要反复提交催进度，也不要把这份结果塞进 `/papers/graph` 的渲染逻辑。
+
+---
+
 ## curl 示例
 
 所有接口鉴权、`code` 判定一致，下面给一个 POST、一个 GET 代表；其余接口仅 path 与 body 不同，body 见上文各节。
@@ -495,6 +567,11 @@ curl -s -X POST "$BASE/search" \
 # GET 示例（单条命题推理链）
 curl -s -X GET "$BASE/claims/gcn_73e13bb548f847bd/reasoning?format=graph&max_chains=10" \
   -H "Authorization: Bearer $AK" | jq .
+
+# 上传 PDF 抽取（字段名必须是 file）
+curl -s -X POST "$BASE/parse/task" \
+  -H "Authorization: Bearer $AK" \
+  -F "file=@paper.pdf;type=application/pdf" | jq .
 ```
 
 ---
@@ -511,6 +588,12 @@ curl -s -X GET "$BASE/claims/gcn_73e13bb548f847bd/reasoning?format=graph&max_cha
 | `290009` | 查询超时 | 稍后重试，或改用更精确的 `paper_id`/`package_id` |
 | `290011` | 论文不存在 | 检查 `paper_id`/`package_id`/`doi`/`title` |
 | `290013` | 论文存在但未抽出 graph | 展示论文元数据并提示暂无结构化图谱 |
+| `290015` | 解析入参错误 | 确认 multipart 字段名是 `file`，文件非空 |
+| `290016` | 解析任务不存在 | 确认 `task_id` 来自提交接口，且是当前用户的任务 |
+| `290017` | 解析结果尚未就绪 | 回到进度接口继续等，不要改去调 `/papers/graph` |
+| `290018` | PDF 过大 | 默认上限 64 MiB |
+| `290019` | 不是合法 PDF | 检查文件头是否为 `%PDF-` |
+| `290021` | 解析失败（通用） | 可重试一次；进度/结果里看 `failed_reason` |
 
 ---
 
@@ -519,5 +602,6 @@ curl -s -X GET "$BASE/claims/gcn_73e13bb548f847bd/reasoning?format=graph&max_cha
 > LKM 各接口之间的串联见上文「接口调用关系」与「典型工作流」。这里只列跨 skill 的搭配。
 
 - **lkm** 验证/追溯结论后 → **bohrium-paper-search** 找原始论文全文
-- **lkm** 定位到具体论文后 → **bohrium-pdf-parser** 解析单篇 PDF
+- **手头只有 PDF、要抽研究问题/结论/推理** → 本 skill 的 `/parse/task`（不要用 **bohrium-pdf-parser**）
+- **只要 PDF 里的文本/表格/公式** → **bohrium-pdf-parser**
 - **lkm** 批量水合/图谱结果 → **bohrium-knowledge-base** 归档存储

@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -26,6 +28,7 @@ import requests
 BASE = "https://open.bohrium.com/openapi/v2/lkm"
 TERMINAL = {"succeeded", "partial", "failed"}
 NOT_READY = 290017
+MAX_UPLOAD_BYTES = 64 * 1024 * 1024
 
 
 def _auth_headers() -> dict[str, str]:
@@ -102,6 +105,45 @@ def wait_for_terminal(task_id: str, interval: float, timeout: float) -> dict:
     )
 
 
+def _validate_inputs(pdf: Path, out: Path | None, interval: float, timeout: float) -> str | None:
+    if not pdf.is_file():
+        return f"PDF not found: {pdf}"
+    if pdf.suffix.lower() != ".pdf":
+        return f"Input must use the .pdf extension: {pdf}"
+    size = pdf.stat().st_size
+    if size == 0:
+        return f"PDF is empty: {pdf}"
+    if size > MAX_UPLOAD_BYTES:
+        return f"PDF is {size} bytes; the upload limit is 64 MiB"
+    try:
+        with pdf.open("rb") as fh:
+            if fh.read(5) != b"%PDF-":
+                return f"Input does not contain a valid PDF header: {pdf}"
+    except OSError as exc:
+        return f"Cannot read PDF {pdf}: {exc}"
+    if not math.isfinite(interval) or not 0 < interval <= 300:
+        return "--interval must be a finite value between 0 and 300 seconds"
+    if not math.isfinite(timeout) or not 0 < timeout <= 86400:
+        return "--timeout must be a finite value between 0 and 86400 seconds"
+    if out is not None and out.expanduser().resolve() == pdf.resolve():
+        return "--out must not overwrite the input PDF"
+    return None
+
+
+def _write_text_atomic(path: Path, text: str) -> None:
+    destination = path.expanduser()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".lkm-parse-", dir=destination.parent)
+    temporary_path = Path(temporary)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(temporary_path, destination)
+    except Exception:
+        temporary_path.unlink(missing_ok=True)
+        raise
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pdf", type=Path, help="Local PDF to upload (field name must be file)")
@@ -111,8 +153,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     pdf = args.pdf.expanduser()
-    if not pdf.is_file():
-        print(f"PDF not found: {pdf}", file=sys.stderr)
+    validation_error = _validate_inputs(pdf, args.out, args.interval, args.timeout)
+    if validation_error is not None:
+        print(validation_error, file=sys.stderr)
         return 2
 
     submitted = submit(pdf)
@@ -146,8 +189,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.out is None:
         print(text)
     else:
-        args.out.write_text(text + "\n", encoding="utf-8")
+        _write_text_atomic(args.out, text + "\n")
         print(f"wrote {args.out}", file=sys.stderr)
+    result_data = result.get("data")
+    result_status = result_data.get("status") if isinstance(result_data, dict) else None
+    if status == "failed" or result_status == "failed":
+        reason = result_data.get("failed_reason") if isinstance(result_data, dict) else None
+        print(f"extraction failed: {reason or 'no reason reported'}", file=sys.stderr)
+        return 1
     return 0
 
 

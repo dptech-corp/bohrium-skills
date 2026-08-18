@@ -39,8 +39,6 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 - 知识库文件管理 → `bohrium-knowledge-base`
 - PDF 版面 / 文本 / 表格 / 公式抽取 → `bohrium-pdf-parser`（不是 LKM 知识图谱）
 
-**无 CLI 支持** — 通过 HTTP API 操作。
-
 ## 接口调用关系
 
 把接口分成三类：

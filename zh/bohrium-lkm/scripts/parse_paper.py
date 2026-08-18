@@ -88,6 +88,12 @@ def wait_for_terminal(task_id: str, interval: float, timeout: float) -> dict:
         status = last.get("status")
         stage = last.get("stage")
         print(f"status={status} stage={stage}", file=sys.stderr)
+        step_durations = last.get("step_durations")
+        if step_durations:
+            print(
+                f"step_durations={json.dumps(step_durations, ensure_ascii=False)}",
+                file=sys.stderr,
+            )
         if status in TERMINAL:
             return last
         time.sleep(interval)
@@ -112,9 +118,11 @@ def main(argv: list[str] | None = None) -> int:
     submitted = submit(pdf)
     task_id = submitted["task_id"]
     cache_hit = bool(submitted.get("cache_hit"))
+    cache_source = submitted.get("cache_source")
     status = submitted.get("status")
     print(
-        f"submitted task_id={task_id} cache_hit={cache_hit} status={status}",
+        f"submitted task_id={task_id} cache_hit={cache_hit} "
+        f"cache_source={cache_source} status={status}",
         file=sys.stderr,
     )
 

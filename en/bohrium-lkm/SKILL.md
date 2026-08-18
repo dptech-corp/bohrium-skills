@@ -443,7 +443,7 @@ Runnable end-to-end script: `scripts/parse_paper.py`.
 | `file` | multipart | yes | Field name must be `file`; body must be a PDF; default max 64 MiB. Do not send `doi` / `arxiv_id` |
 | `Authorization` | header | yes | `Bearer $BOHR_ACCESS_KEY` |
 
-A successful submit (`code=0`) returns `task_id` / `pdf_md5` / `status` / `cache_hit` / `created_at`. `cache_hit=true` means an existing result was reused — do not poll as if it were a fresh run; it can still be `partial`. Resubmitting the same PDF only creates extra `task_id`s; progress is shared.
+A successful submit (`code=0`) returns `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`. `cache_hit=true` means an existing extraction was reused: `cache_source=lkm` means the paper was already in the LKM corpus, while `cache_source=local` means an earlier submission of the same PDF (same md5) is being reused. Still branch on `status`; only an already-terminal `succeeded` / `partial` task should go straight to the result. Resubmitting the same PDF only creates extra `task_id`s that share the same progress and result.
 
 **Progress `GET /parse/task/{task_id}`:**
 
@@ -451,19 +451,21 @@ Use `status` to decide the next step and `stage` for progress copy (do not show 
 
 | status | Next step |
 |--------|-----------|
-| `queued` / `running` | Keep polling this endpoint |
+| `queued` / `running` | Poll this endpoint every 5 seconds |
 | `succeeded` | Fetch the flat graph from the result endpoint |
 | `partial` | Fetch intermediate XML; do not treat it as a complete graph |
 | `failed` | Show a mapped `failed_reason` |
 
 Typical `stage` order: `metadata` → `ocr` → `step0` → `step1` → `step2_3` → `step4` → `graph` → `done`. `step2_3` is step2/step3 in parallel and often takes longer. Calling the result endpoint while `queued` / `running` returns `290017`; the task is not lost.
 
+Status and result responses also carry `step_durations`, listing completed or skipped pipeline clocks in order, for example `{"step":"step1","duration_ms":400}`. It excludes `metadata`, which finishes during submit; the timing order is `ocr` → `step0` → `step1` → `step2` → `step3` → `step4` → `graph`.
+
 **Result `GET /parse/task/{task_id}/result`:**
 
 | Case | `data` shape |
 |------|-------------|
-| `succeeded` | **directly** `variables` / `factors` / `motivations` / `stats` — no `papers[]`, no nodes/edges |
-| `partial` / `failed` | `task_id` / `status` / `stage` / `failed_reason` / `files` (presigned step1–step4 XML URLs; they expire) |
+| `succeeded` | **directly** `variables` / `factors` / `motivations` / `stats` / `step_durations` — no `papers[]`, no nodes/edges |
+| `partial` / `failed` | `task_id` / `status` / `stage` / `failed_reason` / `files` (presigned step1–step4 XML URLs; they expire) / `step_durations` |
 | still queued or running | `code=290017`; go back to the status endpoint |
 
 `local_id` in a success result must not be passed to `/claims/{id}/reasoning` or `/variables/batch`; only a non-null `global_id` is an LKM global ID. `parameters` / `metadata` are JSON strings. Reviews and multi-abstract collections often stop at step0; empty `files` is expected.
@@ -543,7 +545,7 @@ else:
 # python3 scripts/parse_paper.py paper.pdf --out result.json
 ```
 
-- `succeeded`: consume the flat `variables` / `factors` / `motivations`; do not pass `local_id` to reasoning.
+- `succeeded`: consume the flat `variables` / `factors` / `motivations` / `stats`; do not pass `local_id` to reasoning.
 - `partial` / `failed`: show the failure reason; offer intermediate XML only when `files` is non-empty.
 - Do not resubmit to hurry the job, and do not feed this result into a `/papers/graph` renderer.
 

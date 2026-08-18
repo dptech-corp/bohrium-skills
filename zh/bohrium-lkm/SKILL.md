@@ -445,7 +445,7 @@ print("feedback id:", fb["id"])
 | `file` | multipart | 是 | 字段名必须是 `file`，内容必须是 PDF，默认不超过 64 MiB。不要再传 `doi` / `arxiv_id` |
 | `Authorization` | header | 是 | `Bearer $BOHR_ACCESS_KEY` |
 
-提交成功（`code=0`）返回 `task_id` / `pdf_md5` / `status` / `cache_hit` / `created_at`。`cache_hit=true` 表示复用了已有结果，不必按新任务长时间轮询；它也可能是 `partial`，不等于一定有完整图谱。同一份 PDF 再次提交会复用进度，不要靠反复提交催进度。
+提交成功（`code=0`）返回 `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`。`cache_hit=true` 表示复用了已有抽取：`cache_source=lkm` 表示论文已在 LKM 库中，`cache_source=local` 表示复用此前同一 PDF（md5 相同）的抽取。仍要以 `status` 为准；只有已经是 `succeeded` / `partial` 时才直接取结果。同一份 PDF 再次提交只会增加共享同一进度和结果的 `task_id`，不要靠反复提交催进度。
 
 **进度 `GET /parse/task/{task_id}`：**
 
@@ -453,19 +453,21 @@ print("feedback id:", fb["id"])
 
 | status | 下一步 |
 |--------|--------|
-| `queued` / `running` | 继续轮询本接口 |
+| `queued` / `running` | 每 5 秒轮询本接口 |
 | `succeeded` | 调结果接口取扁平图谱 |
 | `partial` | 调结果接口取中间 XML；不要当完整图谱 |
 | `failed` | 展示 `failed_reason`（先映射成可读说明） |
 
 `stage` 常见顺序：`metadata` → `ocr` → `step0` → `step1` → `step2_3` → `step4` → `graph` → `done`。`step2_3` 是 step2/step3 并行，耗时往往更长。`queued` / `running` 时去调结果接口会得到 `290017`，这不是任务丢了。
 
+进度和结果还会返回 `step_durations`，按流水线顺序列出已完成或跳过步骤的耗时，每项为 `{"step":"step1","duration_ms":400}`。它不含提交阶段完成的 `metadata`；步骤顺序为 `ocr` → `step0` → `step1` → `step2` → `step3` → `step4` → `graph`。
+
 **结果 `GET /parse/task/{task_id}/result`：**
 
 | 情况 | `data` 形状 |
 |------|-------------|
-| `succeeded` | **直接**是 `variables` / `factors` / `motivations` / `stats`，没有 `papers[]`，也没有 nodes/edges |
-| `partial` / `failed` | `task_id` / `status` / `stage` / `failed_reason` / `files`（step1–step4 XML 预签名链接，会过期） |
+| `succeeded` | **直接**是 `variables` / `factors` / `motivations` / `stats` / `step_durations`，没有 `papers[]`，也没有 nodes/edges |
+| `partial` / `failed` | `task_id` / `status` / `stage` / `failed_reason` / `files`（step1–step4 XML 预签名链接，会过期）/ `step_durations` |
 | 仍在排队或执行中 | `code=290017`，回到进度接口 |
 
 成功结果里的 `local_id` 不能传给 `/claims/{id}/reasoning` 或 `/variables/batch`；只有 `global_id` 有值时才是 LKM 全局 ID。`parameters` / `metadata` 是 JSON 字符串，需要自己 parse。综述、多摘要合集等常在 step0 停下，`files` 为空是预期行为。
@@ -545,7 +547,7 @@ else:
 # python3 scripts/parse_paper.py paper.pdf --out result.json
 ```
 
-- `succeeded`：按扁平 `variables` / `factors` / `motivations` 消费；`local_id` 不要拿去追 reasoning。
+- `succeeded`：按扁平 `variables` / `factors` / `motivations` / `stats` 消费；`local_id` 不要拿去追 reasoning。
 - `partial` / `failed`：展示失败原因；只在 `files` 非空时提供中间 XML。
 - 不要反复提交催进度，也不要把这份结果塞进 `/papers/graph` 的渲染逻辑。
 

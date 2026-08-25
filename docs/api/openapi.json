@@ -30,7 +30,7 @@
     },
     {
       "name": "大知识模型 (bohrium-lkm)",
-      "description": "LKM — 知识节点检索、推理链检索、论文知识图谱、追溯 claim 依据、批量节点水合、提交反馈。收费（定价中，待补充）。"
+      "description": "LKM — 知识节点检索、推理链检索、论文知识图谱、追溯 claim 依据、批量节点水合、上传 PDF 异步抽取、提交反馈。检索类：每月前 1000 次免费，之后 0.05 元/次。Parse：1 元/次，cache 命中 0.1 元/次。"
     },
     {
       "name": "AI 科学小导师 (bohrium-mentor)",
@@ -3834,6 +3834,142 @@
         "responses": {
           "200": {
             "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi/v2/lkm/parse/task": {
+      "post": {
+        "tags": [
+          "大知识模型 (bohrium-lkm)"
+        ],
+        "summary": "提交论文 PDF 解析任务",
+        "description": "上传 PDF，创建异步抽取任务。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF 文件，字段名必须是 file；默认不超过 64 MiB、50 页"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK。code=0 只表示任务已受理。status=partial 是业务终态，再交同一份 PDF 不会重跑。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi/v2/lkm/parse/task/{task_id}": {
+      "get": {
+        "tags": [
+          "大知识模型 (bohrium-lkm)"
+        ],
+        "summary": "查询论文解析进度",
+        "description": "按 task_id 查询进度。",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "提交接口返回的 task_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK。queued/running 继续轮询；succeeded 去 Result；partial 为不可重试业务失败；failed 为可再提交的技术失败。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi/v2/lkm/parse/task/{task_id}/result": {
+      "get": {
+        "tags": [
+          "大知识模型 (bohrium-lkm)"
+        ],
+        "summary": "获取论文解析结果",
+        "description": "取抽取结果。format=local（默认）为扁平 variables/factors；format=graph 与 /papers/graph 同形态。**计费**：1 元/次；cache 命中 0.1 元/次。",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "提交接口返回的 task_id"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "local",
+                "graph"
+              ],
+              "default": "local"
+            },
+            "description": "成功结果形态。只影响 succeeded；partial/failed 忽略。非法值 290015"
+          }
+        ],
+        "x-bohrium-price": {
+          "billable": true,
+          "currency": "CNY",
+          "skill": "bohrium-lkm",
+          "items": [
+            {
+              "amount": 1,
+              "unit": "次"
+            },
+            {
+              "amount": 0.1,
+              "unit": "次",
+              "note": "cache 命中"
+            }
+          ],
+          "note": "1 元/次；cache 命中 0.1 元/次"
+        },
+        "responses": {
+          "200": {
+            "description": "成功时 data 带 task_id/status/cache_hit 和图谱。partial 是业务不可重试失败。",
             "content": {
               "application/json": {
                 "schema": {

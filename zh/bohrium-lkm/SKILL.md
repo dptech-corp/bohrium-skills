@@ -21,7 +21,7 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 | `POST /v2/lkm/feedback` | 提交反馈：对 LKM 服务/数据提交缺陷 / 需求 / 问题 |
 | `POST /v2/lkm/parse/task` | 上传 PDF，创建异步抽取任务 |
 | `GET /v2/lkm/parse/task/{task_id}` | 查询抽取进度（`status` 决定下一步，`stage` 做进度文案） |
-| `GET /v2/lkm/parse/task/{task_id}/result` | 取抽取结果：成功是扁平图谱，部分完成/失败是 `files` |
+| `GET /v2/lkm/parse/task/{task_id}/result` | 取抽取结果：`format=local` 扁平图谱，`format=graph` 与 `/papers/graph` 同形态；`partial` / `failed` 是 `files` |
 
 **怎么选入口：**
 
@@ -63,7 +63,7 @@ flowchart TD
     batch["/variables/batch 批量水合"]
     parse["POST /parse/task 上传 PDF"]
     pstatus["GET /parse/task/{id} 进度"]
-    presult["GET /parse/task/{id}/result 扁平图谱"]
+    presult["GET /parse/task/{id}/result 图谱"]
 
     search -->|"variables[].id (gcn_)"| creason
     search -->|"variables[].id (gcn_)"| batch
@@ -87,10 +87,10 @@ flowchart TD
 | `search` 的 `variables[].id`；graph 节点的 `global_id` | 全局节点 ID `gcn_...` | `variables/batch`（任意节点）；`claims/{id}/reasoning`（仅 `has_reasoning=true` 的 conclusion） |
 | 各接口 `papers`/`paper` 元数据；`reasoning_chains[].paper_id` | 论文 ID（`paper:<数字>` 或纯数字串） | `papers/graph`（`package_id`/`paper_id`）；`reasoning/search` 的 `filters.paper_ids`（纯数字、无 `paper:` 前缀） |
 | `POST /parse/task` 的 `data.task_id` | 解析任务 ID | `GET /parse/task/{task_id}`、`GET /parse/task/{task_id}/result` |
-| parse 成功结果里的 `variables[].global_id`（非空） | 全局节点 ID `gcn_...` | 同上一行的 `gcn_` 下游 |
-| parse 成功结果里的 `local_id`（如 `paper:6::P1`） | 本篇局部 ID | **不能**传给 `/claims/{id}/reasoning` 或 `/variables/batch` |
+| parse 成功结果里的 `variables[].global_id` 或 `format=graph` 节点 `global_id`（非空） | 全局节点 ID `gcn_...` | 同上一行的 `gcn_` 下游 |
+| parse 成功结果里的 `local_id`，或 `format=graph` 的节点 `id`（如 `paper:6::P1`） | 本篇局部 ID | **不能**传给 `/claims/{id}/reasoning` 或 `/variables/batch` |
 
-**陷阱：** 不要把 graph / parse 的本地节点 ID（如 `paper:...::conclusion_3`）当成全局 `gcn_` ID 或论文 ID 往下游传——`claims/{id}/reasoning` 会返回 `290004`，`variables/batch` 会把它放进 `not_found`。也不要把 parse 的扁平图谱塞进 `/papers/graph` 的 nodes/edges 渲染逻辑。
+**陷阱：** 不要把 graph / parse 的本地节点 ID（如 `paper:...::conclusion_3`）当成全局 `gcn_` ID 或论文 ID 往下游传——`claims/{id}/reasoning` 会返回 `290004`，`variables/batch` 会把它放进 `not_found`。`format=local` 不要塞进 `/papers/graph` 的 nodes/edges 渲染；要同形态请传 `format=graph`。
 
 > `/feedback` 可选地复用上游产出的全局节点 ID（`gcn_id`）或论文元数据 ID（`paper_metadata_id`）来定位反馈对象，二者互斥。
 
@@ -432,29 +432,39 @@ print("feedback id:", fb["id"])
 
 手头只有 PDF、库里可能还没有这篇，或要自己跑一遍抽取时，用这一组接口。提交成功只表示任务已受理，不表示图谱已经出来。
 
-和 `/papers/graph` 的分工：上传 PDF、看「我这份文件」的结果用本系列；查 LKM 里已入库论文的 paper-level graph 用 `/papers/graph`。两套 JSON 不一样，不要混用渲染逻辑。
+和 `/papers/graph` 的分工：上传 PDF、看「我这份文件」的结果用本系列；查 LKM 里已入库论文的 paper-level graph 用 `/papers/graph`。默认 `format=local` 是扁平抽取结果；`format=graph` 才与 `/papers/graph` 同形态。
 
-可运行的端到端脚本：`scripts/parse_paper.py`。
+可运行的端到端脚本：`scripts/parse_paper.py`。本 skill 示例与其它 LKM 接口共用 `BASE=.../openapi/v2/lkm`。同一套 parse 路径也在 v1/v4。
+
+**计费：** 1 元/次；cache 命中 0.1 元/次。
 
 **提交 `POST /parse/task`：**
 
 | 字段 | 位置 | 必填 | 说明 |
 |------|------|------|------|
-| `file` | multipart | 是 | 字段名必须是 `file`，内容必须是 PDF，默认不超过 64 MiB。不要再传 `doi` / `arxiv_id` |
+| `file` | multipart | 是 | 字段名必须是 `file`，内容必须是 PDF，默认不超过 64 MiB、50 页。不要再传 `doi` / `arxiv_id` |
 | `Authorization` | header | 是 | `Bearer $BOHR_ACCESS_KEY` |
 
-提交成功（`code=0`）返回 `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`。`cache_hit=true` 表示复用了已有抽取：`cache_source=lkm` 表示论文已在 LKM 库中，`cache_source=local` 表示复用此前同一 PDF（md5 相同）的抽取。仍要以 `status` 为准；只有已经是 `succeeded` / `partial` 时才直接取结果。同一份 PDF 再次提交只会增加共享同一进度和结果的 `task_id`，不要靠反复提交催进度。
+提交成功（`code=0`）返回 `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`。`cache_source` 只在 `cache_hit=true` 时出现：`lkm` 表示论文已在 LKM 库中，`local` 表示复用此前同一 PDF（md5 相同）的抽取。仍要以 `status` 为准：
+
+- `queued`：新跑或重跑，去轮询进度。
+- `succeeded`：已有完整图谱，可马上取结果。
+- `partial`：**业务终态**，这篇 PDF 抽不出完整图谱（综述、过短、合集等）。不是跑到一半。再交同一份文件仍是 `partial` + `cache_hit=true`，不会重跑。
+- 同一用户、同一 PDF 仍在 `queued` / `running` 再提交：`290020`，错误里带已有 `task_id`。
+- 上次是技术失败（`failed`）：会重新排队，`cache_hit=false`。
+
+不要靠反复提交催进度。
 
 **进度 `GET /parse/task/{task_id}`：**
 
-用 `status` 决定下一步，用 `stage` 做进度文案（不要把 `step0` 这种内部名直接展示给用户）：
+用 `status` 决定下一步，用 `stage` 做进度文案（不要把 `step0` 这种内部名直接展示给用户）。
 
 | status | 下一步 |
 |--------|--------|
 | `queued` / `running` | 每 5 秒轮询本接口 |
-| `succeeded` | 调结果接口取扁平图谱 |
-| `partial` | 调结果接口取中间 XML；不要当完整图谱 |
-| `failed` | 展示 `failed_reason`（先映射成可读说明） |
+| `succeeded` | 调结果接口取图谱 |
+| `partial` | 业务不可重试失败。调结果接口看 `failed_reason`；不要再交同一份 PDF |
+| `failed` | 技术失败。展示映射后的 `failed_reason`；同一份文件可以再提交 |
 
 `stage` 常见顺序：`metadata` → `ocr` → `step0` → `step1` → `step2_3` → `step4` → `graph` → `done`。`step2_3` 是 step2/step3 并行，耗时往往更长。`queued` / `running` 时去调结果接口会得到 `290017`，这不是任务丢了。
 
@@ -462,17 +472,22 @@ print("feedback id:", fb["id"])
 
 **结果 `GET /parse/task/{task_id}/result`：**
 
+| Query | 说明 |
+|------|------|
+| `format` | 可选。不传或 `local`：扁平 `variables` / `factors` / `motivations` / `stats`。`graph`：与 `/papers/graph` 同形态的 `paper` + `addressed_problems` + `open_questions` + `graph.nodes` / `graph.edges`。只影响 `succeeded`。非法值 `290015` |
+
 | 情况 | `data` 形状 |
 |------|-------------|
-| `succeeded` | **直接**是 `variables` / `factors` / `motivations` / `stats` / `step_durations`，没有 `papers[]`，也没有 nodes/edges |
-| `partial` / `failed` | `task_id` / `status` / `stage` / `failed_reason` / `files`（step1–step4 XML 预签名链接，会过期）/ `step_durations` |
+| `succeeded` | 固定带 `task_id` / `status=succeeded` / `cache_hit`（`true` 时还有 `cache_source`）和 `step_durations`；再按 `format` 带图谱 |
+| `partial` | `task_id` / `status=partial` / `cache_hit` / `stage` / `failed_reason` / `files` / `step_durations`。不看 `format`。不要再交同一份 PDF |
+| `failed` | 同上，`status=failed`。同一份文件可再提交 |
 | 仍在排队或执行中 | `code=290017`，回到进度接口 |
 
-成功结果里的 `local_id` 不能传给 `/claims/{id}/reasoning` 或 `/variables/batch`；只有 `global_id` 有值时才是 LKM 全局 ID。`parameters` / `metadata` 是 JSON 字符串，需要自己 parse。综述、多摘要合集等常在 step0 停下，`files` 为空是预期行为。
+成功结果里的 `local_id` 或 graph 节点 `id` 不能传给 `/claims/{id}/reasoning` 或 `/variables/batch`；只有 `global_id` 有值时才是 LKM 全局 ID。`format=local` 的 `parameters` / `metadata` 是 JSON 字符串；`format=graph` 的节点 `metadata` 是对象。综述、内容过短、多摘要合集等会落成 `partial`，`files` 为空是预期行为。
 
 ---
 
-## graph 公共说明（端点 2 / 3 / 4 共享）
+## graph 公共说明（`/papers/graph`、`/reasoning/search?format=graph`、`/claims/{id}/reasoning?format=graph`、parse `format=graph` 共享）
 
 `graph` 由 `nodes` 和 `edges` 组成，可直接用于前端图谱渲染。
 
@@ -539,15 +554,17 @@ else:
 
 ## 典型工作流：上传 PDF 抽取结构化知识
 
-> 思路：提交 PDF → 看 `cache_hit` → 轮询进度 → 按终态读结果。完整脚本见 `scripts/parse_paper.py`。
+> 思路：提交 PDF → 看 `status` / `cache_hit` → 轮询进度 → 取结果。完整脚本见 `scripts/parse_paper.py`。
 
 ```python
 # python3 scripts/parse_paper.py paper.pdf --out result.json
+# python3 scripts/parse_paper.py paper.pdf --format graph --out result.json
 ```
 
-- `succeeded`：按扁平 `variables` / `factors` / `motivations` / `stats` 消费；`local_id` 不要拿去追 reasoning。
-- `partial` / `failed`：展示失败原因；只在 `files` 非空时提供中间 XML。
-- 不要反复提交催进度，也不要把这份结果塞进 `/papers/graph` 的渲染逻辑。
+- `succeeded`：`format=local` 读扁平 `variables` / `factors`；`format=graph` 读 nodes/edges。`local_id` / 节点 `id` 不要拿去追 reasoning。
+- `partial`：业务不可重试失败，展示 `failed_reason`；不要再传同一份 PDF。
+- `failed`：技术失败；同一份文件可以再提交。
+- 不要反复提交催进度。`format=local` 不要塞进 `/papers/graph` 渲染；要同形态请传 `format=graph`。
 
 ---
 
@@ -572,6 +589,10 @@ curl -s -X GET "$BASE/claims/gcn_73e13bb548f847bd/reasoning?format=graph&max_cha
 curl -s -X POST "$BASE/parse/task" \
   -H "Authorization: Bearer $AK" \
   -F "file=@paper.pdf;type=application/pdf" | jq .
+
+# 取结果（format=graph 与 /papers/graph 同形态）
+curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
+  -H "Authorization: Bearer $AK" | jq .
 ```
 
 ---
@@ -588,12 +609,15 @@ curl -s -X POST "$BASE/parse/task" \
 | `290009` | 查询超时 | 稍后重试，或改用更精确的 `paper_id`/`package_id` |
 | `290011` | 论文不存在 | 检查 `paper_id`/`package_id`/`doi`/`title` |
 | `290013` | 论文存在但未抽出 graph | 展示论文元数据并提示暂无结构化图谱 |
-| `290015` | 解析入参错误 | 确认 multipart 字段名是 `file`，文件非空 |
+| `290015` | 解析入参错误 | 确认 multipart 字段名是 `file`，文件非空；Result 的 `format` 只能是 `local` 或 `graph` |
 | `290016` | 解析任务不存在 | 确认 `task_id` 来自提交接口，且是当前用户的任务 |
 | `290017` | 解析结果尚未就绪 | 回到进度接口继续等，不要改去调 `/papers/graph` |
 | `290018` | PDF 过大 | 默认上限 64 MiB |
 | `290019` | 不是合法 PDF | 检查文件头是否为 `%PDF-` |
+| `290020` | 同一用户同一 PDF 仍在解析 | 不要再提交；用返回的 `task_id` 去查进度 |
 | `290021` | 解析失败（通用） | 可重试一次；进度/结果里看 `failed_reason` |
+| `290022` | PDF 页数超限 | 默认上限 50 页 |
+| `7002` | 结果暂不可用 | 稍后用同一 `task_id` 重试 |
 
 ---
 

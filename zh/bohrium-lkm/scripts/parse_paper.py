@@ -5,8 +5,12 @@
 Uses BOHR_ACCESS_KEY from the environment.
 Base URL: https://open.bohrium.com/openapi/v2/lkm
 
+Price: 1 CNY; 0.1 CNY on cache hit.
+partial is a non-retryable business failure; failed may be resubmitted.
+
 Usage:
   python3 parse_paper.py paper.pdf
+  python3 parse_paper.py paper.pdf --format graph --out result.json
   python3 parse_paper.py paper.pdf --interval 5 --timeout 1800 --out result.json
 
 Stdout is the final JSON envelope (pretty). Progress goes to stderr.
@@ -28,7 +32,9 @@ import requests
 BASE = "https://open.bohrium.com/openapi/v2/lkm"
 TERMINAL = {"succeeded", "partial", "failed"}
 NOT_READY = 290017
+BILLING_IN_PROGRESS = 7002
 MAX_UPLOAD_BYTES = 64 * 1024 * 1024
+RESULT_FORMATS = {"local", "graph"}
 
 
 def _auth_headers() -> dict[str, str]:
@@ -74,13 +80,28 @@ def get_status(task_id: str) -> dict:
     return body["data"]
 
 
-def get_result(task_id: str) -> dict:
-    resp = requests.get(
-        f"{BASE}/parse/task/{task_id}/result",
-        headers=_auth_headers(),
-        timeout=120,
-    )
-    return _envelope(resp)
+def get_result(task_id: str, result_format: str = "local") -> dict:
+    params = {}
+    if result_format and result_format != "local":
+        params["format"] = result_format
+    last = None
+    for attempt in range(4):
+        resp = requests.get(
+            f"{BASE}/parse/task/{task_id}/result",
+            headers=_auth_headers(),
+            params=params or None,
+            timeout=120,
+        )
+        last = _envelope(resp)
+        if last.get("code") != BILLING_IN_PROGRESS:
+            return last
+        wait = 2 ** attempt
+        print(
+            f"result not available yet (code={BILLING_IN_PROGRESS}); retry in {wait}s",
+            file=sys.stderr,
+        )
+        time.sleep(wait)
+    return last
 
 
 def wait_for_terminal(task_id: str, interval: float, timeout: float) -> dict:
@@ -146,9 +167,16 @@ def _write_text_atomic(path: Path, text: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("pdf", type=Path, help="Local PDF to upload (field name must be file)")
+    parser.add_argument("pdf", type=Path, help="Local PDF to upload (field name must be file; default max 64 MiB / 50 pages)")
     parser.add_argument("--interval", type=float, default=5.0, help="Poll interval in seconds (default 5)")
     parser.add_argument("--timeout", type=float, default=1800.0, help="Max wait in seconds (default 1800)")
+    parser.add_argument(
+        "--format",
+        dest="result_format",
+        choices=sorted(RESULT_FORMATS),
+        default="local",
+        help="Result shape: local (default flat graph) or graph (same as /papers/graph)",
+    )
     parser.add_argument("--out", type=Path, help="Write the result envelope to PATH instead of stdout")
     args = parser.parse_args(argv)
 
@@ -173,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
         last = wait_for_terminal(task_id, args.interval, args.timeout)
         status = last.get("status")
 
-    result = get_result(task_id)
+    result = get_result(task_id, args.result_format)
     code = result.get("code")
     if code == NOT_READY:
         print(
@@ -193,8 +221,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"wrote {args.out}", file=sys.stderr)
     result_data = result.get("data")
     result_status = result_data.get("status") if isinstance(result_data, dict) else None
+    reason = result_data.get("failed_reason") if isinstance(result_data, dict) else None
+    if status == "partial" or result_status == "partial":
+        print(
+            f"extraction partial (non-retryable business failure): {reason or 'no reason reported'}",
+            file=sys.stderr,
+        )
+        return 0
     if status == "failed" or result_status == "failed":
-        reason = result_data.get("failed_reason") if isinstance(result_data, dict) else None
         print(f"extraction failed: {reason or 'no reason reported'}", file=sys.stderr)
         return 1
     return 0

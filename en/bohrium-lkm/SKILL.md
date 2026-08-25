@@ -21,7 +21,7 @@ LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search an
 | `POST /v2/lkm/feedback` | Submit feedback: report a bug / feature request / question about LKM content or service |
 | `POST /v2/lkm/parse/task` | Upload a PDF and create an async extraction task |
 | `GET /v2/lkm/parse/task/{task_id}` | Poll extraction progress (`status` decides the next step; `stage` is progress copy) |
-| `GET /v2/lkm/parse/task/{task_id}/result` | Fetch the result: a flat graph on success, `files` on partial/failed |
+| `GET /v2/lkm/parse/task/{task_id}/result` | Fetch the result: `format=local` is the flat graph, `format=graph` matches `/papers/graph`; `partial` / `failed` return `files` |
 
 **Choosing an entry point:**
 
@@ -63,7 +63,7 @@ flowchart TD
     batch["/variables/batch hydration"]
     parse["POST /parse/task upload PDF"]
     pstatus["GET /parse/task/{id} progress"]
-    presult["GET /parse/task/{id}/result flat graph"]
+    presult["GET /parse/task/{id}/result graph"]
 
     search -->|"variables[].id (gcn_)"| creason
     search -->|"variables[].id (gcn_)"| batch
@@ -87,10 +87,10 @@ flowchart TD
 | `search` `variables[].id`; graph node `global_id` | global node ID `gcn_...` | `variables/batch` (any node); `claims/{id}/reasoning` (only `has_reasoning=true` conclusions) |
 | `papers`/`paper` metadata; `reasoning_chains[].paper_id` | paper ID (`paper:<number>` or plain numeric) | `papers/graph` (`package_id`/`paper_id`); `reasoning/search` `filters.paper_ids` (plain numeric, no `paper:` prefix) |
 | `POST /parse/task` `data.task_id` | parse task ID | `GET /parse/task/{task_id}`, `GET /parse/task/{task_id}/result` |
-| parse success `variables[].global_id` when non-null | global node ID `gcn_...` | same `gcn_` downstream as above |
-| parse success `local_id` (e.g. `paper:6::P1`) | paper-local ID | **must not** be passed to `/claims/{id}/reasoning` or `/variables/batch` |
+| parse success `variables[].global_id` or `format=graph` node `global_id` when non-null | global node ID `gcn_...` | same `gcn_` downstream as above |
+| parse success `local_id`, or `format=graph` node `id` (e.g. `paper:6::P1`) | paper-local ID | **must not** be passed to `/claims/{id}/reasoning` or `/variables/batch` |
 
-**Pitfall:** do not pass a graph/parse local node ID (e.g. `paper:...::conclusion_3`) as a global `gcn_` ID or paper ID downstream — `claims/{id}/reasoning` returns `290004`, and `variables/batch` puts it in `not_found`. Do not feed the parse flat graph into `/papers/graph` nodes/edges rendering.
+**Pitfall:** do not pass a graph/parse local node ID (e.g. `paper:...::conclusion_3`) as a global `gcn_` ID or paper ID downstream — `claims/{id}/reasoning` returns `290004`, and `variables/batch` puts it in `not_found`. Do not feed `format=local` into a `/papers/graph` renderer; pass `format=graph` for the same shape.
 
 > `/feedback` optionally reuses an upstream global node ID (`gcn_id`) or paper metadata ID (`paper_metadata_id`) to pin the feedback target; the two are mutually exclusive.
 
@@ -432,47 +432,62 @@ print("feedback id:", fb["id"])
 
 Use this trio when you have a PDF that may not be in the corpus yet, or you want to run extraction yourself. A successful submit means the task was accepted, not that the graph is ready.
 
-Vs `/papers/graph`: upload a PDF and inspect *this file's* result with parse; inspect an already-ingested LKM paper with `/papers/graph`. The JSON shapes differ; do not reuse the nodes/edges renderer.
+Vs `/papers/graph`: upload a PDF and inspect *this file's* result with parse; inspect an already-ingested LKM paper with `/papers/graph`. Default `format=local` is the flat extraction; `format=graph` matches `/papers/graph`.
 
-Runnable end-to-end script: `scripts/parse_paper.py`.
+Runnable end-to-end script: `scripts/parse_paper.py`. Examples in this skill share `BASE=.../openapi/v2/lkm` with the other LKM endpoints. The same parse paths also exist on v1/v4.
+
+**Billing:** ¥1/call; ¥0.1/call on cache hit.
 
 **Submit `POST /parse/task`:**
 
 | Field | In | Required | Notes |
 |------|------|------|------|
-| `file` | multipart | yes | Field name must be `file`; body must be a PDF; default max 64 MiB. Do not send `doi` / `arxiv_id` |
+| `file` | multipart | yes | Field name must be `file`; body must be a PDF; default max 64 MiB and 50 pages. Do not send `doi` / `arxiv_id` |
 | `Authorization` | header | yes | `Bearer $BOHR_ACCESS_KEY` |
 
-A successful submit (`code=0`) returns `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`. `cache_hit=true` means an existing extraction was reused: `cache_source=lkm` means the paper was already in the LKM corpus, while `cache_source=local` means an earlier submission of the same PDF (same md5) is being reused. Still branch on `status`; only an already-terminal `succeeded` / `partial` task should go straight to the result. Resubmitting the same PDF only creates extra `task_id`s that share the same progress and result.
+A successful submit (`code=0`) returns `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`. `cache_source` appears only when `cache_hit=true`: `lkm` means the paper was already in the LKM corpus; `local` means an earlier submission of the same PDF (same md5) is reused. Still branch on `status`:
+
+- `queued`: a new or retried run; poll status.
+- `succeeded`: a full graph is already available; fetch Result immediately.
+- `partial`: a **business terminal**. This PDF cannot yield a full research-paper graph (review, too short, collection, etc.). It is not “halfway done”. Resubmitting the same file stays `partial` + `cache_hit=true` and does not rerun.
+- Same user + same PDF still `queued` / `running`: `290020`, with the existing `task_id` in the error.
+- Last run was a technical `failed`: the job is re-queued, `cache_hit=false`.
+
+Do not resubmit to hurry progress.
 
 **Progress `GET /parse/task/{task_id}`:**
 
-Use `status` to decide the next step and `stage` for progress copy (do not show raw `step0` names to users):
+Use `status` to decide the next step and `stage` for progress copy (do not show raw `step0` names to users).
 
 | status | Next step |
 |--------|-----------|
 | `queued` / `running` | Poll this endpoint every 5 seconds |
-| `succeeded` | Fetch the flat graph from the result endpoint |
-| `partial` | Fetch intermediate XML; do not treat it as a complete graph |
-| `failed` | Show a mapped `failed_reason` |
+| `succeeded` | Fetch the graph from the result endpoint |
+| `partial` | Non-retryable business failure. Read `failed_reason` from Result; do not resubmit the same PDF |
+| `failed` | Technical failure. Show a mapped `failed_reason`; the same file may be submitted again |
 
-Typical `stage` order: `metadata` → `ocr` → `step0` → `step1` → `step2_3` → `step4` → `graph` → `done`. `step2_3` is step2/step3 in parallel and often takes longer. Calling the result endpoint while `queued` / `running` returns `290017`; the task is not lost.
+Typical `stage` order: `metadata` → `ocr` → `step0` → `step1` → `step2_3` → `step4` → `graph` → `done`. `step2_3` is step2/step3 in parallel and often takes longer. Calling Result while `queued` / `running` returns `290017`; the task is not lost.
 
 Status and result responses also carry `step_durations`, listing completed or skipped pipeline clocks in order, for example `{"step":"step1","duration_ms":400}`. It excludes `metadata`, which finishes during submit; the timing order is `ocr` → `step0` → `step1` → `step2` → `step3` → `step4` → `graph`.
 
 **Result `GET /parse/task/{task_id}/result`:**
 
+| Query | Notes |
+|------|------|
+| `format` | Optional. Omit or `local`: flat `variables` / `factors` / `motivations` / `stats`. `graph`: `/papers/graph` shape (`paper` + `addressed_problems` + `open_questions` + `graph.nodes` / `graph.edges`). Affects `succeeded` only. Invalid values return `290015` |
+
 | Case | `data` shape |
 |------|-------------|
-| `succeeded` | **directly** `variables` / `factors` / `motivations` / `stats` / `step_durations` — no `papers[]`, no nodes/edges |
-| `partial` / `failed` | `task_id` / `status` / `stage` / `failed_reason` / `files` (presigned step1–step4 XML URLs; they expire) / `step_durations` |
-| still queued or running | `code=290017`; go back to the status endpoint |
+| `succeeded` | Always `task_id` / `status=succeeded` / `cache_hit` (`cache_source` when true) and `step_durations`, plus the graph for `format` |
+| `partial` | `task_id` / `status=partial` / `cache_hit` / `stage` / `failed_reason` / `files` / `step_durations`. Ignores `format`. Do not resubmit the same PDF |
+| `failed` | Same as above, `status=failed`. The same file may be submitted again |
+| still queued or running | `code=290017`; go back to status |
 
-`local_id` in a success result must not be passed to `/claims/{id}/reasoning` or `/variables/batch`; only a non-null `global_id` is an LKM global ID. `parameters` / `metadata` are JSON strings. Reviews and multi-abstract collections often stop at step0; empty `files` is expected.
+`local_id` or a graph node `id` must not be passed to `/claims/{id}/reasoning` or `/variables/batch`; only a non-null `global_id` is an LKM global ID. `format=local` `parameters` / `metadata` are JSON strings; `format=graph` node `metadata` is an object. Reviews, too-short PDFs, and multi-abstract collections become `partial`; empty `files` is expected.
 
 ---
 
-## Shared graph notes (endpoints 2 / 3 / 4)
+## Shared graph notes (`/papers/graph`, `/reasoning/search?format=graph`, `/claims/{id}/reasoning?format=graph`, parse `format=graph`)
 
 `graph` consists of `nodes` and `edges`, ready for frontend graph rendering.
 
@@ -539,15 +554,17 @@ else:
 
 ## Worked example: extract structured knowledge from a PDF
 
-> Flow: submit PDF → inspect `cache_hit` → poll status → read the result by terminal status. Full script: `scripts/parse_paper.py`.
+> Flow: submit PDF → inspect `status` / `cache_hit` → poll status → fetch the result. Full script: `scripts/parse_paper.py`.
 
 ```python
 # python3 scripts/parse_paper.py paper.pdf --out result.json
+# python3 scripts/parse_paper.py paper.pdf --format graph --out result.json
 ```
 
-- `succeeded`: consume the flat `variables` / `factors` / `motivations` / `stats`; do not pass `local_id` to reasoning.
-- `partial` / `failed`: show the failure reason; offer intermediate XML only when `files` is non-empty.
-- Do not resubmit to hurry the job, and do not feed this result into a `/papers/graph` renderer.
+- `succeeded`: `format=local` reads flat `variables` / `factors`; `format=graph` reads nodes/edges. Do not pass `local_id` or a node `id` to reasoning.
+- `partial`: non-retryable business failure; show `failed_reason`; do not resubmit the same PDF.
+- `failed`: technical failure; the same file may be submitted again.
+- Do not resubmit to hurry the job. Do not feed `format=local` into a `/papers/graph` renderer; pass `format=graph` for the same shape.
 
 ---
 
@@ -572,6 +589,10 @@ curl -s -X GET "$BASE/claims/gcn_73e13bb548f847bd/reasoning?format=graph&max_cha
 curl -s -X POST "$BASE/parse/task" \
   -H "Authorization: Bearer $AK" \
   -F "file=@paper.pdf;type=application/pdf" | jq .
+
+# Fetch the result (format=graph matches /papers/graph)
+curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
+  -H "Authorization: Bearer $AK" | jq .
 ```
 
 ---
@@ -588,12 +609,15 @@ curl -s -X POST "$BASE/parse/task" \
 | `290009` | Query timeout | Retry later, or use a more precise `paper_id`/`package_id` |
 | `290011` | Paper not found | Check `paper_id`/`package_id`/`doi`/`title` |
 | `290013` | Paper exists but no graph extracted | Show paper metadata and note no structured graph yet |
-| `290015` | Parse bind/param error | Multipart field name must be `file`; file must be non-empty |
+| `290015` | Parse bind/param error | Multipart field name must be `file`; file must be non-empty; Result `format` must be `local` or `graph` |
 | `290016` | Parse task not found | `task_id` must come from submit and belong to the current user |
 | `290017` | Parse result not ready | Go back to the status endpoint; do not substitute `/papers/graph` |
 | `290018` | PDF too large | Default cap is 64 MiB |
 | `290019` | Not a valid PDF | File header must be `%PDF-` |
+| `290020` | Same user + same PDF already in progress | Do not resubmit; poll the `task_id` in the error |
 | `290021` | Parse failed (generic) | Retry once; inspect `failed_reason` on status/result |
+| `290022` | PDF has too many pages | Default cap is 50 pages |
+| `7002` | Result not available yet | Retry the same `task_id` later |
 
 ---
 

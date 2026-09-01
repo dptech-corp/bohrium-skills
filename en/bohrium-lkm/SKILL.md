@@ -1,13 +1,13 @@
 ---
 name: bohrium-lkm
-description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, submitting feedback on LKM content/service, or uploading a local paper PDF to asynchronously extract structured knowledge (questions, conclusions, reasoning steps). NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), PDF layout/text/table/formula extraction (use bohrium-pdf-parser)."
+description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, listing a paper's references or cited-by papers, tracing why a claim holds, batch-hydrating knowledge node details, submitting feedback on LKM content/service, or uploading a local paper PDF to asynchronously extract structured knowledge (questions, conclusions, reasoning steps). NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), PDF layout/text/table/formula extraction (use bohrium-pdf-parser)."
 ---
 
 # SKILL: Bohrium LKM (Large Knowledge Model)
 
 ## Overview
 
-LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search and trace knowledge extracted from scientific literature, or asynchronously extract structured knowledge from a local paper PDF: search abstract/claim/question/reasoning-chain hits, retrieve complete reasoning chains, view an ingested paper-level graph, trace the reasoning behind a single claim, batch-hydrate node details by ID, and upload a PDF to extract research questions, conclusions, and reasoning steps.
+LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search and trace knowledge extracted from scientific literature, or asynchronously extract structured knowledge from a local paper PDF: search abstract/claim/question/reasoning-chain hits, retrieve complete reasoning chains, view an ingested paper-level graph, list a paper's references or cited-by set by paper_id/DOI, trace the reasoning behind a single claim, batch-hydrate node details by ID, and upload a PDF to extract research questions, conclusions, and reasoning steps.
 
 **Core capabilities:**
 
@@ -16,6 +16,7 @@ LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search an
 | `POST /v2/lkm/search` | Public search: recall abstract / claim / question / reasoning_chain hits; claim and question scopes may also target specific roles |
 | `POST /v2/lkm/reasoning/search` | Reasoning chain search: recall whole chains by argument similarity |
 | `POST /v2/lkm/papers/graph` | Ingested paper-level graph (`papers[]` + `graph.nodes` / `graph.edges`) |
+| `POST /v2/lkm/papers/reference` | References / cited-by: batch seed metadata plus `references` / `cited_by` by `paper_ids` / `dois` |
 | `GET /v2/lkm/claims/{id}/reasoning` | Single-claim reasoning chain: why a claim holds |
 | `POST /v2/lkm/variables/batch` | Batch hydration: fetch node details by an ID list |
 | `POST /v2/lkm/feedback` | Submit feedback: report a bug / feature request / question about LKM content or service |
@@ -28,6 +29,7 @@ LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search an
 - Find claims, questions, abstracts, or reasoning chains by keyword/semantics → `/search`
 - Find whole reasoning chains whose research/experimental process is similar (not just a single matching claim) → `/reasoning/search`
 - Open a paper **already in LKM** and view its nodes/edges graph → `/papers/graph`
+- You have a paper_id / DOI and want its reference or cited-by list (not a knowledge graph) → `/papers/reference`
 - You have a PDF, it may not be in the corpus yet, or you want to run extraction yourself → `/parse/task` (see section 7)
 - Have a claim ID, want its reasoning chain → `/claims/{id}/reasoning`
 - Have a set of node IDs, want to hydrate details → `/variables/batch`
@@ -44,7 +46,7 @@ LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search an
 Endpoints fall into three groups:
 
 - **Natural-language search entry points** (only need `query`, no ID up front): `/search`, `/reasoning/search`
-- **Identifier/ID-based lookups** (need a paper identifier or node ID first): `/papers/graph` (paper `package_id`/`paper_id`/`doi`/`title`), `/claims/{id}/reasoning` (claim `gcn_` ID), `/variables/batch` (node `gcn_` ID)
+- **Identifier/ID-based lookups** (need a paper identifier or node ID first): `/papers/graph` (paper `package_id`/`paper_id`/`doi`/`title`), `/papers/reference` (`paper_ids` / `dois`, no title), `/claims/{id}/reasoning` (claim `gcn_` ID), `/variables/batch` (node `gcn_` ID)
 - **Upload-PDF async extraction** (only need a local PDF): `POST /parse/task` → `GET /parse/task/{task_id}` → `GET /parse/task/{task_id}/result`
 
 (`/feedback` is a standalone write endpoint, not part of the retrieval data flow below — see section 6.)
@@ -59,6 +61,7 @@ flowchart TD
     search["/search node search"]
     rsearch["/reasoning/search chain search"]
     pgraph["/papers/graph ingested paper graph"]
+    pref["/papers/reference references/cited-by"]
     creason["/claims/{id}/reasoning single chain"]
     batch["/variables/batch hydration"]
     parse["POST /parse/task upload PDF"]
@@ -68,10 +71,13 @@ flowchart TD
     search -->|"variables[].id (gcn_)"| creason
     search -->|"variables[].id (gcn_)"| batch
     search -->|"papers package_id / paper_id"| pgraph
+    search -->|"numeric paper_id / doi"| pref
     rsearch -->|"conclusion node global_id"| creason
     rsearch -->|"any node global_id (gcn_)"| batch
     rsearch -->|"paper_id (numeric)"| pgraph
+    rsearch -->|"paper_id / doi"| pref
     pgraph -->|"conclusion node global_id"| creason
+    pgraph -->|"paper.id / doi"| pref
     pgraph -->|"any node global_id (gcn_)"| batch
     creason -->|"any node global_id (gcn_)"| batch
     parse --> pstatus
@@ -85,7 +91,7 @@ flowchart TD
 | Upstream output | ID type | Usable downstream |
 |------|------|------|
 | `search` `variables[].id`; graph node `global_id` | global node ID `gcn_...` | `variables/batch` (any node); `claims/{id}/reasoning` (only `has_reasoning=true` conclusions) |
-| `papers`/`paper` metadata; `reasoning_chains[].paper_id` | paper ID (`paper:<number>` or plain numeric) | `papers/graph` (`package_id`/`paper_id`); `reasoning/search` `filters.paper_ids` (plain numeric, no `paper:` prefix) |
+| `papers`/`paper` metadata; `reasoning_chains[].paper_id` | paper ID (`paper:<number>` or plain numeric) | `papers/graph` (`package_id`/`paper_id`); `papers/reference` (`paper_ids` must be plain numeric, no `paper:`); `reasoning/search` `filters.paper_ids` (plain numeric, no `paper:` prefix) |
 | `POST /parse/task` `data.task_id` | parse task ID | `GET /parse/task/{task_id}`, `GET /parse/task/{task_id}/result` |
 | parse success `variables[].global_id` or `format=graph` node `global_id` when non-null | global node ID `gcn_...` | same `gcn_` downstream as above |
 | parse success `local_id`, or `format=graph` node `id` (e.g. `paper:6::P1`) | paper-local ID | **must not** be passed to `/claims/{id}/reasoning` or `/variables/batch` |
@@ -487,6 +493,66 @@ Status and result responses also carry `step_durations`, listing completed or sk
 
 ---
 
+## 8. References / cited-by — `POST /papers/reference`
+
+Given `paper_id`s or DOIs, return each seed's forward references and/or reverse cited-by list. This is paper cards (`PaperMeta`), **not** a knowledge graph. Do not send title / `package_id`.
+
+`paper_ids` must be **plain numeric** (strip `paper:` from search/graph ids). Both sides empty, or more than **20** items before dedupe → `290002`. 20 is a hard cap, not the recommended batch.
+
+Defaults: `with_abstract=true`, `with_reference=false`, `with_cited_by=true` (cited-by only, with abstracts). Omitted fields use the default; turning abstracts or cited-by off requires an explicit `false`.
+
+`references` / `cited_by`: switch is false, or the seed has no citation relations to query → **`null`** (not queried); switch is true and citation relations exist, that direction has no edges → **`[]`**. Do not treat `null` and `[]` as the same empty.
+
+Rows are either **LKM data** (LKM metadata present) or **LKM-uncovered data** (no LKM metadata; filled from citation relations). Whole-record exclusive-or: if LKM data exists, use only that; if only LKM-uncovered data exists → `id=""`; neither side → **omitted from `papers`** (`code=0` with `papers=[]` is success). Unknown `paper_id`s are dropped. List items are also `PaperMeta` with no nested citation lists.
+
+**Batching (keep client concurrency ≤5):**
+
+| Usage | Suggested batch | Cap | ~papers/s |
+|------|---:|---:|---:|
+| Forward only + abstracts | 5 | 8 | ~39 |
+| Cited-by only + abstracts (default flags) | 8 | 10 | ~53 |
+| Both lists + abstracts | 4 | 5 | ~20 |
+| Both lists, abstracts off | 8 | 10 | ~72 |
+
+With both lists and abstracts, throughput stays around 20 papers/s; larger batches only add latency. If you only need list cards, pass `with_abstract=false`. Highly cited seeds can expand to hundreds of neighbors — do not mix them into a large batch with ordinary papers.
+
+```python
+r = requests.post(f"{BASE}/papers/reference", headers=H, json={
+    "paper_ids": ["1020661015349559308"],          # numeric, no paper: prefix
+    "dois": ["10.1038/s41586-021-03381-x"],
+    "with_abstract": True,                         # default true; false for cards only
+    "with_reference": False,                       # default false
+    "with_cited_by": True,                         # default true
+})
+data = lkm_data(r)
+for p in data["papers"]:
+    print(p["id"] or "(LKM-uncovered)", p.get("en_title"), "cited_by", None if p["cited_by"] is None else len(p["cited_by"]))
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `paper_ids` | string[] | at least one of the two lists | LKM paper ids, plain numeric; empty strings dropped after trim |
+| `dois` | string[] | at least one of the two lists | DOIs |
+| `with_abstract` | bool | no | default true; applies to the seed and both lists |
+| `with_reference` | bool | no | default false; `references` only when true |
+| `with_cited_by` | bool | no | default true; explicit false → `cited_by` is null |
+
+**Key response fields:**
+
+| Field | Description |
+|-------|-------------|
+| `data.papers[]` | Seeds; same shape as search paper cards, **no** `package_id` |
+| `data.papers[].references` / `cited_by` | `PaperMeta[]` or `null` |
+| `data.papers[].id` | Set for LKM data; `""` for LKM-uncovered data |
+| `data.papers[].authors` | Pipe-joined string, not an array |
+| `data.papers[].created_at` | LKM-uncovered rows may be the zero time `0001-01-01T00:00:00Z` |
+
+> Do not use this endpoint as general paper search (**bohrium-paper-search**). Do not pass `package_id` as `paper_ids`.
+
+---
+
 ## Shared graph notes (`/papers/graph`, `/reasoning/search?format=graph`, `/claims/{id}/reasoning?format=graph`, parse `format=graph`)
 
 `graph` consists of `nodes` and `edges`, ready for frontend graph rendering.
@@ -577,6 +643,10 @@ AK="$BOHR_ACCESS_KEY"
 BASE="https://open.bohrium.com/openapi/v2/lkm"
 
 # POST example (other POST endpoints work the same: just change path and body)
+curl -s -X POST "$BASE/papers/reference" \
+  -H "Authorization: Bearer $AK" -H "Content-Type: application/json" \
+  -d '{"paper_ids":["1020661015349559308"],"with_cited_by":true,"with_abstract":true}' | jq .
+
 curl -s -X POST "$BASE/search" \
   -H "Authorization: Bearer $AK" -H "Content-Type: application/json" \
   -d '{"query":"perovskite thermal stability","retrieval_mode":"hybrid","scopes":["abstract","conclusion"],"filters":{"title":"perovskite","publication_date_start":"2020-01-01"},"limit":20}' | jq .
@@ -602,7 +672,7 @@ curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
 | code | Meaning | Fix |
 |------|---------|-----|
 | `2000` | Unauthorized | Check `BOHR_ACCESS_KEY` validity and that the request carries `Authorization: Bearer` |
-| `290002` | Invalid params | Check `retrieval_mode`/`scopes` values, `keywords` over limit, pagination bounds, `reasoning_only` vs scopes/role conflict, title/date filter format, empty/over-100 `ids`, `package_id` format |
+| `290002` | Invalid params | Check `retrieval_mode`/`scopes` values, `keywords` over limit, pagination bounds, `reasoning_only` vs scopes/role conflict, title/date filter format, empty/over-100 `ids`, `package_id` format, `/papers/reference` with both lists empty or `paper_ids+dois` over 20 |
 | `290001` | Search/query failed | Retry once; if still failing, shorten query or lower limit |
 | `290004` | Claim not found | Ensure you pass a global `gcn_...`, not a graph local node ID |
 | `290008` | Claim has no reasoning chain | Only call reasoning on conclusions with `has_reasoning=true` |
@@ -625,6 +695,7 @@ curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
 
 > For chaining between LKM endpoints, see "How the endpoints connect" and the "Worked example" above. This section lists cross-skill pairings only.
 
+- **lkm** `/papers/reference` after expanding citations → **bohrium-paper-search** for the full text; use `/papers/graph` for a knowledge graph, not this endpoint
 - **lkm** after verifying/tracing a conclusion → **bohrium-paper-search** for the original full text
 - **local PDF, want questions/conclusions/reasoning** → this skill's `/parse/task` (not **bohrium-pdf-parser**)
 - **layout/text/tables/formulas from a PDF** → **bohrium-pdf-parser**

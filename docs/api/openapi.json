@@ -30,7 +30,7 @@
     },
     {
       "name": "大知识模型 (bohrium-lkm)",
-      "description": "LKM — 知识节点检索、推理链检索、论文知识图谱、追溯 claim 依据、批量节点水合、上传 PDF 异步抽取、提交反馈。检索类：每月前 1000 次免费，之后 0.05 元/次。Parse：1 元/次，cache 命中 0.1 元/次。"
+      "description": "LKM — 知识节点检索、推理链检索、论文知识图谱、参考文献/被引、追溯 claim 依据、批量节点水合、上传 PDF 异步抽取、提交反馈。检索类：每月前 1000 次免费，之后 0.05 元/次。Parse：1 元/次，cache 命中 0.1 元/次。"
     },
     {
       "name": "AI 科学小导师 (bohrium-mentor)",
@@ -3696,6 +3696,65 @@
               }
             }
           }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi/v2/lkm/papers/reference": {
+      "post": {
+        "tags": [
+          "大知识模型 (bohrium-lkm)"
+        ],
+        "summary": "参考文献 / 被引",
+        "description": "按 paper_ids / dois 批量返回种子元数据及 references / cited_by。paper_ids 与 dois 至少一侧非空，合计去重前不超过 20。**计费**：检索类，每月前 1000 次免费，之后 0.05 元/次。",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "paper_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "dois": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "with_abstract": {
+                    "type": "boolean"
+                  },
+                  "with_reference": {
+                    "type": "boolean"
+                  },
+                  "with_cited_by": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-bohrium-price": {
+          "billable": true,
+          "currency": "CNY",
+          "skill": "bohrium-lkm",
+          "note": "检索类：每月前 1000 次免费，之后 0.05 元/次"
         },
         "responses": {
           "200": {

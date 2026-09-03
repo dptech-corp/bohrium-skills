@@ -1,13 +1,13 @@
 ---
 name: bohrium-lkm
-description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, submitting feedback on LKM content/service, or uploading a local paper PDF to asynchronously extract structured knowledge (questions, conclusions, reasoning steps). NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), PDF layout/text/table/formula extraction (use bohrium-pdf-parser)."
+description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, listing a paper's references or cited-by papers, tracing why a claim holds, batch-hydrating knowledge node details, submitting feedback on LKM content/service, or uploading a local paper PDF to asynchronously extract structured knowledge (questions, conclusions, reasoning steps). NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), PDF layout/text/table/formula extraction (use bohrium-pdf-parser)."
 ---
 
 # SKILL: Bohrium LKM (大知识模型)
 
 ## 概述
 
-通过 `open.bohrium.com` 的 LKM (Large Knowledge Model) v2 端点，对科研文献中抽取出的知识进行检索、追溯，或把手头的论文 PDF 异步抽成结构化知识：搜索摘要/命题/研究问题/推理链命中、检索完整推理链、查看已入库论文的 paper-level graph、追溯单条命题的支撑推理、按 ID 批量水合节点详情、上传 PDF 抽取研究问题/结论/推理步骤。
+通过 `open.bohrium.com` 的 LKM (Large Knowledge Model) v2 端点，对科研文献中抽取出的知识进行检索、追溯，或把手头的论文 PDF 异步抽成结构化知识：搜索摘要/命题/研究问题/推理链命中、检索完整推理链、查看已入库论文的 paper-level graph、按 paper_id/DOI 拉参考文献与被引、追溯单条命题的支撑推理、按 ID 批量水合节点详情、上传 PDF 抽取研究问题/结论/推理步骤。
 
 **核心能力：**
 
@@ -16,6 +16,7 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 | `POST /v2/lkm/search` | 公开检索：召回 abstract / claim / question / reasoning_chain 命中；claim 和 question 还可按具体角色检索 |
 | `POST /v2/lkm/reasoning/search` | 推理链检索：按论证过程相似性召回整条推理链 |
 | `POST /v2/lkm/papers/graph` | 已入库论文的 paper-level graph（`papers[]` + `graph.nodes` / `graph.edges`） |
+| `POST /v2/lkm/papers/reference` | 参考文献 / 被引：按 `paper_ids` / `dois` 批量返回种子元数据 + `references` / `cited_by` |
 | `GET /v2/lkm/claims/{id}/reasoning` | 单条命题推理链：查某条 claim 为什么成立 |
 | `POST /v2/lkm/variables/batch` | 批量水合：按节点 ID 列表批量取详情 |
 | `POST /v2/lkm/feedback` | 提交反馈：对 LKM 服务/数据提交缺陷 / 需求 / 问题 |
@@ -28,6 +29,7 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 - 按关键词/语义找命题、问题、论文摘要或推理链 → `/search`
 - 想找"论证/实验过程"相似的整条推理链（而非单个命题）→ `/reasoning/search`
 - 打开 LKM 里**已入库**的一篇论文看 nodes/edges 图谱 → `/papers/graph`
+- 已知 paper_id / DOI，要参考文献或被引列表（不是知识图谱） → `/papers/reference`
 - 手头只有 PDF，库里可能还没有这篇，或要自己跑一遍抽取 → `/parse/task`（见第 7 节）
 - 已有 claim ID，想看推理链 → `/claims/{id}/reasoning`
 - 已有一组节点 ID，想批量补全详情 → `/variables/batch`
@@ -44,7 +46,7 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 把接口分成三类：
 
 - **自然语言检索入口**（只需 `query`，无需预先知道任何 ID）：`/search`、`/reasoning/search`
-- **基于标识/ID 的查询**（需先有论文标识或节点 ID）：`/papers/graph`（论文 `package_id`/`paper_id`/`doi`/`title`）、`/claims/{id}/reasoning`（claim `gcn_` ID）、`/variables/batch`（节点 `gcn_` ID）
+- **基于标识/ID 的查询**（需先有论文标识或节点 ID）：`/papers/graph`（论文 `package_id`/`paper_id`/`doi`/`title`）、`/papers/reference`（`paper_ids` / `dois`，不要 title）、`/claims/{id}/reasoning`（claim `gcn_` ID）、`/variables/batch`（节点 `gcn_` ID）
 - **上传 PDF 异步抽取**（只需本地 PDF）：`POST /parse/task` → `GET /parse/task/{task_id}` → `GET /parse/task/{task_id}/result`
 
 （`/feedback` 是独立的写入接口，不在下面的检索数据流中，详见第 6 节。）
@@ -59,6 +61,7 @@ flowchart TD
     search["/search 节点检索"]
     rsearch["/reasoning/search 推理链检索"]
     pgraph["/papers/graph 已入库论文图谱"]
+    pref["/papers/reference 参考文献/被引"]
     creason["/claims/{id}/reasoning 单条推理链"]
     batch["/variables/batch 批量水合"]
     parse["POST /parse/task 上传 PDF"]
@@ -68,10 +71,13 @@ flowchart TD
     search -->|"variables[].id (gcn_)"| creason
     search -->|"variables[].id (gcn_)"| batch
     search -->|"papers 的 package_id / paper_id"| pgraph
+    search -->|"paper_id（纯数字）/ doi"| pref
     rsearch -->|"conclusion 节点 global_id"| creason
     rsearch -->|"任意节点 global_id (gcn_)"| batch
     rsearch -->|"paper_id (纯数字)"| pgraph
+    rsearch -->|"paper_id / doi"| pref
     pgraph -->|"conclusion 节点 global_id"| creason
+    pgraph -->|"paper.id / doi"| pref
     pgraph -->|"任意节点 global_id (gcn_)"| batch
     creason -->|"任意节点 global_id (gcn_)"| batch
     parse --> pstatus
@@ -85,7 +91,7 @@ flowchart TD
 | 上游输出 | ID 类型 | 下游可用接口 |
 |------|------|------|
 | `search` 的 `variables[].id`；graph 节点的 `global_id` | 全局节点 ID `gcn_...` | `variables/batch`（任意节点）；`claims/{id}/reasoning`（仅 `has_reasoning=true` 的 conclusion） |
-| 各接口 `papers`/`paper` 元数据；`reasoning_chains[].paper_id` | 论文 ID（`paper:<数字>` 或纯数字串） | `papers/graph`（`package_id`/`paper_id`）；`reasoning/search` 的 `filters.paper_ids`（纯数字、无 `paper:` 前缀） |
+| 各接口 `papers`/`paper` 元数据；`reasoning_chains[].paper_id` | 论文 ID（`paper:<数字>` 或纯数字串） | `papers/graph`（`package_id`/`paper_id`）；`papers/reference`（`paper_ids` 必须纯数字、无 `paper:`）；`reasoning/search` 的 `filters.paper_ids`（纯数字、无 `paper:` 前缀） |
 | `POST /parse/task` 的 `data.task_id` | 解析任务 ID | `GET /parse/task/{task_id}`、`GET /parse/task/{task_id}/result` |
 | parse 成功结果里的 `variables[].global_id` 或 `format=graph` 节点 `global_id`（非空） | 全局节点 ID `gcn_...` | 同上一行的 `gcn_` 下游 |
 | parse 成功结果里的 `local_id`，或 `format=graph` 的节点 `id`（如 `paper:6::P1`） | 本篇局部 ID | **不能**传给 `/claims/{id}/reasoning` 或 `/variables/batch` |
@@ -487,6 +493,66 @@ print("feedback id:", fb["id"])
 
 ---
 
+## 8. 参考文献 / 被引 — `POST /papers/reference`
+
+已知 `paper_id` 或 DOI，拉这篇的正向参考文献和/或反向被引。返回的是论文卡片（`PaperMeta`），**不是**知识图谱。不要用 title / `package_id`。
+
+`paper_ids` 必须是**纯数字**（search / graph 的 `paper:1020...` 先剥掉 `paper:`）。两侧都空、或合计去重前超过 **20** → `290002`。20 是硬上限，不是推荐批量。
+
+默认：`with_abstract=true`、`with_reference=false`、`with_cited_by=true`（只查被引，带摘要）。省略字段等于默认；关摘要 / 关被引必须显式传 `false`。
+
+`references` / `cited_by`：开关为 false，或该种子查不到引用关系 → **`null`**（没查）；开关为 true 且能查到引用关系、该方向无边 → **`[]`**。不要把 `null` 和 `[]` 当成同一种空。
+
+返回行分两类：**LKM 数据**（有 LKM 元数据）和 **LKM暂未覆盖数据**（没有 LKM 元数据、靠引用关系补全）。整篇二选一：有 LKM 数据则只用 LKM 数据；只有 LKM暂未覆盖数据则 `id=""`；两边都没有则**不出现在 `papers`**（`code=0` 且 `papers=[]` 也是成功）。未知 `paper_id` 直接丢掉。列表元素同样是 `PaperMeta`，不再嵌套引用。
+
+**分批（客户端并发建议 ≤5）：**
+
+| 用法 | 建议 batch | 上限 | 大约 papers/s |
+|------|---:|---:|---:|
+| 仅正向 + 摘要 | 5 | 8 | ~39 |
+| 仅反向 + 摘要（默认开关） | 8 | 10 | ~53 |
+| 正+反 + 摘要 | 4 | 5 | ~20 |
+| 正+反、关掉摘要 | 8 | 10 | ~72 |
+
+全开还带摘要时吞吐锁在约 20 papers/s，再加大 batch 只变慢。只要列表卡片就传 `with_abstract=false`。高被引种子会把单次邻居打到几百条，不要和普通文混在一个大 batch。
+
+```python
+r = requests.post(f"{BASE}/papers/reference", headers=H, json={
+    "paper_ids": ["1020661015349559308"],          # 纯数字，不要 paper: 前缀
+    "dois": ["10.1038/s41586-021-03381-x"],
+    "with_abstract": True,                         # 默认 true；只要卡片就 false
+    "with_reference": False,                       # 默认 false
+    "with_cited_by": True,                         # 默认 true
+})
+data = lkm_data(r)
+for p in data["papers"]:
+    print(p["id"] or "(LKM暂未覆盖)", p.get("en_title"), "cited_by", None if p["cited_by"] is None else len(p["cited_by"]))
+```
+
+**参数：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `paper_ids` | string[] | 与 dois 至少一侧非空 | LKM 论文 id，纯数字，trim 后空串丢弃 |
+| `dois` | string[] | 与 paper_ids 至少一侧非空 | DOI |
+| `with_abstract` | bool | 否 | 默认 true；种子和两个列表都带/都不带摘要 |
+| `with_reference` | bool | 否 | 默认 false；true 才返回 `references` |
+| `with_cited_by` | bool | 否 | 默认 true；显式 false 则 `cited_by` 为 null |
+
+**关键返回字段：**
+
+| 字段 | 说明 |
+|------|------|
+| `data.papers[]` | 种子；字段与 search 论文块同形，**没有** `package_id` |
+| `data.papers[].references` / `cited_by` | `PaperMeta[]` 或 `null` |
+| `data.papers[].id` | LKM 数据有值；仅 LKM暂未覆盖数据则为 `""` |
+| `data.papers[].authors` | `\|` 拼接的字符串，不是数组 |
+| `data.papers[].created_at` | LKM暂未覆盖数据的行可能是零值 `0001-01-01T00:00:00Z` |
+
+> 不要把本接口当通用论文搜索（用 **bohrium-paper-search**）。不要拿 `package_id` 当 `paper_ids`。
+
+---
+
 ## graph 公共说明（`/papers/graph`、`/reasoning/search?format=graph`、`/claims/{id}/reasoning?format=graph`、parse `format=graph` 共享）
 
 `graph` 由 `nodes` 和 `edges` 组成，可直接用于前端图谱渲染。
@@ -577,6 +643,10 @@ AK="$BOHR_ACCESS_KEY"
 BASE="https://open.bohrium.com/openapi/v2/lkm"
 
 # POST 示例（其它 POST 接口同理：仅换 path 与 body）
+curl -s -X POST "$BASE/papers/reference" \
+  -H "Authorization: Bearer $AK" -H "Content-Type: application/json" \
+  -d '{"paper_ids":["1020661015349559308"],"with_cited_by":true,"with_abstract":true}' | jq .
+
 curl -s -X POST "$BASE/search" \
   -H "Authorization: Bearer $AK" -H "Content-Type: application/json" \
   -d '{"query":"perovskite thermal stability","retrieval_mode":"hybrid","scopes":["abstract","conclusion"],"filters":{"title":"perovskite","publication_date_start":"2020-01-01"},"limit":20}' | jq .
@@ -602,7 +672,7 @@ curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
 | code | 含义 | 处理 |
 |------|------|------|
 | `2000` | 未授权 | 检查 `BOHR_ACCESS_KEY` 是否有效、请求头是否带 `Authorization: Bearer` |
-| `290002` | 入参错误 | 检查 `retrieval_mode`/`scopes` 取值、`keywords` 超限、分页越界、`reasoning_only` 与 scopes/role 冲突、title/date 过滤格式、`ids` 为空或超 100、`package_id` 格式 |
+| `290002` | 入参错误 | 检查 `retrieval_mode`/`scopes` 取值、`keywords` 超限、分页越界、`reasoning_only` 与 scopes/role 冲突、title/date 过滤格式、`ids` 为空或超 100、`package_id` 格式、`/papers/reference` 两侧都空或 `paper_ids+dois` 超过 20 |
 | `290001` | 检索/查询失败 | 重试一次；仍失败则缩短 query 或降低 limit |
 | `290004` | claim 不存在 | 确认传的是全局 `gcn_...`，而非 graph 本地节点 ID |
 | `290008` | claim 无推理链 | 仅对 `has_reasoning=true` 的 conclusion 调用 reasoning |
@@ -625,6 +695,7 @@ curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
 
 > LKM 各接口之间的串联见上文「接口调用关系」与「典型工作流」。这里只列跨 skill 的搭配。
 
+- **lkm** `/papers/reference` 展开引用/被引后 → **bohrium-paper-search** 找原文；要知识图谱用 `/papers/graph`，不要混
 - **lkm** 验证/追溯结论后 → **bohrium-paper-search** 找原始论文全文
 - **手头只有 PDF、要抽研究问题/结论/推理** → 本 skill 的 `/parse/task`（不要用 **bohrium-pdf-parser**）
 - **只要 PDF 里的文本/表格/公式** → **bohrium-pdf-parser**

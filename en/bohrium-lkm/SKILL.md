@@ -1,13 +1,13 @@
 ---
 name: bohrium-lkm
-description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, submitting feedback on LKM content/service, or uploading a local paper PDF to asynchronously extract structured knowledge (questions, conclusions, reasoning steps). NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), PDF layout/text/table/formula extraction (use bohrium-pdf-parser)."
+description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, submitting feedback on LKM content/service, or asynchronously extracting structured knowledge (questions, conclusions, reasoning steps) from a local paper PDF and/or parser markdown. NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), PDF layout/text/table/formula extraction (use bohrium-pdf-parser)."
 ---
 
 # SKILL: Bohrium LKM (Large Knowledge Model)
 
 ## Overview
 
-LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search and trace knowledge extracted from scientific literature, or asynchronously extract structured knowledge from a local paper PDF: search abstract/claim/question/reasoning-chain hits, retrieve complete reasoning chains, view an ingested paper-level graph, trace the reasoning behind a single claim, batch-hydrate node details by ID, and upload a PDF to extract research questions, conclusions, and reasoning steps.
+LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search and trace knowledge extracted from scientific literature, or asynchronously extract structured knowledge from a local paper PDF and/or parser markdown: search abstract/claim/question/reasoning-chain hits, retrieve complete reasoning chains, view an ingested paper-level graph, trace the reasoning behind a single claim, batch-hydrate node details by ID, and submit a PDF and/or parser markdown to extract research questions, conclusions, and reasoning steps.
 
 **Core capabilities:**
 
@@ -19,7 +19,7 @@ LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search an
 | `GET /v2/lkm/claims/{id}/reasoning` | Single-claim reasoning chain: why a claim holds |
 | `POST /v2/lkm/variables/batch` | Batch hydration: fetch node details by an ID list |
 | `POST /v2/lkm/feedback` | Submit feedback: report a bug / feature request / question about LKM content or service |
-| `POST /v2/lkm/parse/task` | Upload a PDF and create an async extraction task |
+| `POST /v2/lkm/parse/task` | Submit a PDF and/or parser markdown and create an async extraction task |
 | `GET /v2/lkm/parse/task/{task_id}` | Poll extraction progress (`status` decides the next step; `stage` is progress copy) |
 | `GET /v2/lkm/parse/task/{task_id}/result` | Fetch the result: `format=local` is the flat graph, `format=graph` matches `/papers/graph`; `partial` / `failed` return `files` |
 
@@ -28,7 +28,7 @@ LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search an
 - Find claims, questions, abstracts, or reasoning chains by keyword/semantics → `/search`
 - Find whole reasoning chains whose research/experimental process is similar (not just a single matching claim) → `/reasoning/search`
 - Open a paper **already in LKM** and view its nodes/edges graph → `/papers/graph`
-- You have a PDF, it may not be in the corpus yet, or you want to run extraction yourself → `/parse/task` (see section 7)
+- You have a PDF or parser markdown, it may not be in the corpus yet, or you want to run extraction yourself → `/parse/task` (see section 7). If you have markdown, also send the PDF to raise cache-hit chance
 - Have a claim ID, want its reasoning chain → `/claims/{id}/reasoning`
 - Have a set of node IDs, want to hydrate details → `/variables/batch`
 - Want to report a bug / feature request / question about a node, paper, or the service → `/feedback`
@@ -45,12 +45,12 @@ Endpoints fall into three groups:
 
 - **Natural-language search entry points** (only need `query`, no ID up front): `/search`, `/reasoning/search`
 - **Identifier/ID-based lookups** (need a paper identifier or node ID first): `/papers/graph` (paper `package_id`/`paper_id`/`doi`/`title`), `/claims/{id}/reasoning` (claim `gcn_` ID), `/variables/batch` (node `gcn_` ID)
-- **Upload-PDF async extraction** (only need a local PDF): `POST /parse/task` → `GET /parse/task/{task_id}` → `GET /parse/task/{task_id}/result`
+- **Async extraction** (local PDF and/or parser markdown; at least one): `POST /parse/task` → `GET /parse/task/{task_id}` → `GET /parse/task/{task_id}/result`
 
 (`/feedback` is a standalone write endpoint, not part of the retrieval data flow below — see section 6.)
 
 > `/papers/graph` can be a standalone starting point if you already have a DOI or title; otherwise its `package_id`/`paper_id` typically comes from paper metadata returned by `/search` or `/reasoning/search`.
-> If the user uploaded a PDF that may not be in the corpus, use `/parse/task`. Do not send `pdf_md5` to `/papers/graph`.
+> If the user has a PDF or parser markdown that may not be in the corpus, use `/parse/task`. Do not send `pdf_md5` to `/papers/graph`.
 
 A search entry point's output (node IDs, paper IDs) is exactly the downstream input. `/search` defaults to paper aggregation: each main `variables[]` row is the representative hit for roughly one paper, and same-paper hits are folded into `related`. Abstract hits are paper-level background context; do not treat them as claims or reasoning roots.
 
@@ -61,7 +61,7 @@ flowchart TD
     pgraph["/papers/graph ingested paper graph"]
     creason["/claims/{id}/reasoning single chain"]
     batch["/variables/batch hydration"]
-    parse["POST /parse/task upload PDF"]
+    parse["POST /parse/task PDF/content"]
     pstatus["GET /parse/task/{id} progress"]
     presult["GET /parse/task/{id}/result graph"]
 
@@ -428,11 +428,11 @@ print("feedback id:", fb["id"])
 
 ---
 
-## 7. Upload a PDF for async extraction — `/parse/task`
+## 7. Async extraction — `/parse/task`
 
-Use this trio when you have a PDF that may not be in the corpus yet, or you want to run extraction yourself. A successful submit means the task was accepted, not that the graph is ready.
+Use this trio when you have a PDF or parser markdown that may not be in the corpus yet, or you want to run extraction yourself. A successful submit means the task was accepted, not that the graph is ready.
 
-Vs `/papers/graph`: upload a PDF and inspect *this file's* result with parse; inspect an already-ingested LKM paper with `/papers/graph`. Default `format=local` is the flat extraction; `format=graph` matches `/papers/graph`.
+Vs `/papers/graph`: submit this file/text and inspect *this run's* result with parse; inspect an already-ingested LKM paper with `/papers/graph`. Default `format=local` is the flat extraction; `format=graph` matches `/papers/graph`.
 
 Runnable end-to-end script: `scripts/parse_paper.py`. Examples in this skill share `BASE=.../openapi/v2/lkm` with the other LKM endpoints. The same parse paths also exist on v1/v4.
 
@@ -440,17 +440,30 @@ Runnable end-to-end script: `scripts/parse_paper.py`. Examples in this skill sha
 
 **Submit `POST /parse/task`:**
 
+Give at least `file` or `content`. `content` is the API text field, not a second file part; sending `content` skips LAS OCR. If you already have `content` and also have the PDF, send `file` with it: that raises the chance of a cache hit. Do not send `md5` / `page` in that case; the service derives them from the PDF. `md5` is the PDF digest; you may pass it on content-only submits. `page` is optional. Do not send `doi` / `arxiv_id`.
+
+**Which submit shape:**
+
+| What you have | What to send |
+|------|------|
+| PDF only | `file` only (LAS OCR; the 50-page reject applies only here) |
+| parser markdown and the PDF | `file` + `content`: skips OCR and raises cache-hit chance; do not send `md5` / `page` |
+| parser markdown only | `content` only; you may send `md5` (the PDF's 32-hex) to try the cache; `page` is optional |
+
 | Field | In | Required | Notes |
 |------|------|------|------|
-| `file` | multipart | yes | Field name must be `file`; body must be a PDF; default max 64 MiB and 50 pages. Do not send `doi` / `arxiv_id` |
+| `file` | multipart | no | Field name must be `file`; body must be a PDF; max 64 MiB. The 50-page reject applies to PDF-only submits. Sending it together with `content` raises cache-hit chance |
+| `content` | form text | no | Parser markdown: read locally, then post as text. Path / `@file` / literal |
+| `md5` | form | no | **PDF MD5** (32-char hex). Content-only: you may pass it. Do not send when a PDF is given |
+| `page` | form | no | Optional. Do not send when a PDF is given |
 | `Authorization` | header | yes | `Bearer $BOHR_ACCESS_KEY` |
 
-A successful submit (`code=0`) returns `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`. `cache_source` appears only when `cache_hit=true`: `lkm` means the paper was already in the LKM corpus; `local` means an earlier submission of the same PDF (same md5) is reused. Still branch on `status`:
+A successful submit (`code=0`) returns `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`. `cache_source` appears only when `cache_hit=true`: `lkm` means the paper was already in the LKM corpus; `local` means an earlier submission of the same PDF or content identity is reused. Still branch on `status`:
 
 - `queued`: a new or retried run; poll status.
 - `succeeded`: a full graph is already available; fetch Result immediately.
-- `partial`: a **business terminal**. This PDF cannot yield a full research-paper graph (review, too short, collection, etc.). It is not “halfway done”. Resubmitting the same file stays `partial` + `cache_hit=true` and does not rerun.
-- Same user + same PDF still `queued` / `running`: `290020`, with the existing `task_id` in the error.
+- `partial`: a **business terminal**. This identity cannot yield a full research-paper graph (review, too short, collection, etc.). It is not “halfway done”. Resubmitting the same identity stays `partial` + `cache_hit=true` and does not rerun.
+- Same user + same identity still `queued` / `running`: `290020`, with the existing `task_id` in the error.
 - Last run was a technical `failed`: the job is re-queued, `cache_hit=false`.
 
 Do not resubmit to hurry progress.
@@ -463,7 +476,7 @@ Use `status` to decide the next step and `stage` for progress copy (do not show 
 |--------|-----------|
 | `queued` / `running` | Poll this endpoint every 5 seconds |
 | `succeeded` | Fetch the graph from the result endpoint |
-| `partial` | Non-retryable business failure. Read `failed_reason` from Result; do not resubmit the same PDF |
+| `partial` | Non-retryable business failure. Read `failed_reason` from Result; do not resubmit the same identity |
 | `failed` | Technical failure. Show a mapped `failed_reason`; the same file may be submitted again |
 
 Typical `stage` order: `metadata` → `ocr` → `step0` → `step1` → `step2_3` → `step4` → `graph` → `done`. `step2_3` is step2/step3 in parallel and often takes longer. Calling Result while `queued` / `running` returns `290017`; the task is not lost.
@@ -479,7 +492,7 @@ Status and result responses also carry `step_durations`, listing completed or sk
 | Case | `data` shape |
 |------|-------------|
 | `succeeded` | Always `task_id` / `status=succeeded` / `cache_hit` (`cache_source` when true) and `step_durations`, plus the graph for `format` |
-| `partial` | `task_id` / `status=partial` / `cache_hit` / `stage` / `failed_reason` / `files` / `step_durations`. Ignores `format`. Do not resubmit the same PDF |
+| `partial` | `task_id` / `status=partial` / `cache_hit` / `stage` / `failed_reason` / `files` / `step_durations`. Ignores `format`. Do not resubmit the same identity |
 | `failed` | Same as above, `status=failed`. The same file may be submitted again |
 | still queued or running | `code=290017`; go back to status |
 
@@ -552,19 +565,29 @@ else:
 
 ---
 
-## Worked example: extract structured knowledge from a PDF
+## Worked example: extract structured knowledge
 
-> Flow: submit PDF → inspect `status` / `cache_hit` → poll status → fetch the result. Full script: `scripts/parse_paper.py`.
+> Flow: pick a submit shape → `POST /parse/task` and keep `task_id` → fetch the result if already terminal, otherwise poll status → `GET .../result`. Full script: `scripts/parse_paper.py`. When you have parser markdown, prefer `file` + `content` (skips OCR and raises cache-hit chance).
 
 ```python
+# PDF + markdown (preferred: skips OCR and raises cache-hit chance; do not send md5/page)
+# python3 scripts/parse_paper.py paper.pdf --content paper.md --out result.json
+# PDF only
 # python3 scripts/parse_paper.py paper.pdf --out result.json
-# python3 scripts/parse_paper.py paper.pdf --format graph --out result.json
+# Content-only: md5 is the PDF digest; page is optional
+# python3 scripts/parse_paper.py --content paper.md --md5 <32-hex> --page 12 --out result.json
+# After a terminal task, fetch the graph shape
+# python3 scripts/parse_paper.py paper.pdf --content paper.md --format graph --out result.json
 ```
 
-- `succeeded`: `format=local` reads flat `variables` / `factors`; `format=graph` reads nodes/edges. Do not pass `local_id` or a node `id` to reasoning.
-- `partial`: non-retryable business failure; show `failed_reason`; do not resubmit the same PDF.
-- `failed`: technical failure; the same file may be submitted again.
-- Do not resubmit to hurry the job. Do not feed `format=local` into a `/papers/graph` renderer; pass `format=graph` for the same shape.
+End-to-end:
+
+1. Submit with the shape above. Success means accepted, and returns `task_id` / `status` / `cache_hit`. On `290020`, keep the existing `task_id` in the error; do not resubmit.
+2. If `cache_hit=true` and `status` is already `succeeded` / `partial` / `failed`, fetch the result; do not poll.
+3. Otherwise `GET /parse/task/{task_id}` every 5 seconds. Stay on `queued` / `running`. Do not call result yet (`290017` means not ready; the task is not lost).
+4. `succeeded` → `GET /parse/task/{task_id}/result` (default flat `local`; add `format=graph` for nodes/edges). The first successful Result is billed; later fetches of the same `task_id` are not charged again.
+5. `partial`: business terminal; read `failed_reason` and do not resubmit the same identity. `failed`: technical; the same identity may be submitted again.
+6. Do not pass `local_id` / a node `id` to reasoning; only a non-null `global_id` goes to `/claims/{id}/reasoning` or `/variables/batch`. Do not feed `format=local` into a `/papers/graph` renderer.
 
 ---
 
@@ -585,10 +608,23 @@ curl -s -X POST "$BASE/search" \
 curl -s -X GET "$BASE/claims/gcn_73e13bb548f847bd/reasoning?format=graph&max_chains=10" \
   -H "Authorization: Bearer $AK" | jq .
 
-# Upload a PDF for extraction (field name must be file)
+# PDF only (field name must be file)
 curl -s -X POST "$BASE/parse/task" \
   -H "Authorization: Bearer $AK" \
   -F "file=@paper.pdf;type=application/pdf" | jq .
+
+# PDF + parser markdown (sending the PDF with content raises cache-hit chance; content=<file is text, not @file)
+curl -s -X POST "$BASE/parse/task" \
+  -H "Authorization: Bearer $AK" \
+  -F "file=@paper.pdf;type=application/pdf" \
+  -F "content=<paper.md" | jq .
+
+# Content-only: md5 is the PDF digest; page is optional
+curl -s -X POST "$BASE/parse/task" \
+  -H "Authorization: Bearer $AK" \
+  -F "content=<paper.md" \
+  -F "md5=4d4c6c8a0f0c4f1a8c2e9b7d6a5f4e3c" \
+  -F "page=12" | jq .
 
 # Fetch the result (format=graph matches /papers/graph)
 curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
@@ -609,15 +645,14 @@ curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
 | `290009` | Query timeout | Retry later, or use a more precise `paper_id`/`package_id` |
 | `290011` | Paper not found | Check `paper_id`/`package_id`/`doi`/`title` |
 | `290013` | Paper exists but no graph extracted | Show paper metadata and note no structured graph yet |
-| `290015` | Parse bind/param error | Multipart field name must be `file`; file must be non-empty; Result `format` must be `local` or `graph` |
+| `290015` | Parse bind/param error | Give at least `file` or `content`; multipart field name for a PDF must be `file`; Result `format` must be `local` or `graph` |
 | `290016` | Parse task not found | `task_id` must come from submit and belong to the current user |
 | `290017` | Parse result not ready | Go back to the status endpoint; do not substitute `/papers/graph` |
 | `290018` | PDF too large | Default cap is 64 MiB |
 | `290019` | Not a valid PDF | File header must be `%PDF-` |
-| `290020` | Same user + same PDF already in progress | Do not resubmit; poll the `task_id` in the error |
+| `290020` | Same user + same identity already in progress | Do not resubmit; poll the `task_id` in the error |
 | `290021` | Parse failed (generic) | Retry once; inspect `failed_reason` on status/result |
-| `290022` | PDF has too many pages | Default cap is 50 pages |
-| `7002` | Result not available yet | Retry the same `task_id` later |
+| `290022` | PDF has too many pages | PDF-only submits; default cap is 50 pages |
 
 ---
 
@@ -626,6 +661,6 @@ curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
 > For chaining between LKM endpoints, see "How the endpoints connect" and the "Worked example" above. This section lists cross-skill pairings only.
 
 - **lkm** after verifying/tracing a conclusion → **bohrium-paper-search** for the original full text
-- **local PDF, want questions/conclusions/reasoning** → this skill's `/parse/task` (not **bohrium-pdf-parser**)
+- **local PDF or parser markdown, want questions/conclusions/reasoning** → this skill's `/parse/task` (not **bohrium-pdf-parser**)
 - **layout/text/tables/formulas from a PDF** → **bohrium-pdf-parser**
 - **lkm** batch-hydration / graph results → **bohrium-knowledge-base** to archive

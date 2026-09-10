@@ -112,7 +112,7 @@ export BOHR_ACCESS_KEY="YOUR_ACCESS_KEY"
 | [bohrium-tools](zh/bohrium-tools/SKILL.md) | `bohr tools` | 科学工具库 — 浏览、检索并查看工具详情 |
 | [bohrium-web-search](zh/bohrium-web-search/SKILL.md) | `bohr search` | 网页搜索 — 开放互联网检索 |
 | [bohrium-sandbox](zh/bohrium-sandbox/SKILL.md) | `bohr sandbox` | 云沙箱 — 创建临时云 VM 并运行 Shell/Python |
-| [bohrium-lkm](zh/bohrium-lkm/SKILL.md) | `bohr lkm` | 大知识模型 — 知识检索、推理链、论文知识图谱和本地 PDF 异步抽取 |
+| [bohrium-lkm](zh/bohrium-lkm/SKILL.md) | `bohr lkm` | 大知识模型 — 知识检索、推理链、论文知识图谱，以及本地 PDF / parser 正文异步抽取 |
 | [bohrium-mentor](zh/bohrium-mentor/SKILL.md) | `bohr agents mentor` | AI 科学小导师 — 基于文献检索的科学问答 |
 
 ## 计费说明

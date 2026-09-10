@@ -1,13 +1,13 @@
 ---
 name: bohrium-lkm
-description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, submitting feedback on LKM content/service, or uploading a local paper PDF to asynchronously extract structured knowledge (questions, conclusions, reasoning steps). NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), PDF layout/text/table/formula extraction (use bohrium-pdf-parser)."
+description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, tracing why a claim holds, batch-hydrating knowledge node details, submitting feedback on LKM content/service, or asynchronously extracting structured knowledge (questions, conclusions, reasoning steps) from a local paper PDF and/or parser markdown. NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), PDF layout/text/table/formula extraction (use bohrium-pdf-parser)."
 ---
 
 # SKILL: Bohrium LKM (大知识模型)
 
 ## 概述
 
-通过 `open.bohrium.com` 的 LKM (Large Knowledge Model) v2 端点，对科研文献中抽取出的知识进行检索、追溯，或把手头的论文 PDF 异步抽成结构化知识：搜索摘要/命题/研究问题/推理链命中、检索完整推理链、查看已入库论文的 paper-level graph、追溯单条命题的支撑推理、按 ID 批量水合节点详情、上传 PDF 抽取研究问题/结论/推理步骤。
+通过 `open.bohrium.com` 的 LKM (Large Knowledge Model) v2 端点，对科研文献中抽取出的知识进行检索、追溯，或把手头的论文 PDF / parser 正文异步抽成结构化知识：搜索摘要/命题/研究问题/推理链命中、检索完整推理链、查看已入库论文的 paper-level graph、追溯单条命题的支撑推理、按 ID 批量水合节点详情、提交 PDF 和/或 parser markdown 抽取研究问题/结论/推理步骤。
 
 **核心能力：**
 
@@ -19,7 +19,7 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 | `GET /v2/lkm/claims/{id}/reasoning` | 单条命题推理链：查某条 claim 为什么成立 |
 | `POST /v2/lkm/variables/batch` | 批量水合：按节点 ID 列表批量取详情 |
 | `POST /v2/lkm/feedback` | 提交反馈：对 LKM 服务/数据提交缺陷 / 需求 / 问题 |
-| `POST /v2/lkm/parse/task` | 上传 PDF，创建异步抽取任务 |
+| `POST /v2/lkm/parse/task` | 提交 PDF 和/或 parser 正文，创建异步抽取任务 |
 | `GET /v2/lkm/parse/task/{task_id}` | 查询抽取进度（`status` 决定下一步，`stage` 做进度文案） |
 | `GET /v2/lkm/parse/task/{task_id}/result` | 取抽取结果：`format=local` 扁平图谱，`format=graph` 与 `/papers/graph` 同形态；`partial` / `failed` 是 `files` |
 
@@ -28,7 +28,7 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 - 按关键词/语义找命题、问题、论文摘要或推理链 → `/search`
 - 想找"论证/实验过程"相似的整条推理链（而非单个命题）→ `/reasoning/search`
 - 打开 LKM 里**已入库**的一篇论文看 nodes/edges 图谱 → `/papers/graph`
-- 手头只有 PDF，库里可能还没有这篇，或要自己跑一遍抽取 → `/parse/task`（见第 7 节）
+- 手头有 PDF 或 parser markdown，库里可能还没有这篇，或要自己跑一遍抽取 → `/parse/task`（见第 7 节）。有正文时把 PDF 一并提交，能提高 cache 命中
 - 已有 claim ID，想看推理链 → `/claims/{id}/reasoning`
 - 已有一组节点 ID，想批量补全详情 → `/variables/batch`
 - 想对某个节点/论文或服务本身提交缺陷/需求/问题 → `/feedback`
@@ -45,12 +45,12 @@ description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: u
 
 - **自然语言检索入口**（只需 `query`，无需预先知道任何 ID）：`/search`、`/reasoning/search`
 - **基于标识/ID 的查询**（需先有论文标识或节点 ID）：`/papers/graph`（论文 `package_id`/`paper_id`/`doi`/`title`）、`/claims/{id}/reasoning`（claim `gcn_` ID）、`/variables/batch`（节点 `gcn_` ID）
-- **上传 PDF 异步抽取**（只需本地 PDF）：`POST /parse/task` → `GET /parse/task/{task_id}` → `GET /parse/task/{task_id}/result`
+- **异步抽取**（本地 PDF 和/或 parser 正文，至少给一个）：`POST /parse/task` → `GET /parse/task/{task_id}` → `GET /parse/task/{task_id}/result`
 
 （`/feedback` 是独立的写入接口，不在下面的检索数据流中，详见第 6 节。）
 
 > `/papers/graph` 若已知 DOI 或标题，也可不依赖其它接口、直接作为起点；否则其 `package_id`/`paper_id` 通常来自 `/search`、`/reasoning/search` 返回的论文元数据。
-> 用户上传了 PDF、库里不一定有这篇：用 `/parse/task`，不要拿 `pdf_md5` 去调 `/papers/graph`。
+> 用户有一份尚未入库的 PDF 或 parser 正文：用 `/parse/task`，不要拿 `pdf_md5` 去调 `/papers/graph`。
 
 检索入口的输出（节点 ID、论文 ID）正是下游接口的输入。`/search` 默认按 paper 聚合：主结果 `variables[]` 每条约等于一篇论文的代表命中，同论文的其它命中折叠进 `related`。`abstract` 是论文级背景上下文，不要当 claim 使用，也不要拿去追 reasoning。
 
@@ -61,7 +61,7 @@ flowchart TD
     pgraph["/papers/graph 已入库论文图谱"]
     creason["/claims/{id}/reasoning 单条推理链"]
     batch["/variables/batch 批量水合"]
-    parse["POST /parse/task 上传 PDF"]
+    parse["POST /parse/task 提交 PDF/正文"]
     pstatus["GET /parse/task/{id} 进度"]
     presult["GET /parse/task/{id}/result 图谱"]
 
@@ -428,11 +428,11 @@ print("feedback id:", fb["id"])
 
 ---
 
-## 7. 上传 PDF 异步抽取 — `/parse/task`
+## 7. 异步抽取 — `/parse/task`
 
-手头只有 PDF、库里可能还没有这篇，或要自己跑一遍抽取时，用这一组接口。提交成功只表示任务已受理，不表示图谱已经出来。
+手头有 PDF 或 parser markdown、库里可能还没有这篇，或要自己跑一遍抽取时，用这一组接口。提交成功只表示任务已受理，不表示图谱已经出来。
 
-和 `/papers/graph` 的分工：上传 PDF、看「我这份文件」的结果用本系列；查 LKM 里已入库论文的 paper-level graph 用 `/papers/graph`。默认 `format=local` 是扁平抽取结果；`format=graph` 才与 `/papers/graph` 同形态。
+和 `/papers/graph` 的分工：提交这份文件/正文、看「我这次」的结果用本系列；查 LKM 里已入库论文的 paper-level graph 用 `/papers/graph`。默认 `format=local` 是扁平抽取结果；`format=graph` 才与 `/papers/graph` 同形态。
 
 可运行的端到端脚本：`scripts/parse_paper.py`。本 skill 示例与其它 LKM 接口共用 `BASE=.../openapi/v2/lkm`。同一套 parse 路径也在 v1/v4。
 
@@ -440,17 +440,30 @@ print("feedback id:", fb["id"])
 
 **提交 `POST /parse/task`：**
 
+至少给 `file` 或 `content`。`content` 是接口的文本字段，不是第二个文件 part；有 `content` 就跳过 LAS OCR。已经有 `content`、手头还有 PDF 时，把 `file` 一并传上，能提高 cache 命中；此时不要传 `md5` / `page`，由服务端从 PDF 计算。`md5` 指的是这份 PDF 的 MD5，只有正文、没有文件时可以传。`page` 可选。不要再传 `doi` / `arxiv_id`。
+
+**怎么选提交形态：**
+
+| 手头有什么 | 怎么传 |
+|------|------|
+| 只有 PDF | 只传 `file`（走 LAS OCR；50 页限制只卡这种） |
+| parser 正文，还有 PDF | `file` + `content`：跳过 OCR，并提高 cache 命中；不要传 `md5` / `page` |
+| 只有 parser 正文 | 只传 `content`；可传 `md5`（PDF 的 32-hex）去碰缓存，`page` 可选 |
+
 | 字段 | 位置 | 必填 | 说明 |
 |------|------|------|------|
-| `file` | multipart | 是 | 字段名必须是 `file`，内容必须是 PDF，默认不超过 64 MiB、50 页。不要再传 `doi` / `arxiv_id` |
+| `file` | multipart | 否 | 字段名必须是 `file`，内容必须是 PDF，不超过 64 MiB。50 页限制只约束只传 PDF 的提交。和 `content` 一起传能提高 cache 命中 |
+| `content` | form 文本 | 否 | parser markdown：本地读出后再作为文本发出。路径 / `@file` / 字面量 |
+| `md5` | form | 否 | **PDF 的 MD5**（32 位 hex）。只有正文时可以传。有 PDF 时不要传 |
+| `page` | form | 否 | 可选。有 PDF 时不要传 |
 | `Authorization` | header | 是 | `Bearer $BOHR_ACCESS_KEY` |
 
-提交成功（`code=0`）返回 `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`。`cache_source` 只在 `cache_hit=true` 时出现：`lkm` 表示论文已在 LKM 库中，`local` 表示复用此前同一 PDF（md5 相同）的抽取。仍要以 `status` 为准：
+提交成功（`code=0`）返回 `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`。`cache_source` 只在 `cache_hit=true` 时出现：`lkm` 表示论文已在 LKM 库中，`local` 表示复用此前同一 PDF 或 content 身份的抽取。仍要以 `status` 为准：
 
 - `queued`：新跑或重跑，去轮询进度。
 - `succeeded`：已有完整图谱，可马上取结果。
-- `partial`：**业务终态**，这篇 PDF 抽不出完整图谱（综述、过短、合集等）。不是跑到一半。再交同一份文件仍是 `partial` + `cache_hit=true`，不会重跑。
-- 同一用户、同一 PDF 仍在 `queued` / `running` 再提交：`290020`，错误里带已有 `task_id`。
+- `partial`：**业务终态**，这篇抽不出完整图谱（综述、过短、合集等）。不是跑到一半。再交同一身份仍是 `partial` + `cache_hit=true`，不会重跑。
+- 同一用户、同一身份仍在 `queued` / `running` 再提交：`290020`，错误里带已有 `task_id`。
 - 上次是技术失败（`failed`）：会重新排队，`cache_hit=false`。
 
 不要靠反复提交催进度。
@@ -463,7 +476,7 @@ print("feedback id:", fb["id"])
 |--------|--------|
 | `queued` / `running` | 每 5 秒轮询本接口 |
 | `succeeded` | 调结果接口取图谱 |
-| `partial` | 业务不可重试失败。调结果接口看 `failed_reason`；不要再交同一份 PDF |
+| `partial` | 业务不可重试失败。调结果接口看 `failed_reason`；不要再交同一身份 |
 | `failed` | 技术失败。展示映射后的 `failed_reason`；同一份文件可以再提交 |
 
 `stage` 常见顺序：`metadata` → `ocr` → `step0` → `step1` → `step2_3` → `step4` → `graph` → `done`。`step2_3` 是 step2/step3 并行，耗时往往更长。`queued` / `running` 时去调结果接口会得到 `290017`，这不是任务丢了。
@@ -479,7 +492,7 @@ print("feedback id:", fb["id"])
 | 情况 | `data` 形状 |
 |------|-------------|
 | `succeeded` | 固定带 `task_id` / `status=succeeded` / `cache_hit`（`true` 时还有 `cache_source`）和 `step_durations`；再按 `format` 带图谱 |
-| `partial` | `task_id` / `status=partial` / `cache_hit` / `stage` / `failed_reason` / `files` / `step_durations`。不看 `format`。不要再交同一份 PDF |
+| `partial` | `task_id` / `status=partial` / `cache_hit` / `stage` / `failed_reason` / `files` / `step_durations`。不看 `format`。不要再交同一身份 |
 | `failed` | 同上，`status=failed`。同一份文件可再提交 |
 | 仍在排队或执行中 | `code=290017`，回到进度接口 |
 
@@ -552,19 +565,29 @@ else:
 
 ---
 
-## 典型工作流：上传 PDF 抽取结构化知识
+## 典型工作流：抽取结构化知识
 
-> 思路：提交 PDF → 看 `status` / `cache_hit` → 轮询进度 → 取结果。完整脚本见 `scripts/parse_paper.py`。
+> 思路：选好提交形态 → `POST /parse/task` 记下 `task_id` → 已终态则取结果，否则轮询进度 → `GET .../result`。完整脚本见 `scripts/parse_paper.py`。有 parser 正文时优先 `file` + `content`（跳过 OCR，并提高 cache 命中）。
 
 ```python
+# 有 PDF + 正文（推荐：跳过 OCR，并提高 cache 命中；不要传 md5/page）
+# python3 scripts/parse_paper.py paper.pdf --content paper.md --out result.json
+# 只有 PDF
 # python3 scripts/parse_paper.py paper.pdf --out result.json
-# python3 scripts/parse_paper.py paper.pdf --format graph --out result.json
+# 只有正文：md5 是 PDF 的 MD5；page 可选
+# python3 scripts/parse_paper.py --content paper.md --md5 <32-hex> --page 12 --out result.json
+# 终态后再取 graph 形态
+# python3 scripts/parse_paper.py paper.pdf --content paper.md --format graph --out result.json
 ```
 
-- `succeeded`：`format=local` 读扁平 `variables` / `factors`；`format=graph` 读 nodes/edges。`local_id` / 节点 `id` 不要拿去追 reasoning。
-- `partial`：业务不可重试失败，展示 `failed_reason`；不要再传同一份 PDF。
-- `failed`：技术失败；同一份文件可以再提交。
-- 不要反复提交催进度。`format=local` 不要塞进 `/papers/graph` 渲染；要同形态请传 `format=graph`。
+整段流程：
+
+1. 按上面选形态提交。成功只表示受理，返回 `task_id` / `status` / `cache_hit`。`290020` 时用错误里的已有 `task_id`，不要再提交。
+2. `cache_hit=true` 且 `status` 已是 `succeeded` / `partial` / `failed`：直接取结果，不必轮询。
+3. 否则每 5 秒 `GET /parse/task/{task_id}`。`queued` / `running` 继续等；不要在这时调 result（会 `290017`，任务没丢）。
+4. `succeeded` → `GET /parse/task/{task_id}/result`（默认为扁平 `local`；要 nodes/edges 再加 `format=graph`）。首次成功 Result 计费，同一 `task_id` 再取不重复扣。
+5. `partial`：业务终态，取结果看 `failed_reason`，不要再交同一身份。`failed`：技术失败，同一身份可以再提交。
+6. `local_id` / 节点 `id` 不要拿去追 reasoning；只有非空 `global_id` 才能给 `/claims/{id}/reasoning` 或 `/variables/batch`。`format=local` 不要塞进 `/papers/graph` 渲染。
 
 ---
 
@@ -585,10 +608,23 @@ curl -s -X POST "$BASE/search" \
 curl -s -X GET "$BASE/claims/gcn_73e13bb548f847bd/reasoning?format=graph&max_chains=10" \
   -H "Authorization: Bearer $AK" | jq .
 
-# 上传 PDF 抽取（字段名必须是 file）
+# PDF only（字段名必须是 file）
 curl -s -X POST "$BASE/parse/task" \
   -H "Authorization: Bearer $AK" \
   -F "file=@paper.pdf;type=application/pdf" | jq .
+
+# PDF + parser 正文（有 content 时一并传 PDF，能提高 cache 命中；content 用 <file 发文本，不要 @file）
+curl -s -X POST "$BASE/parse/task" \
+  -H "Authorization: Bearer $AK" \
+  -F "file=@paper.pdf;type=application/pdf" \
+  -F "content=<paper.md" | jq .
+
+# 只有正文：md5 是 PDF 的 MD5；page 可选
+curl -s -X POST "$BASE/parse/task" \
+  -H "Authorization: Bearer $AK" \
+  -F "content=<paper.md" \
+  -F "md5=4d4c6c8a0f0c4f1a8c2e9b7d6a5f4e3c" \
+  -F "page=12" | jq .
 
 # 取结果（format=graph 与 /papers/graph 同形态）
 curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
@@ -609,15 +645,14 @@ curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
 | `290009` | 查询超时 | 稍后重试，或改用更精确的 `paper_id`/`package_id` |
 | `290011` | 论文不存在 | 检查 `paper_id`/`package_id`/`doi`/`title` |
 | `290013` | 论文存在但未抽出 graph | 展示论文元数据并提示暂无结构化图谱 |
-| `290015` | 解析入参错误 | 确认 multipart 字段名是 `file`，文件非空；Result 的 `format` 只能是 `local` 或 `graph` |
+| `290015` | 解析入参错误 | 至少给 `file` 或 `content`；`file` 字段名必须是 `file`；Result 的 `format` 只能是 `local` 或 `graph` |
 | `290016` | 解析任务不存在 | 确认 `task_id` 来自提交接口，且是当前用户的任务 |
 | `290017` | 解析结果尚未就绪 | 回到进度接口继续等，不要改去调 `/papers/graph` |
 | `290018` | PDF 过大 | 默认上限 64 MiB |
 | `290019` | 不是合法 PDF | 检查文件头是否为 `%PDF-` |
-| `290020` | 同一用户同一 PDF 仍在解析 | 不要再提交；用返回的 `task_id` 去查进度 |
+| `290020` | 同一用户同一身份仍在解析 | 不要再提交；用返回的 `task_id` 去查进度 |
 | `290021` | 解析失败（通用） | 可重试一次；进度/结果里看 `failed_reason` |
-| `290022` | PDF 页数超限 | 默认上限 50 页 |
-| `7002` | 结果暂不可用 | 稍后用同一 `task_id` 重试 |
+| `290022` | PDF 页数超限 | 只约束只传 PDF 的提交；默认上限 50 页 |
 
 ---
 
@@ -626,6 +661,6 @@ curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
 > LKM 各接口之间的串联见上文「接口调用关系」与「典型工作流」。这里只列跨 skill 的搭配。
 
 - **lkm** 验证/追溯结论后 → **bohrium-paper-search** 找原始论文全文
-- **手头只有 PDF、要抽研究问题/结论/推理** → 本 skill 的 `/parse/task`（不要用 **bohrium-pdf-parser**）
+- **手头有 PDF 或 parser 正文、要抽研究问题/结论/推理** → 本 skill 的 `/parse/task`（不要用 **bohrium-pdf-parser**）
 - **只要 PDF 里的文本/表格/公式** → **bohrium-pdf-parser**
 - **lkm** 批量水合/图谱结果 → **bohrium-knowledge-base** 归档存储

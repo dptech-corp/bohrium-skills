@@ -112,7 +112,7 @@ Existing Claude Code plugin users can continue to use the original installation 
 | [bohrium-tools](en/bohrium-tools/SKILL.md) | `bohr tools` | Scientific tools — browse, search, and inspect tools |
 | [bohrium-web-search](en/bohrium-web-search/SKILL.md) | `bohr search` | Web search — search the open internet |
 | [bohrium-sandbox](en/bohrium-sandbox/SKILL.md) | `bohr sandbox` | Cloud sandbox — create temporary VMs and run Shell/Python |
-| [bohrium-lkm](en/bohrium-lkm/SKILL.md) | `bohr lkm` | Large Knowledge Model — knowledge retrieval, reasoning chains, paper graphs, and async PDF extraction |
+| [bohrium-lkm](en/bohrium-lkm/SKILL.md) | `bohr lkm` | Large Knowledge Model — knowledge retrieval, reasoning chains, paper graphs, and async extraction from a PDF and/or parser markdown |
 | [bohrium-mentor](en/bohrium-mentor/SKILL.md) | `bohr agents mentor` | AI Science Mentor — literature-grounded scientific Q&A |
 
 ## Billing

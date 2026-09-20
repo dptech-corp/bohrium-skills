@@ -158,6 +158,20 @@ description: "一行描述。Use when: ... NOT for: ..."
 - **正文** — 功能说明、API 端点、参数表、返回字段、代码示例、错误处理。
 - **代码示例** — 使用 Python `requests` 风格，不硬编码任何凭据。
 
+## 如何引用
+
+如果您在研究中使用了 Bohrium Skills，请引用本仓库。为便于复现，请同时注明所使用的版本或 commit SHA。
+
+引用元数据见 [CITATION.cff](CITATION.cff)。您也可以使用以下 BibTeX：
+
+```bibtex
+@misc{bohrium_skills,
+  author       = {{DP Technology}},
+  title        = {{Bohrium Skills}},
+  howpublished = {\url{https://github.com/dptech-corp/bohrium-skills}}
+}
+```
+
 ## License
 
 MIT

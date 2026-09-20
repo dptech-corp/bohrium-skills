@@ -158,6 +158,20 @@ description: "One-line description. Use when: ... NOT for: ..."
 - **Body** — Feature description, API endpoints, parameter tables, response fields, code examples, and error handling.
 - **Code examples** — Use Python `requests` style and never hard-code credentials.
 
+## How to cite
+
+If you use Bohrium Skills in your research, please cite this repository. To support reproducibility, also specify the version or commit SHA used.
+
+Citation metadata is available in [CITATION.cff](CITATION.cff). You can also use the following BibTeX:
+
+```bibtex
+@misc{bohrium_skills,
+  author       = {{DP Technology}},
+  title        = {{Bohrium Skills}},
+  howpublished = {\url{https://github.com/dptech-corp/bohrium-skills}}
+}
+```
+
 ## License
 
 MIT

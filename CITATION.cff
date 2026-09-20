@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+type: software
+message: "If you use Bohrium Skills in your research, please cite this repository."
+title: "Bohrium Skills"
+authors:
+  - name: "DP Technology"
+repository-code: "https://github.com/dptech-corp/bohrium-skills"
+url: "https://github.com/dptech-corp/bohrium-skills"

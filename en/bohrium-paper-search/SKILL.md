@@ -92,7 +92,8 @@ r = requests.post(f"{PAPER_BASE}/rag/pass/keyword", headers=HEADERS_JSON, json={
 |-----------|------|----------|-------------|
 | `words` | string[] | Yes | Keyword list; recommend 3-8 English terms |
 | `question` | string | Yes | Natural language research question |
-| `type` | integer | No | Search version for the keyword endpoint; only 0=basic and 1=enhanced are supported |
+| `type` | integer | No | Keyword endpoint accepts only 0=basic and 1=enhanced. Do not send 3 |
+| `search_type` | integer | Required for original text | Send `3` to receive original-text `pieces`. The JSON field is `search_type`, not `type` |
 | `startTime` | string | No | Start date `YYYY-MM-DD`, empty string for no limit |
 | `endTime` | string | No | End date `YYYY-MM-DD` |
 | `jcrZones` | string[] | No | JCR zone filter, e.g. `["Q1","Q2"]` |
@@ -122,7 +123,7 @@ r = requests.post(f"{PAPER_BASE}/rag/pass/keyword", headers=HEADERS_JSON, json={
 | `data[].impactFactor` | Impact factor |
 | `data[].citationNums` | Citation count |
 | `data[].popularity` | Popularity score |
-| `data[].pieces` | Related corpus snippet |
+| `data[].pieces` | Original-text string. With `search_type=3`, keep this string. An empty `alltext` does not matter |
 | `data[].figures[]` | Related figures (`figureId`, `imageUrl`, `enExplain`) |
 | `data[].languageType` | 0=English |
 
@@ -142,7 +143,7 @@ for p in data["data"]:
     print(f"  Patent: {p}")
 ```
 
-**Note**: keyword search supports type 0 (basic) and 1 (enhanced); patent search supports type 0, 1, and 2.
+**Note**: keyword `type` supports only 0 (basic) and 1 (enhanced). For original-text snippets send `search_type: 3`. `type: 3` returns HTTP 400 with message `requested type is not available`. Patent `type` still supports 0, 1, and 2. `alltext` may be empty.
 
 ### Patent Request Parameters
 
@@ -205,11 +206,17 @@ AK="$BOHR_ACCESS_KEY"
 BASE="https://open.bohrium.com"
 PAPER_BASE="$BASE/openapi/v2/paper"
 
-# English paper search
+# English paper search (enhanced metadata)
 curl -s -X POST "$PAPER_BASE/rag/pass/keyword" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $AK" \
   -d '{"words":["deep learning","protein"],"question":"deep learning protein structure prediction","type":1,"startTime":"2024-01-01","endTime":"2025-01-01","jcrZones":["Q1"],"pageSize":5}'
+
+# Original-text snippets. The field is search_type, not type
+curl -s -X POST "$PAPER_BASE/rag/pass/keyword" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $AK" \
+  -d '{"words":["deep learning","protein"],"question":"deep learning protein structure prediction","search_type":3,"pageSize":5}'
 
 # Patent search
 curl -s -X POST "$PAPER_BASE/rag/pass/patent" \
@@ -230,3 +237,4 @@ curl -s -X POST "$PAPER_BASE/rag/pass/patent" \
 | Empty results | Date range too narrow or filters too strict | Widen startTime/endTime or remove jcrZones |
 | Response has multiple JSON lines | Normal behavior (streaming) | Parse first line only: `json.loads(response.text.split('\n')[0])` |
 | Patent pieces empty | Some patents lack corpus indexing | Normal; use `abstracts` for content instead |
+| Keyword `type: 3` returns 400 | v2 rejects that field value | Send `search_type: 3`. Original text is `data[].pieces`; do not wait for `alltext` |

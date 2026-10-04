@@ -92,7 +92,8 @@ r = requests.post(f"{PAPER_BASE}/rag/pass/keyword", headers=HEADERS_JSON, json={
 |------|------|------|------|
 | `words` | string[] | 是 | 关键词列表，建议 3-8 个英文术语 |
 | `question` | string | 是 | 研究问题的自然语言描述 |
-| `type` | integer | 否 | keyword 接口搜索版本，仅支持 0=普通、1=加强版 |
+| `type` | integer | 否 | keyword 接口只支持 0=普通、1=加强版。不要传 3 |
+| `search_type` | integer | 核对原文时必填 | 传 `3` 才返回原文片段 `pieces`。JSON 字段名是 `search_type`，不是 `type` |
 | `startTime` | string | 否 | 起始日期 `YYYY-MM-DD`，空字符串表示不限 |
 | `endTime` | string | 否 | 截止日期 `YYYY-MM-DD` |
 | `jcrZones` | string[] | 否 | JCR 分区筛选，如 `["Q1","Q2"]` |
@@ -122,7 +123,7 @@ r = requests.post(f"{PAPER_BASE}/rag/pass/keyword", headers=HEADERS_JSON, json={
 | `data[].impactFactor` | 影响因子 |
 | `data[].citationNums` | 被引次数 |
 | `data[].popularity` | 热度 |
-| `data[].pieces` | 相关语料片段 |
+| `data[].pieces` | 原文字符串。`search_type=3` 时保留；空 `alltext` 不影响，有 `pieces` 即用 `pieces` |
 | `data[].figures[]` | 相关图片（含 `figureId`, `imageUrl`, `enExplain`） |
 | `data[].languageType` | 0=英文 |
 
@@ -142,7 +143,7 @@ for p in data["data"]:
     print(f"  Patent: {p}")
 ```
 
-**注意**: keyword 搜索的 `type` 仅支持 0（普通）、1（加强版）；patent 搜索的 `type` 支持 0、1、2。
+**注意**: keyword 的 `type` 只支持 0（普通）、1（加强版）。要原文片段时改传 `search_type: 3`；`type: 3` 会返回 HTTP 400，`message` 为 `requested type is not available`。patent 的 `type` 仍支持 0、1、2。`alltext` 可以为空。
 
 ### 专利请求参数
 
@@ -205,11 +206,17 @@ AK="$BOHR_ACCESS_KEY"
 BASE="https://open.bohrium.com"
 PAPER_BASE="$BASE/openapi/v2/paper"
 
-# 英文文献搜索
+# 英文文献搜索（加强版题录）
 curl -s -X POST "$PAPER_BASE/rag/pass/keyword" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $AK" \
   -d '{"words":["deep learning","protein"],"question":"deep learning protein structure prediction","type":1,"startTime":"2024-01-01","endTime":"2025-01-01","jcrZones":["Q1"],"pageSize":5}'
+
+# 原文片段。字段是 search_type，不是 type
+curl -s -X POST "$PAPER_BASE/rag/pass/keyword" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $AK" \
+  -d '{"words":["deep learning","protein"],"question":"deep learning protein structure prediction","search_type":3,"pageSize":5}'
 
 # 专利搜索
 curl -s -X POST "$PAPER_BASE/rag/pass/patent" \
@@ -230,3 +237,4 @@ curl -s -X POST "$PAPER_BASE/rag/pass/patent" \
 | 返回为空 | 时间范围太窄或筛选条件过严 | 放宽 startTime/endTime 或去掉 jcrZones 限制 |
 | 响应含多行 JSON | 正常行为（streaming） | 取第一行解析即可，或用 `json.loads(response.text.split('\n')[0])` |
 | 专利 pieces 为空 | 部分专利无语料索引 | 正常现象，可通过 `abstracts` 获取摘要内容 |
+| keyword `type: 3` 返回 400 | v2 不接受这个字段值 | 改成 `search_type: 3`。原文在 `data[].pieces`，不要等 `alltext` |

@@ -7,7 +7,7 @@ description: "Browse and search the Bohrium scientific Tools library via open.bo
 
 ## Overview
 
-Access the **Bohrium Tools library** through the `/v2/literature-sage/tool/*` endpoints on `open.bohrium.com` — a directory of scientific computing software/tools organized as `domain` → `subdomain` → `tool`, with hybrid retrieval (BM25 + vector recall).
+Access the **Bohrium Tools library** through the `/v2/lkm/tool/*` endpoints on `open.bohrium.com` — a directory of scientific computing software/tools organized as `domain` → `subdomain` → `tool`, with hybrid retrieval (BM25 + vector recall). Tools are identified by `tool_unique_key`.
 
 > **Two hosts, two jobs**: call the **API** on `open.bohrium.com`; build the **clickable reader link** you show to a human on `https://www.bohrium.com` (see [Building page links](#building-page-links)). They are different hosts — don't paste the API URL to a user.
 
@@ -43,7 +43,7 @@ Access the **Bohrium Tools library** through the `/v2/literature-sage/tool/*` en
 import os, requests
 
 AK = os.environ["BOHR_ACCESS_KEY"]
-BASE = "https://open.bohrium.com/openapi/v2/literature-sage/tool"
+BASE = "https://open.bohrium.com/openapi/v2/lkm/tool"
 
 # Language is controlled by the Content-Language header: en-us / zh-cn
 H = {
@@ -62,7 +62,7 @@ def data(r):
     return body.get("data", body) if isinstance(body, dict) else body
 ```
 
-> **Language note**: Most endpoints determine display language from the `Content-Language` header (`en-us`/`zh-cn`), defaulting to English `en-US` when absent. However, `search/hybrid` and `search/subdomain` **require** a language: pass `language` (`en-US`/`zh-CN`) in the body or send a `Content-Language` header — at least one. Omitting both returns `language is required` (no fallback).
+> **Language note**: Display language comes from body `language` / `lang`, then the `Content-Language` header (`en-us` / `zh-cn`). If both are empty it falls back to `en-US`; unrecognized values also fall back, they do not error. Canonical values are `en-US` / `zh-CN`.
 
 ---
 
@@ -78,7 +78,6 @@ def data(r):
 | `detail` | GET | `/detail` | Get tool detail by `tool_unique_key` |
 | `tags` | POST | `/tags` | Get tags under a set of subdomains |
 | `search/hybrid` | POST | `/search/hybrid` | Tool hybrid search (text + keyword weights) |
-| `search/subdomain` | POST | `/search/subdomain` | Subdomain search |
 
 ---
 
@@ -90,8 +89,7 @@ def data(r):
 | "What subdomains are under this domain?" | `subdomain` | subdomains with `node_id`, `tool_num`, `tags` |
 | "List tools in this subdomain" (sort / filter) | `list` | tools with `name`, `star_count`, `tool_unique_key` |
 | "Filter that list by tag" | `tags` → then `list` with `tag_ids` | tag ids, then filtered tools |
-| "Find a tool that does **X**" (natural language) | `search/hybrid` | ranked tools with `score` + `tool_unique_key` |
-| "Which subdomain matches **X**?" | `search/subdomain` | matching subdomains |
+| "Find a tool that does **X**" (natural language) | `search/hybrid` | ranked tools with `tool_unique_key` |
 | "Details / GitHub / MCP / Docker / tutorial of this tool" | `detail` (`tool_unique_key`) | full tool profile |
 
 **Rule of thumb**: open-ended "find me a tool for…" → `search/hybrid`; structured "browse this domain" → `domain` → `subdomain` → `list`. Always finish with `detail` before recommending a tool.
@@ -109,11 +107,6 @@ def data(r):
 1. `domain` → pick a domain `node_id`.
 2. `subdomain` (pass `domain_node_ids`) → pick a subdomain.
 3. `list` (`sort_by: "popular"`) → top tools → `detail` on the winner.
-
-### C. Locate a subdomain, then dig in
-
-1. `search/subdomain` to map a fuzzy topic to a subdomain `node_id`.
-2. `list` that subdomain → `detail`.
 
 ---
 
@@ -185,7 +178,7 @@ for it in body.get("items", []):
     print(f"    {it.get('profile','')[:120]}")
 ```
 
-Key `data.items[]` fields: `id` / `name` / `profile` / `tags` / `star_count` / `related_entry_count` / `last_commit_time` / `avatar_url` / `tool_unique_key`.
+Key `data.items[]` fields: `name` / `profile` / `tags` / `star_count` / `related_entry_count` / `last_commit_time` / `avatar_url` / `tool_unique_key`.
 
 ---
 
@@ -225,9 +218,9 @@ Hybrid (BM25 + vector) recall using natural-language `text` + keyword weights `k
 r = requests.post(f"{BASE}/search/hybrid", headers=H, json={
     "text": "molecular dynamics simulation engine with GPU support",
     "keywords": {"molecular dynamics": 1.0, "GPU": 0.6},  # required: keyword -> weight
-    "language": "en-US",      # required: either this or the Content-Language header; omitting both returns "language is required"
+    "language": "en-US",      # optional; empty falls back to Content-Language, then en-US
     "k": 50,                  # optional; default 100, max 500
-    "return_level": "",       # optional: control return granularity
+    "return_level": "basic",  # optional: basic / standard / full / complete; score only on full/complete
 })
 body = data(r)
 print("total:", body.get("total"))
@@ -237,20 +230,7 @@ for t in body.get("tools", []):
     print(f"- {t['tool_name']}  score={score_str}  key={t.get('tool_unique_key')}")
 ```
 
-Key `data.tools[]` fields: `tool_id` / `tool_name` / `tool_unique_key` / `domains` / `subdomains` / `tags` / `profile` / `repo_url` / `score` / `matched_chunks`.
-
----
-
-## 9. Subdomain search — `search/subdomain`
-
-```python
-r = requests.post(f"{BASE}/search/subdomain", headers=H, json={
-    "text": "protein structure prediction",
-    "language": "en-US",   # required: either this or the Content-Language header; omitting both returns "language is required"
-})
-for s in data(r).get("subdomains", []):
-    print(f"- {s['node_display_name']}  [{s['node_id']}]")
-```
+Key `data.tools[]` fields: `tool_name` / `tool_unique_key` / `domains` / `subdomains` / `tags` / `profile` / `repo_url` / `score` / `matched_chunks`. `score` only appears when `return_level` is `full` or `complete`.
 
 ---
 
@@ -258,7 +238,7 @@ for s in data(r).get("subdomains", []):
 
 ```bash
 AK="$BOHR_ACCESS_KEY"
-BASE="https://open.bohrium.com/openapi/v2/literature-sage/tool"
+BASE="https://open.bohrium.com/openapi/v2/lkm/tool"
 
 # Tool hybrid search (payload lives under .data)
 curl -s -X POST "$BASE/search/hybrid" \
@@ -286,7 +266,7 @@ When you show a tool or subdomain to a human, attach the clickable reader link o
 | Link | Pattern | id source |
 |------|---------|-----------|
 | Tool detail | `{lang}/sciencepedia/agent-tools/{tool_unique_key}` | `tool_unique_key` from `list` / `search/hybrid` / `detail` |
-| Subdomain | `{lang}/sciencepedia/agent-tools/c/{subdomain_node_id}` | `node_id` from `subdomain` / `search/subdomain` |
+| Subdomain | `{lang}/sciencepedia/agent-tools/c/{subdomain_node_id}` | `node_id` from `subdomain` |
 | Tools home | `{lang}/sciencepedia/agent-tools` | — (domain has no standalone page; link to home) |
 
 ```text
@@ -311,12 +291,12 @@ Subdomain (zh):  https://www.bohrium.com/sciencepedia/agent-tools/c/subdomain-ll
 | `list` ignores my `sort_by` | Used a raw column name | Valid values are `popular` / `latest` / `similarity` (not `star_count`/`last_commit_time`); unknown values fall back to `popular` |
 | Built a reader link on `open.bohrium.com` | Mixed up API host and page host | Page links use `https://www.bohrium.com` (see *Building page links*) |
 | `search/hybrid` returns `text is required` | Missing `text` | Both `text` and `keywords` are required |
-| `search/hybrid` / `search/subdomain` returns `language is required` | Neither body `language` nor `Content-Language` header was provided | Add `"language":"en-US"` (or `zh-CN`) to the body, or send a `Content-Language: en-us` header |
+| `detail` returns `330003` | `tool_unique_key` does not exist | First obtain a valid `tool_unique_key` via `search/hybrid` |
 | `k` truncated | `search/hybrid` caps `k` at 500 | Keep `k` ≤ 500 |
-| `list` reports `subdomain_node_id` error | Missing required subdomain id | First obtain `node_id` via `subdomain` or `search/subdomain` |
+| `list` reports `subdomain_node_id` error | Missing required subdomain id | First obtain `node_id` via `subdomain` |
 
 ## Pairs well with
 
 - **tools** to search/browse tools (`domain` → `subdomain` → `list` → `detail`)
 - Use **wiki** / **paper-search** to understand a direction first, then **tools** to find implementations
-- Use `search/hybrid` for natural-language tool discovery, and `search/subdomain` to locate the best-matching subdomain
+- Use `search/hybrid` for natural-language tool discovery

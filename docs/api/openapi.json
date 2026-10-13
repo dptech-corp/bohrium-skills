@@ -6167,7 +6167,7 @@
         }
       }
     },
-    "/openapi/v2/literature-sage/tool/domain": {
+    "/openapi/v2/lkm/tool/domain": {
       "get": {
         "tags": [
           "科学工具库 (bohrium-tools)"
@@ -6187,7 +6187,7 @@
         }
       }
     },
-    "/openapi/v2/literature-sage/tool/domain/summary": {
+    "/openapi/v2/lkm/tool/domain/summary": {
       "get": {
         "tags": [
           "科学工具库 (bohrium-tools)"
@@ -6207,7 +6207,7 @@
         }
       }
     },
-    "/openapi/v2/literature-sage/tool/subdomain": {
+    "/openapi/v2/lkm/tool/subdomain": {
       "post": {
         "tags": [
           "科学工具库 (bohrium-tools)"
@@ -6250,7 +6250,7 @@
         }
       }
     },
-    "/openapi/v2/literature-sage/tool/subdomain/detail": {
+    "/openapi/v2/lkm/tool/subdomain/detail": {
       "post": {
         "tags": [
           "科学工具库 (bohrium-tools)"
@@ -6284,7 +6284,7 @@
         }
       }
     },
-    "/openapi/v2/literature-sage/tool/list": {
+    "/openapi/v2/lkm/tool/list": {
       "post": {
         "tags": [
           "科学工具库 (bohrium-tools)"
@@ -6336,7 +6336,7 @@
         }
       }
     },
-    "/openapi/v2/literature-sage/tool/detail": {
+    "/openapi/v2/lkm/tool/detail": {
       "get": {
         "tags": [
           "科学工具库 (bohrium-tools)"
@@ -6366,7 +6366,7 @@
         }
       }
     },
-    "/openapi/v2/literature-sage/tool/tags": {
+    "/openapi/v2/lkm/tool/tags": {
       "post": {
         "tags": [
           "科学工具库 (bohrium-tools)"
@@ -6403,7 +6403,7 @@
         }
       }
     },
-    "/openapi/v2/literature-sage/tool/search/hybrid": {
+    "/openapi/v2/lkm/tool/search/hybrid": {
       "post": {
         "tags": [
           "科学工具库 (bohrium-tools)"
@@ -6419,9 +6419,9 @@
                     "type": "string"
                   },
                   "keywords": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "number"
                     }
                   },
                   "language": {
@@ -6431,43 +6431,6 @@
                     "type": "integer"
                   },
                   "return_level": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/openapi/v2/literature-sage/tool/search/subdomain": {
-      "post": {
-        "tags": [
-          "科学工具库 (bohrium-tools)"
-        ],
-        "summary": "子领域搜索",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "text": {
-                    "type": "string"
-                  },
-                  "language": {
                     "type": "string"
                   }
                 }

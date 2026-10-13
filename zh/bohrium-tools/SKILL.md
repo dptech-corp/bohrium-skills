@@ -7,7 +7,7 @@ description: "浏览与检索 Bohrium 科学工具库（Tools），通过 open.b
 
 ## 概述
 
-通过 `open.bohrium.com` 的 `/v2/literature-sage/tool/*` 端点访问 **Bohrium 科学工具库**——一个按 `domain`(领域) → `subdomain`(子领域) → `tool`(工具) 层级组织的科学计算软件/工具目录，并提供混合检索（BM25 + 向量召回）能力。
+通过 `open.bohrium.com` 的 `/v2/lkm/tool/*` 端点访问 **Bohrium 科学工具库**——一个按 `domain`(领域) → `subdomain`(子领域) → `tool`(工具) 层级组织的科学计算软件/工具目录，并提供混合检索（BM25 + 向量召回）能力。工具用 `tool_unique_key` 标识。
 
 > **两个 Host，各司其职**：调用 **API** 用 `open.bohrium.com`；给人看的**可点击阅读链接**用 `https://www.bohrium.com`（见[构造页面链接](#构造页面链接)）。二者是不同的 Host——不要把 API URL 直接发给用户。
 
@@ -43,7 +43,7 @@ description: "浏览与检索 Bohrium 科学工具库（Tools），通过 open.b
 import os, requests
 
 AK = os.environ["BOHR_ACCESS_KEY"]
-BASE = "https://open.bohrium.com/openapi/v2/literature-sage/tool"
+BASE = "https://open.bohrium.com/openapi/v2/lkm/tool"
 
 # 语言通过 Content-Language 头控制：en-us / zh-cn
 H = {
@@ -62,7 +62,7 @@ def data(r):
     return body.get("data", body) if isinstance(body, dict) else body
 ```
 
-> **语言说明**：绝大多数接口的展示语言由 HTTP 头 `Content-Language`(`en-us`/`zh-cn`) 决定，缺省时回退为英文 `en-US`。但 `search/hybrid` 与 `search/subdomain` 这两个检索接口**必须**指定语言——请求体里传 `language`(`en-US`/`zh-CN`) 或带上 `Content-Language` 头，二者至少其一；都不传会报 `language is required`，不会回退。
+> **语言说明**：展示语言由请求体 `language` / `lang`、HTTP 头 `Content-Language`（`en-us` / `zh-cn`）决定；都空则回落 `en-US`，无法识别也不报错。规范值 `en-US` / `zh-CN`。
 
 ---
 
@@ -78,7 +78,6 @@ def data(r):
 | `detail` | GET | `/detail` | 按 `tool_unique_key` 获取工具详情 |
 | `tags` | POST | `/tags` | 获取一组子领域下的标签 |
 | `search/hybrid` | POST | `/search/hybrid` | 工具混合检索（文本 + 关键词权重） |
-| `search/subdomain` | POST | `/search/subdomain` | 子领域检索 |
 
 ---
 
@@ -90,8 +89,7 @@ def data(r):
 | “这个领域下有哪些子领域？” | `subdomain` | 子领域及 `node_id`、`tool_num`、`tags` |
 | “列出该子领域下的工具”（排序/筛选） | `list` | 工具的 `name`、`star_count`、`tool_unique_key` |
 | “再按标签筛这个列表” | `tags` → 再 `list` 传 `tag_ids` | 标签 id，再得筛选后的工具 |
-| “找一个能做 **X** 的工具”（自然语言） | `search/hybrid` | 带 `score` + `tool_unique_key` 的工具排名 |
-| “**X** 对应哪个子领域？” | `search/subdomain` | 匹配的子领域 |
+| “找一个能做 **X** 的工具”（自然语言） | `search/hybrid` | 带 `tool_unique_key` 的工具排名 |
 | “某工具的详情 / GitHub / MCP / Docker / 教程” | `detail`（`tool_unique_key`） | 完整工具档案 |
 
 **经验法则**：开放式“帮我找个做……的工具”→ `search/hybrid`；结构化“浏览这个领域”→ `domain` → `subdomain` → `list`。推荐工具前务必先 `detail`。
@@ -109,11 +107,6 @@ def data(r):
 1. `domain` → 选定领域 `node_id`。
 2. `subdomain`（传 `domain_node_ids`）→ 选定子领域。
 3. `list`（`sort_by: "popular"`）→ 热门工具 → 对优胜者 `detail`。
-
-### C. 先定位子领域再深入
-
-1. `search/subdomain` 把模糊主题映射到子领域 `node_id`。
-2. `list` 该子领域 → `detail`。
 
 ---
 
@@ -185,7 +178,7 @@ for it in body.get("items", []):
     print(f"    {it.get('profile','')[:120]}")
 ```
 
-返回 `data.items[]` 关键字段：`id` / `name` / `profile` / `tags` / `star_count` / `related_entry_count` / `last_commit_time` / `avatar_url` / `tool_unique_key`。
+返回 `data.items[]` 关键字段：`name` / `profile` / `tags` / `star_count` / `related_entry_count` / `last_commit_time` / `avatar_url` / `tool_unique_key`。
 
 ---
 
@@ -225,9 +218,9 @@ for it in data(r).get("items", []):
 r = requests.post(f"{BASE}/search/hybrid", headers=H, json={
     "text": "molecular dynamics simulation engine with GPU support",
     "keywords": {"molecular dynamics": 1.0, "GPU": 0.6},  # 必填：关键词→权重
-    "language": "en-US",      # 必须：与 Content-Language 头二选一，都不传会报 language is required
+    "language": "en-US",      # 可选；空则看 Content-Language，再空则 en-US
     "k": 50,                  # 可选；默认 100，最大 500
-    "return_level": "",       # 可选：控制返回粒度
+    "return_level": "basic",  # 可选：basic / standard / full / complete；非 full/complete 不回 score
 })
 body = data(r)
 print("total:", body.get("total"))
@@ -237,20 +230,7 @@ for t in body.get("tools", []):
     print(f"- {t['tool_name']}  score={score_str}  key={t.get('tool_unique_key')}")
 ```
 
-返回 `data.tools[]` 关键字段：`tool_id` / `tool_name` / `tool_unique_key` / `domains` / `subdomains` / `tags` / `profile` / `repo_url` / `score` / `matched_chunks`。
-
----
-
-## 9. 子领域检索 — `search/subdomain`
-
-```python
-r = requests.post(f"{BASE}/search/subdomain", headers=H, json={
-    "text": "protein structure prediction",
-    "language": "en-US",   # 必须：与 Content-Language 头二选一，都不传会报 language is required
-})
-for s in data(r).get("subdomains", []):
-    print(f"- {s['node_display_name']}  [{s['node_id']}]")
-```
+返回 `data.tools[]` 关键字段：`tool_name` / `tool_unique_key` / `domains` / `subdomains` / `tags` / `profile` / `repo_url` / `score` / `matched_chunks`。`score` 仅 `return_level=full/complete` 时出现。
 
 ---
 
@@ -258,7 +238,7 @@ for s in data(r).get("subdomains", []):
 
 ```bash
 AK="$BOHR_ACCESS_KEY"
-BASE="https://open.bohrium.com/openapi/v2/literature-sage/tool"
+BASE="https://open.bohrium.com/openapi/v2/lkm/tool"
 
 # 工具混合检索（数据在 .data 下）
 curl -s -X POST "$BASE/search/hybrid" \
@@ -286,7 +266,7 @@ curl -s "$BASE/domain" \
 | 链接 | 模板 | id 来源 |
 |------|------|---------|
 | 工具详情 | `{lang}/sciencepedia/agent-tools/{tool_unique_key}` | `list` / `search/hybrid` / `detail` 的 `tool_unique_key` |
-| 子领域 | `{lang}/sciencepedia/agent-tools/c/{subdomain_node_id}` | `subdomain` / `search/subdomain` 的 `node_id` |
+| 子领域 | `{lang}/sciencepedia/agent-tools/c/{subdomain_node_id}` | `subdomain` 的 `node_id` |
 | 工具首页 | `{lang}/sciencepedia/agent-tools` | —（领域无独立页面，指向首页） |
 
 ```text
@@ -311,12 +291,12 @@ curl -s "$BASE/domain" \
 | `list` 的 `sort_by` 不生效 | 用了原始列名 | 合法值为 `popular` / `latest` / `similarity`（不是 `star_count`/`last_commit_time`）；未知值回退为 `popular` |
 | 阅读链接拼到了 `open.bohrium.com` 上 | 混淆了 API host 与页面 host | 页面链接用 `https://www.bohrium.com`（见“构造页面链接”） |
 | `search/hybrid` 报 `text is required` | 缺少 `text` | `text` 与 `keywords` 均为必填 |
-| `search/hybrid` / `search/subdomain` 报 `language is required` | 既没传请求体 `language`，也没带 `Content-Language` 头 | 请求体加 `"language":"en-US"`（或 `zh-CN`），或带上 `Content-Language: en-us` 头 |
+| `detail` 报 `330003` | `tool_unique_key` 不存在 | 先用 `search/hybrid` 拿到正确的 `tool_unique_key` |
 | `k` 过大被截断 | `search/hybrid` 的 `k` 上限 500 | 控制在 500 以内 |
-| `list` 报 `subdomain_node_id` 错 | 缺少必填的子领域 id | 先用 `subdomain` 或 `search/subdomain` 拿到 `node_id` |
+| `list` 报 `subdomain_node_id` 错 | 缺少必填的子领域 id | 先用 `subdomain` 拿到 `node_id` |
 
 ## 搭配使用
 
 - **tools** 检索/浏览工具（`domain` → `subdomain` → `list` → `detail`）
 - 先用 **wiki** / **paper-search** 了解某个方向，再用 **tools** 找对应的实现工具
-- 用 `search/hybrid` 做自然语言找工具，用 `search/subdomain` 定位最匹配的子领域
+- 用 `search/hybrid` 做自然语言找工具

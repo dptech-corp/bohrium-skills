@@ -640,14 +640,14 @@ def sciencepedia_smoke() -> None:
 sciencepedia_smoke()
 
 # ---------------------------------------------------------------------------
-# bohrium-tools  (literature-sage tool library — list/search are free)
+# bohrium-tools  (LKM tool library — domain is free; hybrid is billed like old wiki_tool)
 # Responses use the {code, data, trace_id} envelope; data lives under "data".
 # ---------------------------------------------------------------------------
 print("\n[bohrium-tools]")
-record("tools", "/v2/literature-sage/tool/domain", "GET")
+record("tools", "/v2/lkm/tool/domain", "GET")
 record(
     "tools",
-    "/v2/literature-sage/tool/search/hybrid",
+    "/v2/lkm/tool/search/hybrid",
     "POST",
     body={
         "text": "molecular dynamics simulation",

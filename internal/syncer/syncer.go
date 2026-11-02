@@ -176,15 +176,25 @@ func Sync(opts SyncOptions) (*Result, error) {
 	}
 
 	stamp := opts.Now().UTC().Format("20060102T150405Z")
+	backupRoot := filepath.Join(configDir, "backups")
+	if err := os.MkdirAll(backupRoot, 0o700); err != nil {
+		return result, err
+	}
+	backupDir, err := os.MkdirTemp(backupRoot, stamp+"-")
+	if err != nil {
+		return result, err
+	}
+	// Remove only an empty reservation. Existing recovery data is retained.
+	defer os.Remove(backupDir)
 	for targetIndex, target := range opts.Targets {
 		for _, skillName := range plan.ToUpdate {
 			source := sourceByName[skillName]
-			backedUp, err := syncOneSkill(opts.SourceFS, source, target, configDir, stamp, targetIndex)
-			if err != nil {
-				return result, err
-			}
+			backedUp, err := syncOneSkill(opts.SourceFS, source, target, backupDir, targetIndex)
 			if backedUp {
 				result.BackupCount++
+			}
+			if err != nil {
+				return result, err
 			}
 		}
 	}
@@ -287,7 +297,7 @@ func listSourceSkills(sourceFS fs.FS, lang string) ([]sourceSkill, error) {
 	return out, nil
 }
 
-func syncOneSkill(sourceFS fs.FS, source sourceSkill, targetRoot, configDir, stamp string, targetIndex int) (bool, error) {
+func syncOneSkill(sourceFS fs.FS, source sourceSkill, targetRoot, backupDir string, targetIndex int) (bool, error) {
 	if source.Name == "" || source.Path == "" {
 		return false, errors.New("empty source skill")
 	}
@@ -310,7 +320,7 @@ func syncOneSkill(sourceFS fs.FS, source sourceSkill, targetRoot, configDir, sta
 	}
 
 	backupMade := false
-	backupPath := filepath.Join(configDir, "backups", stamp, fmt.Sprintf("target-%d", targetIndex), source.Name)
+	backupPath := filepath.Join(backupDir, fmt.Sprintf("target-%d", targetIndex), source.Name)
 	if _, err := os.Stat(dest); err == nil {
 		if err := copyDir(dest, backupPath); err != nil {
 			return false, err
@@ -320,17 +330,40 @@ func syncOneSkill(sourceFS fs.FS, source sourceSkill, targetRoot, configDir, sta
 		return false, err
 	}
 
-	if err := os.RemoveAll(dest); err != nil {
-		return backupMade, err
-	}
-	if err := os.Rename(tmp, dest); err != nil {
-		if backupMade {
-			_ = copyDir(backupPath, dest)
-		}
+	if err := publishSkillDirectory(tmp, dest, os.Rename); err != nil {
 		return backupMade, err
 	}
 	tmpActive = false
 	return backupMade, nil
+}
+
+// publishSkillDirectory never recursively deletes the active installation.
+// The rename seam allows filesystem fault tests without changing Sync's API.
+func publishSkillDirectory(staged, dest string, rename func(string, string) error) error {
+	if _, err := os.Lstat(dest); errors.Is(err, os.ErrNotExist) {
+		return rename(staged, dest)
+	} else if err != nil {
+		return err
+	}
+	holder, err := os.MkdirTemp(filepath.Dir(dest), "."+filepath.Base(dest)+".previous-")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(holder) // Only removes an empty holder, never recovery files.
+	previous := filepath.Join(holder, "previous")
+	if err := rename(dest, previous); err != nil {
+		return fmt.Errorf("preserve previous skill %s: %w", dest, err)
+	}
+	if publishErr := rename(staged, dest); publishErr != nil {
+		if rollbackErr := rename(previous, dest); rollbackErr != nil {
+			return fmt.Errorf("skill publication and rollback failed; previous installation retained at %s: %w", previous, errors.Join(publishErr, rollbackErr))
+		}
+		return fmt.Errorf("skill publication failed; previous installation restored: %w", publishErr)
+	}
+	if err := os.RemoveAll(holder); err != nil {
+		return fmt.Errorf("new skill is active at %s; previous-copy cleanup failed at %s: %w", dest, previous, err)
+	}
+	return nil
 }
 
 func copySkillFromFS(sourceFS fs.FS, sourcePath, destRoot string) error {

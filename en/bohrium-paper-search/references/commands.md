@@ -8,7 +8,7 @@ bohr paper search <query> [flags]
 
 | Flag | Default | Meaning |
 |---|---:|---|
-| `--page` | `1` | Page number; each invocation may be billed |
+| `--page` | `1` | Accepted but not forwarded in 2.9.19; keep 1 (not pagination) |
 | `--size` | `10` | Page size |
 | `--year-from` | unset | Inclusive start year |
 | `--year-to` | unset | Inclusive end year |
@@ -26,7 +26,7 @@ bohr paper patent <query> [flags]
 
 | Flag | Default | Meaning |
 |---|---:|---|
-| `--page` | `1` | Page number; each invocation may be billed |
+| `--page` | `1` | Accepted but not forwarded in 2.9.19; keep 1 (not pagination) |
 | `--size` | `10` | Page size |
 | `--type` | `0` | `0` normal, `1` enhanced, `2` professional |
 

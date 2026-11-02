@@ -8,7 +8,7 @@
   },
   "files": [
     "bin/",
-    "scripts/",
+    "scripts/postinstall.js",
     "README.md",
     "README_EN.md"
   ],

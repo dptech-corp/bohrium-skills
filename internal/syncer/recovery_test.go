@@ -1,10 +1,12 @@
 package syncer
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -130,5 +132,57 @@ func TestReplacementFailureNeverLeavesPartialActiveTree(t *testing.T) {
 	}
 	if !reflect.DeepEqual(actual, old) && !reflect.DeepEqual(actual, newTree) {
 		t.Fatalf("sync left a partial active tree after %v: %v", syncErr, actual)
+	}
+}
+
+func TestPublishFailureRestoresCompletePreviousTree(t *testing.T) {
+	root := t.TempDir()
+	active, staged := filepath.Join(root, "active"), filepath.Join(root, "staged")
+	old := map[string]string{"SKILL.md": "old", "references/commands.md": "old ref", "agents/openai.yaml": "old interface"}
+	writeTree(t, active, old)
+	writeTree(t, staged, map[string]string{"SKILL.md": "new", "references/commands.md": "new ref"})
+	publishErr := errors.New("injected publication failure")
+	err := publishSkillDirectory(staged, active, func(from, to string) error {
+		if from == staged && to == active {
+			return publishErr
+		}
+		return os.Rename(from, to)
+	})
+	if !errors.Is(err, publishErr) {
+		t.Fatalf("publication error was lost: %v", err)
+	}
+	if got := readTree(t, active); !reflect.DeepEqual(got, old) {
+		t.Fatalf("old installation was not restored intact: %v", got)
+	}
+}
+
+func TestRollbackFailureRetainsRecoveryTreeAndBothErrors(t *testing.T) {
+	root := t.TempDir()
+	active, staged := filepath.Join(root, "active"), filepath.Join(root, "staged")
+	old := map[string]string{"SKILL.md": "old", "references/commands.md": "old ref"}
+	writeTree(t, active, old)
+	writeTree(t, staged, map[string]string{"SKILL.md": "new"})
+	publishErr, rollbackErr := errors.New("injected publication failure"), errors.New("injected rollback failure")
+	previous := ""
+	err := publishSkillDirectory(staged, active, func(from, to string) error {
+		if from == staged && to == active {
+			return publishErr
+		}
+		if from == previous && to == active {
+			return rollbackErr
+		}
+		if from == active {
+			previous = to
+		}
+		return os.Rename(from, to)
+	})
+	if !errors.Is(err, publishErr) || !errors.Is(err, rollbackErr) {
+		t.Fatalf("publication or rollback error was lost: %v", err)
+	}
+	if previous == "" || !strings.Contains(err.Error(), previous) {
+		t.Fatalf("recovery location was not reported: %v", err)
+	}
+	if got := readTree(t, previous); !reflect.DeepEqual(got, old) {
+		t.Fatalf("recoverable previous tree was deleted or changed: %v", got)
 	}
 }

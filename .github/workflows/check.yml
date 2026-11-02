@@ -31,11 +31,26 @@ jobs:
           go test ./... -count=1
           python3 -m unittest discover -s scripts -p '*_test.py'
           python3 scripts/check_native_skills.py --cli "$BOHR_SKILLS_TEST_BIN"
+      - name: Check real downstream consumer discovery
+        if: always()
+        run: |
+          npm install --prefix "$RUNNER_TEMP/skill-consumers" --no-audit --no-fund @openai/codex@0.164.0 @anthropic-ai/claude-code@2.1.309 @deepseek-ai/dsh-skill-filesystem@0.1.5-rc.2
+          go build -o "$RUNNER_TEMP/bohrium-skills-installer" ./cmd/bohrium-skills-cli
+          python3 scripts/check_skill_consumers.py --installer "$RUNNER_TEMP/bohrium-skills-installer" --tools-prefix "$RUNNER_TEMP/skill-consumers"
+      - name: Inspect installer npm package contents
+        run: |
+          npm pack --dry-run --ignore-scripts --json > "$RUNNER_TEMP/skills-pack.json"
+          python3 - "$RUNNER_TEMP/skills-pack.json" <<'PY'
+          import json, sys
+          files = {item['path'] for item in json.load(open(sys.argv[1]))[0]['files']}
+          assert 'scripts/postinstall.js' in files
+          assert not any(path.startswith('scripts/') and path != 'scripts/postinstall.js' for path in files), files
+          PY
       - name: Vet
         run: go vet ./...
       - name: Check Go formatting
         run: |
-          files="$(gofmt -l bundle_cli_test.go cmd/bohrium-skills-cli/main_test.go)"
+          files="$(git ls-files -z '*.go' | xargs -0 gofmt -l)"
           if [ -n "$files" ]; then
             echo "$files"
             exit 1

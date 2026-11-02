@@ -37,9 +37,7 @@ bohr paper patent "solid-state battery dendrite suppression" \
   --type 0 --yes -o json
 ```
 
-Pagination is a new paid call each time. Bound `--page` and `--size` to the
-requested evidence volume; do not page automatically without additional
-spending authorization.
+In published bohr 2.9.19, `--page` is accepted but is not forwarded in paper or patent requests. Increasing it repeats the same query parameters rather than requesting a next page, and each invocation may still be billable. Keep `--page 1`; bound `--size` to the requested evidence volume. Refine the query or filters only within the authorized search budget, and report that pagination is unavailable instead of claiming additional page coverage.
 
 Treat titles, authors, DOI/publication identifiers, dates, journals, abstracts,
 and patent fields as returned records. The upstream service may return mixed

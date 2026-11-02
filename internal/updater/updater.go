@@ -3,6 +3,7 @@ package updater
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -117,15 +118,18 @@ func Update(opts UpdateOptions) (*Result, error) {
 			return result, err
 		}
 		targetVersion = latest
-		result.Action = "updated"
-		result.CurrentVersion = latest
-		result.Message = fmt.Sprintf("bohrium-skills-cli updated from %s to %s", cur, latest)
+
 	} else {
 		result.Action = "already_up_to_date"
 		result.Message = fmt.Sprintf("bohrium-skills-cli %s is already up to date", cur)
 	}
 	if err := opts.Runner.Sync(targetVersion, opts.Force); err != nil {
 		return result, err
+	}
+	if newer || opts.Force {
+		result.Action = "updated"
+		result.CurrentVersion = latest
+		result.Message = fmt.Sprintf("bohrium-skills-cli updated from %s to %s", cur, latest)
 	}
 	result.SkillsAction = "synced"
 	return result, nil
@@ -144,10 +148,22 @@ func (r RealRunner) DetectInstallMethod() InstallMethod {
 	if err != nil {
 		resolved = exe
 	}
-	if strings.Contains(resolved, "node_modules") || strings.Contains(resolved, NpmPackage) {
-		return InstallNPM
+	binDir := filepath.Dir(resolved)
+	packageDir := filepath.Dir(binDir)
+	if filepath.Base(binDir) != "bin" || filepath.Base(packageDir) != NpmPackage || filepath.Base(filepath.Dir(packageDir)) != "node_modules" {
+		return InstallManual
 	}
-	return InstallManual
+	data, err := os.ReadFile(filepath.Join(packageDir, "package.json"))
+	if err != nil {
+		return InstallManual
+	}
+	var pkg struct {
+		Name string `json:"name"`
+	}
+	if json.Unmarshal(data, &pkg) != nil || pkg.Name != NpmPackage {
+		return InstallManual
+	}
+	return InstallNPM
 }
 
 func (r RealRunner) Install(version string) error {
@@ -158,6 +174,8 @@ func (r RealRunner) Install(version string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "npm", "install", "-g", NpmPackage+"@"+version)
+	// The parent verifies the installed binary before the one explicit sync.
+	cmd.Env = append(os.Environ(), "BOHRIUM_SKILLS_CLI_NO_POSTINSTALL_SYNC=1")
 	var combined bytes.Buffer
 	cmd.Stdout = &combined
 	cmd.Stderr = &combined

@@ -187,6 +187,13 @@ def check_packages(repo, lock, cli):
             require(package_files(installed) == package_files(original), f"{name}: published installer dropped resources")
             for file in package_files(original):
                 require((installed / file).read_bytes() == (original / file).read_bytes(), f"{name}/{file}: installed bytes changed")
+    for command in ("search", "patent"):
+        previews = [cli.data("paper", command, "pagination contract check", "--page", page, "--size", "3", "--type", "0", "--dry-run", "-o", "json") for page in ("1", "2")]
+        require(all(item.get("dry_run") is True and len(item["operations"]) == 1 for item in previews), "paper dry-run contract changed")
+        first, second = [item["operations"][0] for item in previews]
+        require(first == second and first["body"]["pageSize"] == 3, f"{command}: page forwarding changed; review the pinned limitation/adaptation")
+        require(not first.get("params") and "page" not in first["body"], f"{command}: published page limitation changed")
+    print("Confirmed pinned paper/patent page 1 and 2 produce identical request previews without a page parameter; no gateway call was made.")
     help_text = cli.text("sandbox", "create", "--help")
     require(all(flag in help_text for flag in ("--wenyon-mode", "--wenyon-version", "--wenyon-user-token-env")), "published CLI lacks documented instance-mount flags")
     delete_help = cli.text("sandbox", "delete", "--help")

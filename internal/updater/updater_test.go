@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 )
@@ -68,5 +69,19 @@ func TestUpdateCheckDoesNotInstallOrSync(t *testing.T) {
 	}
 	if called {
 		t.Fatal("check mode installed or synced")
+	}
+}
+
+func TestFailedSkillSyncDoesNotReportSuccessfulUpdate(t *testing.T) {
+	failure := errors.New("new binary verification failed")
+	result, err := Update(UpdateOptions{CurrentVersion: "1.0.0", Runner: FakeRunner{
+		LatestVersion: "2.0.0", InstallMethod: InstallNPM,
+		SyncFunc: func(string, bool) error { return failure },
+	}})
+	if !errors.Is(err, failure) {
+		t.Fatalf("sync failure was lost: %v", err)
+	}
+	if result.Action == "updated" || result.CurrentVersion != "1.0.0" || result.SkillsAction == "synced" {
+		t.Fatalf("failed sync reported success: %+v", result)
 	}
 }

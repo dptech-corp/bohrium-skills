@@ -232,6 +232,20 @@
       "old": "- Find scientific software in SciencePedia's tool library with `wiki tools`;",
       "new": "- Find scientific software in SciencePedia's tool library with `bohr tools`;",
       "reason": "Use the canonical scientific-tools command documented by the same release."
+    },
+    {
+      "guide": "bohr-paper-search",
+      "path": "SKILL.md",
+      "old": "Pagination is a new paid call each time. Bound `--page` and `--size` to the\nrequested evidence volume; do not page automatically without additional\nspending authorization.",
+      "new": "In published bohr 2.9.19, `--page` is accepted but is not forwarded in paper or patent requests. Increasing it repeats the same query parameters rather than requesting a next page, and each invocation may still be billable. Keep `--page 1`; bound `--size` to the requested evidence volume. Refine the query or filters only within the authorized search budget, and report that pagination is unavailable instead of claiming additional page coverage.",
+      "reason": "The 2.9.19 request builders never forward the registered page value; avoid paid duplicate queries masquerading as pagination."
+    },
+    {
+      "guide": "bohr-paper-search",
+      "path": "references/commands.md",
+      "old": "# Paper and patent command reference\n\n## Academic papers\n\n```text\nbohr paper search <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Page number; each invocation may be billed |\n| `--size` | `10` | Page size |\n| `--year-from` | unset | Inclusive start year |\n| `--year-to` | unset | Inclusive end year |\n| `--type` | `0` | `0` normal, `1` enhanced |\n| `--jcr` | empty | Comma-separated JCR zones |\n| `--db` | empty | Comma-separated source databases |\n\nPrices: normal **0.05 CNY**, enhanced **0.10 CNY** per request.\n\n## Patents\n\n```text\nbohr paper patent <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Page number; each invocation may be billed |\n| `--size` | `10` | Page size |\n| `--type` | `0` | `0` normal, `1` enhanced, `2` professional |\n\nPrices: normal **0.10 CNY**, enhanced **0.30 CNY**, professional **0.50 CNY**\nper request.\n\n",
+      "new": "# Paper and patent command reference\n\n## Academic papers\n\n```text\nbohr paper search <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Accepted but not forwarded in 2.9.19; keep 1 (not pagination) |\n| `--size` | `10` | Page size |\n| `--year-from` | unset | Inclusive start year |\n| `--year-to` | unset | Inclusive end year |\n| `--type` | `0` | `0` normal, `1` enhanced |\n| `--jcr` | empty | Comma-separated JCR zones |\n| `--db` | empty | Comma-separated source databases |\n\nPrices: normal **0.05 CNY**, enhanced **0.10 CNY** per request.\n\n## Patents\n\n```text\nbohr paper patent <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Accepted but not forwarded in 2.9.19; keep 1 (not pagination) |\n| `--size` | `10` | Page size |\n| `--type` | `0` | `0` normal, `1` enhanced, `2` professional |\n\nPrices: normal **0.10 CNY**, enhanced **0.30 CNY**, professional **0.50 CNY**\nper request.\n\n",
+      "reason": "Both page flags are registered but absent from the actual outgoing request bodies."
     }
   ]
 }

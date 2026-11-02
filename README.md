@@ -59,13 +59,13 @@ go run ./cmd/bohrium-skills-cli install --lang zh
 
 ```bash
 bohr guide list -o json
-bohr guide read bohr-paper-search -o text
+bohr guide read bohr-paper-search -o human
 bohr guide list bohr-paper-search/references -o json
-bohr guide read bohr-paper-search references/commands.md -o text
+bohr guide read bohr-paper-search references/commands.md -o human
 bohr paper --help
 ```
 
-指引中的相对链接属于 CLI 内嵌资源，通过 `bohr guide read <guide> <path> -o text` 读取。它们不在本仓库的 Skill 目录中。遇到缺失命令或指引时先核对 `bohr --version`，并安装最新正式版。
+指引中的相对链接属于 CLI 内嵌资源，通过 `bohr guide read <guide> <path> -o human` 读取。它们不在本仓库的 Skill 目录中。遇到缺失命令或指引时先核对 `bohr --version`，并安装最新正式版。
 
 `bohr guide` 读取本机内嵌指引；`bohr agents skills` 管理云端 Skill Hub；`bohr skill install` 安装本地 Skill 包。
 

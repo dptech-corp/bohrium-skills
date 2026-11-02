@@ -30,9 +30,9 @@
 
 ```bash
 bohr --version
-bohr guide read bohr-paper-search -o text
+bohr guide read bohr-paper-search -o human
 bohr guide list bohr-paper-search/references -o json
-bohr guide read bohr-paper-search references/commands.md -o text
+bohr guide read bohr-paper-search references/commands.md -o human
 bohr paper --help
 ```
 

@@ -26,14 +26,14 @@ npm install -g @dptech-corp/bohr-cli@latest
 业务操作前先读取：
 
 ```bash
-bohr guide read bohr-scholar-search -o text
+bohr guide read bohr-scholar-search -o human
 bohr guide list bohr-scholar-search/references -o json
-bohr guide read bohr-scholar-search references/commands.md -o text
+bohr guide read bohr-scholar-search references/commands.md -o human
 bohr scholar --help
 ```
 
 内嵌指引中的相对引用属于 CLI 内嵌资源。例如 `references/…` 要通过
-`bohr guide read bohr-scholar-search references/具体文件 -o text` 读取，而不是到本地 Skill 目录查找。
+`bohr guide read bohr-scholar-search references/具体文件 -o human` 读取，而不是到本地 Skill 目录查找。
 根据任务继续读取相关引用，并用具体子命令的 `--help` 确认参数。
 
 ## 3. 完成任务

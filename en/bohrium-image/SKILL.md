@@ -26,14 +26,14 @@ This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
 Before business operations, read:
 
 ```bash
-bohr guide read bohr-image -o text
+bohr guide read bohr-image -o human
 bohr guide list bohr-image/references -o json
-bohr guide read bohr-image references/commands.md -o text
+bohr guide read bohr-image references/commands.md -o human
 bohr image --help
 ```
 
 Relative references inside that guide belong to the CLI's embedded resources. Read
-`references/…` with `bohr guide read bohr-image references/path-to-file -o text`,
+`references/…` with `bohr guide read bohr-image references/path-to-file -o human`,
 rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
 and confirm flags through the specific subcommand's `--help`.
 

@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-var guideReadPattern = regexp.MustCompile(`(?m)^bohr guide read ([a-z0-9-]+)(?: ([a-zA-Z0-9_./-]+))? -o text$`)
+var guideReadPattern = regexp.MustCompile(`(?m)^bohr guide read ([a-z0-9-]+)(?: ([a-zA-Z0-9_./-]+))? -o human$`)
 var helpPattern = regexp.MustCompile(`(?m)^bohr ([a-z][a-z -]*?) --help$`)
 
 func TestPublishedSkillsUseCLI(t *testing.T) {
@@ -176,7 +176,7 @@ func TestPublishedGuidanceAgainstBohr(t *testing.T) {
 					if !strings.HasSuffix(wantText, "\n") {
 						wantText += "\n"
 					}
-					if text := string(run(t, append(args, "-o", "text")...)); text != wantText {
+					if text := string(run(t, append(args, "-o", "human")...)); text != wantText {
 						t.Fatal("text guide read differs from JSON content")
 					}
 					if reference == "" {

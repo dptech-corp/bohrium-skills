@@ -59,13 +59,13 @@ This syncs to `~/.agents/skills`, `~/.claude/skills`, and `~/.codex/skills`, bac
 
 ```bash
 bohr guide list -o json
-bohr guide read bohr-paper-search -o text
+bohr guide read bohr-paper-search -o human
 bohr guide list bohr-paper-search/references -o json
-bohr guide read bohr-paper-search references/commands.md -o text
+bohr guide read bohr-paper-search references/commands.md -o human
 bohr paper --help
 ```
 
-Relative links inside a guide refer to CLI-embedded resources. Read them with `bohr guide read <guide> <path> -o text`; they are not files in this repository's Skill directories. If a command or guide is missing, check `bohr --version` and install the latest stable release.
+Relative links inside a guide refer to CLI-embedded resources. Read them with `bohr guide read <guide> <path> -o human`; they are not files in this repository's Skill directories. If a command or guide is missing, check `bohr --version` and install the latest stable release.
 
 `bohr guide` reads local embedded guidance; `bohr agents skills` manages the cloud Skill Hub; `bohr skill install` installs a local Skill package.
 

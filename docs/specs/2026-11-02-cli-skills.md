@@ -21,7 +21,7 @@ Agents installing this repository use the published `bohr` CLI for Bohrium opera
 
 - Keep all existing 17 directory/frontmatter names in each language and the Claude marketplace/plugin names and paths.
 - Each standalone Skill contains a domain-specific trigger, setup steps, an exact embedded-guide name, command-help entry points, and execution/result boundaries. Detailed command/reference content remains in `bohr`.
-- Require the latest stable CLI and record 2.9.19 as the verified baseline. Guide reads explicitly use text output; directory listing uses JSON.
+- Require the latest stable CLI and record 2.9.19 as the verified baseline. Guide reads explicitly use human output to emit Markdown; directory listing uses JSON.
 - Distribute only `SKILL.md` within each Skill directory. Retire the direct-API Python helpers, their example payloads, Python dependency file, and API smoke/demo runners. Keep dated API verification evidence clearly marked as historical. Preserve the separately maintained OpenAPI schema and its published path; clarify that CLI Skills no longer serve as its interface documentation.
 - Keep installer source, package version, tag/release workflow, and published releases unchanged. The npm installer embeds its Skill content at release time; changing GitHub does not update previously released installers.
 

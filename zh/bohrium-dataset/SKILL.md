@@ -8,6 +8,29 @@ description: "通过 bohr dataset 管理数据集，发现数据集和版本标�
 
 # Bohrium 数据集
 
+## 按任务选择路径
+
+| 目标 | 路径 |
+|---|---|
+| 发布本地数据 | 确认归属和来源 → 创建上传 → 检查数据集及版本 |
+| 获取可复现输入 | 确定 dataset ID → 选择就绪版本 → 下载并校验 ZIP |
+| 恢复中断传输 | 同一上传身份加 `--resume`，或保留下载版本和目的路径 |
+
+## 工作流：发布并取回准确的数据集版本
+
+1. 确认项目、本地目录树和目标数据集身份，再使用下方创建命令。保存 `data.dataset_id`，若返回 `data.version_id` 也一并保留；数据集 ID 和版本 ID 各有用途。
+2. 检查数据集及已有版本：
+
+```bash
+bohr dataset get <dataset_id> -o json
+bohr dataset versions <dataset_id> -o json
+bohr dataset download <dataset_id> --version-id <version_id> --dest ./dataset.zip -o json
+```
+
+3. 从 `versions` 中所选记录的 `data.items[].id` 填入 `<version_id>`。可下载版本应满足 `status=committed`、`packStatus=completed`，且有可用 `downloadUri`。上传已受理或仍在打包的版本尚不是就绪归档；在等待预算内继续检查该版本。
+4. 下载准确版本，仅在回执 `data.verified=true` 时认定完成；报告 `path`、`bytes` 及 dataset/version 绑定。下游明确需要解压前，将 ZIP 保留为归档。
+5. 上传中断时保留四项身份输入，按下方规则加 `--resume`。下载中断时保留版本和目标路径，使 `.part` 恢复绑定同一数据。`--force` 会丢弃恢复状态，需要覆盖意图；更换版本不能算原部分下载的安全继续。
+
 传输或删除数据前，先通过读取命令确定稳定 ID：
 
 ```bash

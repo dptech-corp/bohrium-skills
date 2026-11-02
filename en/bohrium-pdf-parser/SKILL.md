@@ -11,6 +11,29 @@ description: >-
 
 # Bohrium PDF Parse
 
+## Choose the task
+
+| Goal | Route |
+|---|---|
+| Extract a local PDF | Validate file → submit `--file` → retain token → retrieve requested blocks |
+| Extract a directly reachable PDF | Validate URL → submit `--url` → use the same result workflow |
+| Recover an interrupted wait | Continue `result` with the original token; submission creates another parse |
+| Extract claims or research reasoning | Route to LKM extract instead of layout parsing |
+
+## Workflow: turn one PDF into a usable artifact
+
+1. Confirm input, requested semantic modes and spending using the sections below. Record the original source alongside the task token.
+2. Submit once, then replace `<token>` with the returned `data.token`. JSON is forwarded from upstream: if the token is absent, preserve the full response and report the missing handoff; do not substitute another task ID or resubmit in human mode to obtain it:
+
+```bash
+bohr pdf parse --file ./paper.pdf --table 2 --equation 2 --yes -o json
+bohr pdf result <token> --formatted markdown -o json
+```
+
+3. Inspect the returned status before using content. Continue the same token through `undefined`/`processing` at a bounded interval. `success` completes parsing; `PARSE_FAILED` ends it unsuccessfully. A timeout stops this wait and retains the token for later retrieval.
+4. On success, inspect the requested text/objects and `proc_page`/`total_page`; record missing or partial pages. Deliver the requested content with page provenance and the source/token needed to trace it. Non-empty `--return-half` output remains partial until terminal success.
+5. When result retrieval fails transiently, retry that free read with the same token. A failed or uncertain submission needs its returned diagnostic/token examined before resubmission; a new parse may incur another charge. Critical table/equation values require comparison with the source page before use.
+
 Use Bohrium Uni-Parser through the version-matched CLI to extract document
 layout and content from one PDF. Choose exactly one input route:
 

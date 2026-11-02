@@ -8,6 +8,27 @@ description: "通过 bohr database 查询聚合物或结构数据库，以及使
 
 # Bohrium 科学数据库
 
+## 按任务选择路径
+
+| 目标 | 路径 |
+|---|---|
+| 获取晶体结构 | 搜索 → 检查可用结构及警告 → 按需下载归档 → 验证本地输入 |
+| 浏览高分子 | 限定数量列出 → 查看科学记录 |
+| 查询已有私有表 | 已提供 `db_ak` → tables → schema → 按类型构造过滤和查询，前提是路由已启用 |
+
+## 工作流：取得可用于计算的结构
+
+1. 明确成分或查询、最大数量、CIF 或 POSCAR 格式，以及本地目标。远端只读，但下载归档会写入本地。
+
+```bash
+bohr database structure search --query "Li Fe P O" --n-results 5   --output-format cif --download --out ./structures.tgz -o json
+```
+
+2. 从 `data.cleaned_structures` 查看可用科学记录。命令使用同次搜索的 `data.output_dir` 下载归档；它是取回数据的 URL，不是私有库 `db_ak` 或本地路径。
+3. 检查 `notice.warnings` 和 `data.errors`。`STRUCTURE_SEARCH_PARTIAL` 表示调用成功但部分来源缺失。把本地文件选为 Job 输入前，检查归档内容和结构格式；命中数量或下载文件名不能证明计算输入有效。
+4. 交付所选结构的出处、缺失来源说明及实际核实的本地文件。下载失败时保留搜索记录，按参考中的恢复提示和目标路径规则处理。不可用的归档链接不能靠重复下载修复。
+5. 私有表先确认路由可用：正式 CLI 可能返回 `db_route_unavailable`，且没有私有库发现命令。路由启用时，将表记录选中的 `table_ak` 传给 schema 和 query，再按 schema 的列名及类型构造过滤值。路由失败不等于空数据库，也不能靠编造键修复。
+
 先选择数据库类型：
 
 - 领域库使用 `bohr database polymer` 或 `bohr database structure`，返回科学记录，不使用私有表标识。

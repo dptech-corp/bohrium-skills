@@ -8,6 +8,36 @@ description: "通过 bohr sandbox 管理 Bohrium 云沙箱的生命周期、配�
 
 # Bohrium 云沙箱（`bohr sandbox`）
 
+## 按任务选择路径
+
+| 目标 | 所需参考或路径 |
+|---|---|
+| 运行一次计算并取回文件 | Doctor 和配额 → 创建 → 上传 → 前台执行 → 下载 → 按授权清理 |
+| 长时间或后台计算 | [执行模式](references/sandbox/execution-modes.md)及[执行恢复](references/sandbox/exec.md) |
+| 读写 Wenyon 数据集 | [实例生命周期和结算](references/sandbox/lifecycle.md#mount-a-wenyon-dataset-in-an-instance) |
+| 安装软件、扩容或保存镜像 | 执行前读取对应软件、存储或镜像参考 |
+
+## 工作流：运行脚本并交付输出
+
+1. 检查 `doctor` 的 `data.ready`、配额、模板与资源及已授权费用。确认脚本、远端路径和本地输出位置。本例使用普通、无 Wenyon 挂载的沙盒，创建请求 ID 只生成一次，并在工具调用间保留：
+
+```bash
+REQUEST_ID="$(uuidgen)"
+bohr sandbox create sdbxagent --timeout 3600 --request-id "$REQUEST_ID" --yes -o json
+```
+
+2. 用成功响应规范字段 `data.sandbox_id` 填入 `<sandbox_id>`，`sandboxID` 是兼容拼写。回执或错误包装按下方流程核对；operation ID 不是 sandbox ID。
+
+```bash
+bohr sandbox files write --source ./run.py <sandbox_id> /tmp/run.py -o json
+bohr sandbox exec <sandbox_id> -o json -- python /tmp/run.py
+bohr sandbox files read <sandbox_id> /tmp/result.json --destination ./result.json -o json
+```
+
+3. 脚本必须实际生成 `/tmp/result.json`。前台执行要求 `data.result_known=true` 且 `data.exit_code=0`，再检查所需输出。后台回执 `start_confirmed=true`、`result_known=false` 只确认启动。argv 模式下，全局 CLI 参数放在 `--` 前，之后的所有内容都是远端参数。
+4. 清理前，将下载返回的 `output`、传输统计和 manifest 与所需本地产物核对。输出已安全取回且清理获授权后再删除；Wenyon 写挂载还需要下方明确的 commit 或 discard 结算。
+5. 创建结果未知时，使用原请求 ID 和身份范围核对；执行结果未知时，按执行参考使用返回的进程或请求证据。重建沙盒或重跑有副作用的脚本可能重复工作。本地等待截止不能证明远端任务已结束。
+
 通过 `bohr sandbox` 管理 Bohrium 平台按需创建的云沙箱，覆盖生命周期（`create`、`exec`、`delete`、`list`、`describe`）、配额自查、交互式 PTY、rootfs 检查和扩容、文件传输、模板、容器镜像 commit/build，以及沙箱内安装软件。
 
 这不是 E2B SDK，不需要 `E2B_API_KEY`，也不调用 `api.e2b.dev`。操作在 Bohrium 平台上执行，使用 Bohrium AccessKey 鉴权。创建带 Wenyon 实例挂载的沙箱，还需要由指定环境变量提供 Wenyon/Vouch 用户 JWT，AccessKey 不能替代。

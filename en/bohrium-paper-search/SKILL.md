@@ -10,6 +10,28 @@ description: >-
 
 # Bohrium Paper and Patent Search
 
+## Choose the task
+
+| Goal | Route |
+|---|---|
+| Build a bounded bibliography | Paper search → screen record types → deduplicate → evidence table |
+| Find patent evidence | Patent search → inspect publication/applicant/legal metadata actually returned |
+| Read layout or scientific reasoning | Selected PDF URL/file → PDF Parser; supported paper identity → LKM |
+
+## Workflow: search, screen, then hand off evidence
+
+1. Define the question, inclusion criteria, date range, record count and authorized number/tier of paid calls. Use the pricing and payment rules below before execution.
+2. Search once with explicit limits:
+
+```bash
+bohr paper search "solid electrolyte interphase lithium metal"   --year-from 2020 --year-to 2026 --page 1 --size 10 --type 0 --yes -o json
+```
+
+3. Inspect returned records rather than assuming a fixed response array. Keep title, authors, year, source, DOI or publication identifier, abstract, record type and URL when present. Deduplicate by DOI/identifier, falling back to title/year with uncertainty recorded.
+4. Screen relevance and source type; report excluded and missing evidence. Deliver a table with provenance and the filters used. This is a bounded retrieval, not exhaustive coverage; the published pagination limitation below applies.
+5. For full-text extraction, first resolve an actual accessible PDF file or direct PDF URL, then use PDF Parser. For LKM reasoning, use a supported identity such as a DOI/title or confirmed numeric paper ID according to its reference. A paper-search record ID or landing-page URL is not automatically a parser token or LKM ID.
+6. If results are empty, refine only within the search budget. If a paid call is refused or its outcome is unknown, inspect the error/billing evidence before another call; switching tier/source or repeating a call is a new spending decision.
+
 Choose the record type first:
 
 - `bohr paper search <query>` returns academic paper records.

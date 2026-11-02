@@ -10,6 +10,34 @@ description: >-
 
 # Bohrium Node
 
+## Choose the task
+
+| Goal | Route |
+|---|---|
+| Open an interactive development environment | Resources/cost → create → wait for running → connect |
+| Reuse a known environment | Resolve Node ID → inspect state → authorized restart if stopped |
+| End a session | Save work → stop → verify stopped; delete only for explicit disposal |
+
+## Workflow: create, use, and stop a development node
+
+1. Select project/image/machine, disk and auto-shutdown using the cost preflight below. After authorized create, preserve `data.id` as the Node ID. From a list, use `data.items[].nodeId`.
+2. Inspect the same Node ID until `data.status=2`, then connect:
+
+```bash
+bohr node get <node_id> -o json
+bohr node connect <node_id>
+```
+
+3. `get` preserves the lookup ID in `data.requestedNodeId`; its detail `nodeId`/`machineId` may identify the underlying machine. Continue using the original Node ID for lifecycle/SSH operations. `connect` launches interactive SSH even if global JSON output is selected; use an interactive terminal and keep connection secrets private.
+4. Save the user's work, then stop when requested:
+
+```bash
+bohr node stop <node_id> -o json
+bohr node get <node_id> -o json
+```
+
+5. Completion requires the requested environment to be usable, and after an authorized stop, observed `status=-1` from detail/list. Stop acceptance alone is insufficient. If startup or SSH fails, inspect the original node before creating another billable one. Restart may resume charges; delete is a separate destructive decision.
+
 Nodes are interactive, potentially long-lived compute resources. Inspect
 available machines and pricing before create or restart:
 

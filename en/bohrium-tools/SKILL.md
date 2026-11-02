@@ -10,6 +10,28 @@ description: >-
 
 # Bohrium Scientific Tools
 
+## Choose the task
+
+| Goal | Route |
+|---|---|
+| Understand available scientific domains | Free taxonomy discovery; returned node IDs are categories |
+| Find software for a concrete task | Paid hybrid search → selected tool key → paid detail |
+| Recommend a usable tool | Inspect detail/source → check license, platform and installation requirements |
+
+## Workflow: select a tool for an analysis task
+
+1. Define input format, scientific operation, runtime/platform constraints and the authorized search/detail budget. Taxonomy browsing can refine the wording but does not return executable tool records.
+2. Search for the task, then inspect one promising candidate:
+
+```bash
+bohr tools search "molecular dynamics trajectory analysis" --k 10 --lang en-US --yes -o json
+bohr tools info <tool_unique_key> --yes -o json
+```
+
+3. Replace `<tool_unique_key>` with the selected search record's `data.tools[].tool_unique_key`. Category discovery uses `data.items[].node_id`; that node ID is not accepted as a tool key. Search has no `--domain` filter: encode the relevant field in the query rather than inventing a flag.
+4. Inspect returned capabilities, repository, tutorial and usage details. Verify that the candidate accepts the user's inputs and is available for the target platform/license. A returned command is reference material; execute or install only when that action is in scope.
+5. Complete with a justified selection, source link, constraints and next runnable step. A ranked hit alone is discovery, not a compatibility check. If detail is missing or search is empty, retain the limitation; another paid candidate/detail requires room in the existing budget.
+
 Choose free browsing before a paid query when the domain is known:
 
 ```bash
@@ -18,8 +40,9 @@ bohr wiki tools subdomains --domain <domain_id> -o json
 bohr wiki tools list --domain <domain_id> -o json
 ```
 
-`domains`, `subdomains`, and `list` are free. Domain IDs identify taxonomy
-nodes, not tools. Use the returned unique tool key for detail retrieval.
+`domains`, `subdomains`, and `list` are free taxonomy discovery. `list --domain`
+returns subdomain records, not tools. Their node IDs describe categories. Obtain
+a unique tool key from hybrid search before requesting tool detail.
 
 For intent-driven discovery:
 

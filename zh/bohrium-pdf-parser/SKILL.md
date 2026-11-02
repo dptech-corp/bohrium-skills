@@ -8,6 +8,29 @@ description: "通过 bohr pdf parse 和 bohr pdf result 解析 PDF 的文本、�
 
 # Bohrium PDF 解析
 
+## 按任务选择路径
+
+| 目标 | 路径 |
+|---|---|
+| 提取本地 PDF | 确认文件 → `--file` 提交 → 保存 token → 读取所需内容块 |
+| 提取可直连的 PDF | 确认 URL → `--url` 提交 → 使用同一结果读取流程 |
+| 继续被中断的等待 | 用原 token 调用 `result`；重新提交会创建另一份解析 |
+| 提取结论或科研推理 | 转到 LKM extract，使用推理提取流程 |
+
+## 工作流：将一份 PDF 变成可用产物
+
+1. 按下方章节确认输入、语义模式和支出，将原始来源与任务 token 一起保留。
+2. 只提交一次，再用返回的 `data.token` 替换 `<token>`。JSON 由上游透传；缺少 token 时保留完整响应并报告交接缺失，不能拿其他 task ID 顶替，也不能为了获取 token 改用 human 模式重新提交：
+
+```bash
+bohr pdf parse --file ./paper.pdf --table 2 --equation 2 --yes -o json
+bohr pdf result <token> --formatted markdown -o json
+```
+
+3. 使用内容前先看返回状态。`undefined` 或 `processing` 时在有界间隔内继续查询同一 token；`success` 表示解析完成，`PARSE_FAILED` 表示失败结束。等待超时仅结束本次等待，保留 token 供稍后读取。
+4. 成功后检查所需文本或对象及 `proc_page`、`total_page`，记录缺失或部分完成的页面。交付内容时保留页码出处及可追溯的来源和 token。`--return-half` 的非空输出在终态成功前仍是部分结果。
+5. 结果读取发生临时错误时，用同一 token 重试免费读取。提交失败或结果未知时，先检查返回诊断和 token，再决定是否重新提交；新解析可能再次收费。关键表格或公式数值在使用前要对照原始页面。
+
 通过与版本匹配的 CLI 使用 Bohrium Uni-Parser，从单份 PDF 提取布局和内容。只选择一种输入方式：
 
 - `bohr pdf parse --file <path>` 上传本地 PDF。

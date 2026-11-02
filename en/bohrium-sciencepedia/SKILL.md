@@ -11,6 +11,27 @@ description: >-
 
 # Bohrium SciencePedia
 
+## Workflow: explain a concept with its prerequisites
+
+| User's deliverable | Ordered route |
+|---|---|
+| A concept explanation | Search → route article/keyword ID → read → explain with a reading link |
+| A learning outline | Search → returned `field_id` → course tree → selected entry articles |
+| Related concepts | Confirm entry/keyword ID → graph → preserve edge direction |
+
+1. Set the requested language/style and authorize the bounded search/read/graph calls using the prices below.
+2. Search, then choose a result using the ID routing section. The following is an article branch; a `type=keyword` result uses `keyword get` instead:
+
+```bash
+bohr wiki search "quantum entanglement" --lang en-US --style Feynman --yes -o json
+bohr wiki article <article_id> --lang en-US --style Feynman --yes -o json
+bohr wiki graph <article_id> --yes -o json
+```
+
+3. Replace `<article_id>` with `data.articles[].id` only from the selected `type=article` hit. Graph expansion is optional: run it only if relationships are requested and its cost is authorized. A course uses `data.fields[].field_id`, not a major/level ID.
+4. Complete with the supported explanation, source reading link and relevant prerequisites/relationships. Preserve graph direction; a relation label is not proof of causality. For a course, retain chapter/entry hierarchy rather than flattening it into search hits.
+5. If content is ungenerated/blank, apply the language/style fallback below and disclose it. If no course `field_id` is returned, stop that branch rather than substituting another ID. Repeated paid search or graph expansion requires room in the authorized budget.
+
 Operate SciencePedia through the version-matched `bohr wiki` commands. Choose
 the route from the user's intent:
 

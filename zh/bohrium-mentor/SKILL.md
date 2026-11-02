@@ -8,6 +8,27 @@ description: "通过 bohr agents mentor 向 Bohrium 科学小导师提问，获�
 
 # Bohrium 科学小导师
 
+## 按交付物选择路径
+
+| 目标 | 路径 |
+|---|---|
+| 解释机制或比较方法 | 用一个聚焦的 Mentor 问题明确范围和比较维度 |
+| 获取筛选后的语料或证据表 | 先检索并筛选论文；单次 Mentor 不能证明系统覆盖 |
+| 核对某个结论或引用 | 查看论文记录或 LKM 出处，再核实来源 |
+
+## 工作流：产出并检查科研解释
+
+1. 明确科学问题、领域、时间范围和输出要求。比较任务将假设、精度、成本和适用性等维度写进问题文本；这些属于问题内容，不是新的 CLI 参数。
+2. 用 `--dry-run` 检查规范化输入，并查看下方会话价格。会话预算获授权后请求结构化输出：
+
+```bash
+bohr agents mentor   "Compare DFT and Hartree-Fock for periodic solids: assumptions, accuracy, computational cost and limitations"   --discipline Physics --journal-type foreign --model reason --yes -o json
+```
+
+3. 保持进程连接以获取答案。JSON 成功时一起保留 `data.answer` 和 `data.session_id`。会话 ID 用于追溯，不能传给不存在的 CLI 恢复或读取命令。
+4. 检查实际答案：即使 CLI 返回 `ok=true`，`data.answer` 为空或明显截断仍是交付未完成；CLI 不会验证服务完成事件。再检查是否覆盖所有比较维度，区分返回的综合解释和独立核实的证据。交付物需要可核验引用时，通过论文或来源检索解析关键引用。
+5. 完成时交付答案、不确定性和实际核验范围。流中断或超时时按下方规则报告部分或未知结果。创建另一会话是新的付费动作，不能将重试当作原会话的继续。
+
 通过与版本匹配的 `bohr agents mentor` 提出一个明确的科学问题。Mentor 是综合回答流程，会在内部检索科学文献并流式输出 Markdown 解释。
 
 需要记录而非解释时，选择结构化命令：

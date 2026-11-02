@@ -10,6 +10,35 @@ description: >-
 
 # Bohrium Project
 
+## Choose the task
+
+| Goal | Route |
+|---|---|
+| Select ownership for compute/storage | List → inspect project/members → hand the exact project ID downstream |
+| Create a project with limits | Confirm name/limits → create → resolve the created project through list/get |
+| Remove a project | Inspect membership/dependencies → exact-target approval → delete and verify |
+
+## Workflow: resolve the project before creating resources
+
+1. List and select a project using `data.items[].id`, then inspect that ID and its members:
+
+```bash
+bohr project list -o json
+bohr project get <project_id> -o json
+bohr project members <project_id> -o json
+```
+
+2. Confirm the returned identity/ownership, rather than selecting solely by a duplicate display name. A member's user ID is not a project ID. If creating first, inspect the actual create response; it is upstream data, not a guaranteed `data.projectId` contract. Re-list by the intended unique name and verify with `get` before proceeding.
+3. Carry the same project ID into each resource operation:
+
+| Consumer | Project input |
+|---|---|
+| Dataset create | `--pid <project_id>` |
+| Job submit / Node create / Image build | `--project-id <project_id>` |
+| Project-share File operations | `share/... --project-id <project_id>` |
+
+4. Completion is a confirmed project-to-resource binding, not merely a successful project list. Respect the downstream Skill's spending/write gates. If detail fails, distinguish permission/network/incomplete-upstream errors from a missing project before choosing or creating a replacement.
+
 Resolve projects and IDs before using them in Dataset, File, Job, Node, Image,
 Notebook, or Sandbox workflows:
 

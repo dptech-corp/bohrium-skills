@@ -8,6 +8,34 @@ description: "通过 bohr node 创建、查询、连接、重启、停止或删�
 
 # Bohrium 开发节点
 
+## 按任务选择路径
+
+| 目标 | 路径 |
+|---|---|
+| 打开交互式开发环境 | 资源和价格 → 创建 → 等待运行 → 连接 |
+| 复用已有环境 | 确定 Node ID → 检查状态 → 停机时按授权重启 |
+| 结束使用 | 保存工作 → 停机 → 确认已停止；明确废弃时才删除 |
+
+## 工作流：创建、使用并停止开发机
+
+1. 按下方费用预检选择项目、镜像、机型、磁盘和自动关机时间。获授权创建后，将 `data.id` 保存为 Node ID；从列表选择时使用 `data.items[].nodeId`。
+2. 用同一 Node ID 查询至 `data.status=2`，再连接：
+
+```bash
+bohr node get <node_id> -o json
+bohr node connect <node_id>
+```
+
+3. `get` 在 `data.requestedNodeId` 保留查询 ID，详情中的 `nodeId` 或 `machineId` 可能属于底层机器。生命周期及 SSH 操作继续使用原 Node ID。即使选择全局 JSON 输出，`connect` 仍启动交互式 SSH；应使用交互终端并保护连接凭据。
+4. 保存用户工作，按请求停止：
+
+```bash
+bohr node stop <node_id> -o json
+bohr node get <node_id> -o json
+```
+
+5. 完成要求目标环境实际可用；获授权停机后，还要从详情或列表观察到 `status=-1`，仅受理停机不算完成。启动或 SSH 失败时先检查原开发机，再决定是否创建另一台计费资源。重启可能恢复收费；删除是独立的破坏性决策。
+
 Node 是交互式、可能长期运行的计算资源。创建或重启前先查看机器、价格和资源：
 
 ```bash

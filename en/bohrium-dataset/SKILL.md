@@ -10,6 +10,29 @@ description: >-
 
 # Bohrium Dataset
 
+## Choose the task
+
+| Goal | Route |
+|---|---|
+| Publish local data | Confirm owner/source → create/upload → inspect dataset and version |
+| Obtain reproducible input | Resolve dataset ID → select a ready version → download and verify ZIP |
+| Recover interrupted transfer | Same upload identity + `--resume`, or same download version/destination |
+
+## Workflow: publish and retrieve an exact dataset version
+
+1. Confirm project, local tree and intended dataset identity, then use the create command below. Preserve `data.dataset_id`; retain `data.version_id` when returned. Do not confuse dataset ID with version ID.
+2. Inspect the dataset and its existing versions:
+
+```bash
+bohr dataset get <dataset_id> -o json
+bohr dataset versions <dataset_id> -o json
+bohr dataset download <dataset_id> --version-id <version_id> --dest ./dataset.zip -o json
+```
+
+3. Select `<version_id>` from the chosen `data.items[].id` in `versions`. The downloadable version must be `status=committed`, `packStatus=completed`, with a usable `downloadUri`. An accepted upload or a version still packaging is not a ready input archive; recheck that version within the waiting budget.
+4. Download that exact version, and complete only when the receipt has `data.verified=true`; report its `path`/`bytes` and the dataset/version binding. Preserve the ZIP as an archive until the downstream task explicitly needs extraction.
+5. On interrupted upload, retain all four identity inputs and add `--resume` as described below. On download interruption, retain the version and destination so `.part` recovery remains bound to the same data. `--force` discards recovery state and needs overwrite intent; changing version is not a safe continuation of the original partial download.
+
 Use read commands to resolve stable IDs before transferring or deleting data:
 
 ```bash

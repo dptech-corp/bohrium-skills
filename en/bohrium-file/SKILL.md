@@ -10,6 +10,29 @@ description: >-
 
 # Bohrium File
 
+## Choose the task
+
+| Goal | Route |
+|---|---|
+| Send/receive one disk object | Resolve space/project/path → transfer → stat/receipt verification |
+| Copy or download a directory tree | List the narrow prefix → explicit recursive operation → inspect per-file outcomes |
+| Recover an upload | Preserve local file and remote target → inspect uncertain outcome → resume compatible session |
+
+## Workflow: transfer a project input and verify the round trip
+
+1. Confirm the local source and destination, project ownership and intended remote key. A share disk path requires the same positive project ID on every call.
+
+```bash
+bohr file upload ./input.dat share/experiment/input.dat --project-id <project_id> -o json
+bohr file stat share/experiment/input.dat --project-id <project_id> -o json
+bohr file download share/experiment/input.dat --project-id <project_id> --dest ./retrieved-input.dat -o json
+```
+
+2. Upload success returns `data.remote_path`, `space`, `project_id` and `size`. Carry the returned full `remote_path` and project scope into stat/download; a basename alone loses the storage route. Check remote metadata against the intended object and expected size.
+3. Download success reports `data.dest_path`/`size`. Complete with the verified remote target and actual local destination; for critical content, compare bytes/checksum locally when that verification is available. Size equality alone is not content integrity.
+4. For recursive downloads, inspect `downloaded`, `skipped` and `failed`; `files` is not the count newly transferred. Report partial delivery and failed paths rather than treating a populated directory as complete.
+5. On `UPLOAD_NOT_CONFIRMED`, inspect the same remote object and the returned recovery hint before another write. Apply the multipart resume rules below for compatible interrupted uploads. A failed download preserves the previous complete destination; retrying is a read plus an authorized local-file write.
+
 Use canonical path prefixes:
 
 - `personal/<path>` addresses the current user's personal disk and requires

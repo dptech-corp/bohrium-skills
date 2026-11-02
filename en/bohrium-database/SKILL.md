@@ -10,6 +10,27 @@ description: >-
 
 # Bohrium Database
 
+## Choose the task
+
+| Goal | Route |
+|---|---|
+| Obtain crystal structures | Search → inspect usable structures/warnings → optional archive download → validate local inputs |
+| Browse polymers | Bounded library list → inspect returned scientific records |
+| Query an existing private table | Supplied `db_ak` → tables → schema → typed filter/query, only where those routes are enabled |
+
+## Workflow: retrieve structures for a calculation
+
+1. Define composition/query, maximum matches, desired CIF/POSCAR format and the local destination. Archive download writes locally even though the remote operation is read-only.
+
+```bash
+bohr database structure search --query "Li Fe P O" --n-results 5   --output-format cif --download --out ./structures.tgz -o json
+```
+
+2. Inspect `data.cleaned_structures` for the usable scientific records. The command uses that same search's `data.output_dir` to download the archive; it is a retrieval URL, not a private `db_ak` or local path.
+3. Check `notice.warnings` and `data.errors`. `STRUCTURE_SEARCH_PARTIAL` means some sources are missing despite success. Inspect archive contents and structure format before selecting local files as a Job input directory; neither match count nor a downloaded filename proves valid calculation inputs.
+4. Complete with selected structure provenance, missing-source disclosure and the actual verified local files. If download fails, retain the search records; use the returned recovery hint and destination rules in the reference. An unusable archive link cannot be fixed by repeatedly downloading it.
+5. For private tables, first confirm the routes are available: the published CLI can return `db_route_unavailable` and has no private-database discovery command. When enabled, pass the selected `table_ak` from table records to schema/query, and use schema column names/types for filter values. A route failure is not evidence of an empty database and is not fixed by inventing keys.
+
 Choose the database family before acting:
 
 - Domain libraries use `bohr database polymer` or `bohr database structure`.

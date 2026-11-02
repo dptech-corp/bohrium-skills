@@ -8,6 +8,27 @@ description: "通过 bohr wiki 检索和解释科学词条、关键词、学科�
 
 # Bohrium 科学百科
 
+## 工作流：解释概念并说明前置知识
+
+| 用户需要的产物 | 执行顺序 |
+|---|---|
+| 概念解释 | 搜索 → 分流 article 或 keyword ID → 阅读 → 附阅读链接解释 |
+| 学习大纲 | 搜索 → 返回的 `field_id` → 课程树 → 选读 entry 文章 |
+| 相关概念 | 确认 entry 或 keyword ID → 图谱 → 保留边的方向 |
+
+1. 确定语言和风格，按下方价格授权有界的搜索、阅读及图谱调用。
+2. 搜索后按 ID 路由章节选择记录。下面展示 article 分支；`type=keyword` 的结果应使用 `keyword get`：
+
+```bash
+bohr wiki search "quantum entanglement" --lang en-US --style Feynman --yes -o json
+bohr wiki article <article_id> --lang en-US --style Feynman --yes -o json
+bohr wiki graph <article_id> --yes -o json
+```
+
+3. 仅从选中且 `type=article` 的 `data.articles[].id` 填入 `<article_id>`。图谱为可选步骤，只在需要关系且费用获授权时调用。课程使用 `data.fields[].field_id`，不能使用 major 或 level ID。
+4. 完成时给出有内容依据的解释、阅读链接及相关前置知识或关系。保留图谱方向，关系标签不等于因果证据。课程应保持章节和 entry 层级，而非压平成搜索列表。
+5. 内容未生成或为空时，按下方语言或风格规则回退并说明。如果没有课程 `field_id`，停止该分支，不能用其他 ID 顶替。重复付费搜索或扩图需要剩余授权预算。
+
 通过与版本匹配的 `bohr wiki` 命令操作 SciencePedia，先按用户意图选择路径：
 
 - `wiki search` 搜索词条，返回摘要和 ID。

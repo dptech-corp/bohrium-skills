@@ -10,6 +10,28 @@ description: >-
 
 # Bohrium Image
 
+## Choose the task
+
+| Goal | Route |
+|---|---|
+| Reuse an existing image | List/search → get → keep the canonical registry address |
+| Build with local source files | Local build → returned `pushCommand` → validated push receipt |
+| Build Dockerfile text remotely | Remote build → terminal image status → inspect final image |
+| Save a sandbox rootfs | Storage gate below → commit → terminal status; mounted data is separate |
+
+## Workflow: build locally, publish, then use the image
+
+1. Confirm Docker context/daemon, Dockerfile/build context, unique short name, project and write intent. Local mode reserves a remote record/quota but does not push.
+
+```bash
+bohr image build --mode local --dockerfile ./Dockerfile --context .   --name research-env:v1 --project-id <project_id> -o json
+```
+
+2. Preserve the local-build result's `data.localImage`, `imageUrl`, `id` and `pushCommand`. With `uploaded=false`, the image is only built locally. Run the actual returned `pushCommand` in the same Docker daemon, Bohrium identity/profile and project; do not reconstruct a registry path.
+3. A successful push validates its final `data.id`, `imageUrl`, `status=1`, `digest` and `sizeBytes`. Use that final `imageUrl` with Job `--image_address` or Node `--image_path`; an image record ID or local tag is not the registry address.
+4. The local prepare record is not a remote build task: do not poll it with `status`/`build-log`. Remote build/commit uses the separate `0/1 → 2/3/4` lifecycle described below; its success status `2` must not be applied to a local push receipt.
+5. Complete with the published address and digest plus the selected consumer's requirements. If build/push is interrupted or prepare outcome is uncertain, reconcile the same name/record using the reference before reserving another one. A built local image alone is unfinished publication.
+
 Choose `build --mode local` for a Docker build with local context; run its
 returned push command separately. Default `build --mode remote` sends Dockerfile
 text only to the remote builder. `commit` snapshots a running sandbox container's

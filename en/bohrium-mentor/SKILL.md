@@ -11,6 +11,27 @@ description: >-
 
 # Bohrium Mentor
 
+## Choose the deliverable
+
+| Goal | Route |
+|---|---|
+| Explain a mechanism or compare methods | One focused Mentor question with scope and comparison criteria |
+| Obtain a screened corpus or evidence table | Paper retrieval/screening first; Mentor alone does not establish systematic coverage |
+| Check a specific claim or reference | Paper records or LKM provenance; verify the cited source |
+
+## Workflow: produce and check a scientific explanation
+
+1. Define the scientific question, domain, date scope and desired output. For a comparison, include the criteria (assumptions, accuracy, cost, applicability) in the question itself; these are question text, not new CLI flags.
+2. Inspect the normalized input with `--dry-run` and the session price below. After the session budget is authorized, request structured output:
+
+```bash
+bohr agents mentor   "Compare DFT and Hartree-Fock for periodic solids: assumptions, accuracy, computational cost and limitations"   --discipline Physics --journal-type foreign --model reason --yes -o json
+```
+
+3. Keep the process attached for the answer. On successful JSON, retain `data.answer` and `data.session_id` together. The session ID is provenance, not an input to a CLI resume/get command.
+4. Inspect the actual answer: an empty or visibly truncated `data.answer` is incomplete delivery even if the CLI returned `ok=true`; the CLI does not verify a service completion event. Check that it addresses every requested comparison criterion. Separate returned synthesis from independently checked evidence; resolve key references through paper/source retrieval when the deliverable requires verifiable citations.
+5. Complete with the answer, uncertainty and actual verification boundary. If the stream fails or times out, report the partial/unknown outcome using the interruption rules below. Creating another session is a new billable action; do not treat retry as continuation of the original session.
+
 Use the version-matched `bohr agents mentor` command to ask one focused
 scientific question. Mentor is a synthesis workflow: it retrieves scientific
 literature internally and streams a Markdown explanation.

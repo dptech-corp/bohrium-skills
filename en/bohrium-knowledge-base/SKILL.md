@@ -10,6 +10,30 @@ description: >-
 
 # Bohrium Knowledge Base
 
+## Choose the task
+
+| Goal | Route |
+|---|---|
+| Search existing private content | Resolve KB ID → targeted `search` → inspect returned evidence |
+| Add a local document | Confirm file/KB → upload → locate stable document ID → inspect indexing → test retrieval |
+| Remove content | List/get exact document or KB → authorized delete; folder IDs are separate |
+
+## Workflow: upload a paper and verify it can be retrieved
+
+1. Resolve the intended KB from `kb list`, confirm the local file and destination, then upload. Use either `--kb-id` or `--parent-id`, following the selector rules below.
+
+```bash
+bohr kb upload ./paper.pdf --kb-id <kb_id> -o json
+bohr kb document list --kb-id <kb_id> --page 1 --size 50 -o json
+bohr kb document get <document_id> -o json
+bohr kb search <kb_id> "distinctive phrase from the uploaded paper" -o json
+```
+
+2. Preserve upload's `data.knowledge_base_id`, `parent_id` and `md5`. Its `data.document.index_state=submitted` means registration succeeded, not indexing completed. `data.document.document_id` may be absent if post-upload lookup has not found the document yet; use document listing to resolve it instead of uploading again.
+3. In `data.documents[]`, match the selected document and preserve its `document_id` for get/delete. Inspect that row's `index_state`: `processing` permits bounded rechecks; `ready` permits the retrieval check; `failed`/`unsupported` needs a reported failure/format remedy. `unavailable`/`unknown` is missing evidence, not a reason for endless polling. Page-level `index_status_available=false` can be caused by another row.
+4. `document get` verifies safe metadata, not full text. Search for distinctive content and confirm an actual hit attributable to the intended document before claiming it is searchable. Preserve an explicit `recallable=false` limitation; a no-hit query alone does not prove indexing failed.
+5. Complete with KB ID, stable document ID, observed indexing state and the retrieval evidence. If registration succeeded but indexing/search is unverified, report that exact partial outcome. Continue the original document's checks; a repeated upload is a new write, not a readiness probe.
+
 Start by resolving the knowledge-base ID:
 
 ```bash

@@ -8,6 +8,28 @@ description: "通过 bohr image 发现、查看、拉取、推送、构建或删
 
 # Bohrium 容器镜像
 
+## 按任务选择路径
+
+| 目标 | 路径 |
+|---|---|
+| 复用已有镜像 | 列出或搜索 → get → 保存规范仓库地址 |
+| 使用本地源码构建 | 本地构建 → 返回的 `pushCommand` → 核实推送回执 |
+| 远程构建 Dockerfile 文本 | 远程构建 → 镜像终态 → 检查最终镜像 |
+| 保存沙盒根文件系统 | 下方存储门禁 → commit → 终态；挂载数据单独处理 |
+
+## 工作流：本地构建、发布，再交给计算资源
+
+1. 确认 Docker 上下文和 daemon、Dockerfile 与构建目录、唯一短名称、项目及写入意图。本地模式会预留远端记录和配额，但不会推送。
+
+```bash
+bohr image build --mode local --dockerfile ./Dockerfile --context .   --name research-env:v1 --project-id <project_id> -o json
+```
+
+2. 保留本地构建结果的 `data.localImage`、`imageUrl`、`id` 和 `pushCommand`。`uploaded=false` 表示只完成本地构建。使用同一 Docker daemon、Bohrium 身份或 profile 及项目，执行实际返回的 `pushCommand`，不能自行拼接仓库路径。
+3. 成功推送会校验最终 `data.id`、`imageUrl`、`status=1`、`digest` 和 `sizeBytes`。将最终 `imageUrl` 交给 Job 的 `--image_address` 或 Node 的 `--image_path`；镜像记录 ID 和本地标签都不是仓库地址。
+4. 本地 prepare 记录不是远端构建任务，不能用 `status` 或 `build-log` 轮询。远程构建或 commit 使用下方独立的 `0/1 → 2/3/4` 生命周期；其成功状态 `2` 不能套用于本地推送回执。
+5. 交付已发布地址、digest 及选定消费者需要的条件。构建或推送中断、prepare 结果未知时，先按参考核对同一名称和记录，再预留新记录。只有本地构建镜像还未完成发布。
+
 有本地上下文的 Docker 构建使用 `build --mode local`，之后单独执行返回的推送命令。默认 `build --mode remote` 只把 Dockerfile 文本发给远程构建器。`commit` 在服务端保存运行中沙箱容器的根文件系统快照，不能假设挂载卷会包含在内。
 
 创建镜像前先发现已有镜像：

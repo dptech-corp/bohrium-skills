@@ -8,6 +8,29 @@ description: "通过 bohr file 浏览和管理 personal/share 文件盘，上传
 
 # Bohrium 文件盘
 
+## 按任务选择路径
+
+| 目标 | 路径 |
+|---|---|
+| 收发一个云盘对象 | 确定空间、项目和路径 → 传输 → 检查 stat 或回执 |
+| 复制或下载目录树 | 列出最小范围前缀 → 显式递归操作 → 检查逐文件结果 |
+| 恢复上传 | 保留本地文件和远端目标 → 检查未知结果 → 恢复兼容会话 |
+
+## 工作流：传输项目输入并核实往返结果
+
+1. 确认本地源和目标、项目归属及远端键。share 路径的每一步都需要同一个正数项目 ID。
+
+```bash
+bohr file upload ./input.dat share/experiment/input.dat --project-id <project_id> -o json
+bohr file stat share/experiment/input.dat --project-id <project_id> -o json
+bohr file download share/experiment/input.dat --project-id <project_id> --dest ./retrieved-input.dat -o json
+```
+
+2. 上传成功返回 `data.remote_path`、`space`、`project_id` 和 `size`。将完整 `remote_path` 和项目范围交给 stat 或 download；只保留文件名会丢失存储路由。核对远端元数据是否对应所需对象及预期大小。
+3. 下载成功报告 `data.dest_path` 和 `size`。交付已核实的远端目标及实际本地路径；关键内容在有条件时进一步比对字节或校验和，仅大小一致不能证明内容完整。
+4. 递归下载检查 `downloaded`、`skipped` 和 `failed`，不能把 `files` 当成本次新传输数量。存在失败路径时报告部分交付，目录非空不等于完成。
+5. `UPLOAD_NOT_CONFIRMED` 时，先检查同一远端对象及返回的恢复提示，再做新写入。兼容的上传中断按下方分片规则恢复。下载失败会保留原有完整目标；重试属于读取及获授权的本地文件写入。
+
 使用规范路径前缀：
 
 - `personal/<path>` 表示当前用户的个人文件盘，要求 `--project-id 0`，这也是默认值。

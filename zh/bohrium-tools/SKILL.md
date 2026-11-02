@@ -8,6 +8,28 @@ description: "通过 bohr tools 浏览领域和科学工具、混合检索并读
 
 # Bohrium 科学工具库
 
+## 按任务选择路径
+
+| 目标 | 路径 |
+|---|---|
+| 了解可选科学领域 | 免费浏览分类；返回的 node ID 是分类节点 |
+| 为具体任务找软件 | 付费混合检索 → 选定工具键 → 付费详情 |
+| 推荐可用工具 | 查看详情和来源 → 核对许可证、平台和安装要求 |
+
+## 工作流：为分析任务选择工具
+
+1. 明确输入格式、科学操作、运行环境及平台限制，以及获授权的检索和详情预算。分类浏览可帮助缩小检索词，但不会返回可执行工具记录。
+2. 搜索任务，再查看一个有希望的候选：
+
+```bash
+bohr tools search "molecular dynamics trajectory analysis" --k 10 --lang en-US --yes -o json
+bohr tools info <tool_unique_key> --yes -o json
+```
+
+3. 从选中的搜索记录 `data.tools[].tool_unique_key` 填入 `<tool_unique_key>`。分类发现使用 `data.items[].node_id`，该节点 ID 不能作为工具键。搜索没有 `--domain` 过滤参数；将领域写进查询，不要编造参数。
+4. 查看返回的能力、仓库、教程和使用细节，核对候选能否处理用户输入，以及是否满足目标平台和许可证条件。返回命令属于参考资料，仅在任务范围包含执行或安装时才执行。
+5. 交付有理由的选择、来源链接、限制和下一步可执行动作。命中排名只完成发现，还未完成兼容性核验。详情缺失或无结果时保留限制；再查候选或详情需要已有预算余量。
+
 已知领域时，优先免费浏览，再考虑付费查询：
 
 ```bash
@@ -16,7 +38,7 @@ bohr wiki tools subdomains --domain <domain_id> -o json
 bohr wiki tools list --domain <domain_id> -o json
 ```
 
-`domains`、`subdomains` 和 `list` 免费。领域 ID 是分类节点标识，不是工具标识。读取详情使用返回的唯一工具键。
+`domains`、`subdomains` 和 `list` 用于免费发现分类。`list --domain` 返回子分类记录，不是工具；它们的 node ID 是分类标识。先从混合检索取得唯一工具键，再读取工具详情。
 
 按任务意图发现工具：
 

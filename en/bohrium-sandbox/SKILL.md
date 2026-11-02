@@ -14,6 +14,36 @@ description: >-
 
 # Bohrium Sandbox (`bohr sandbox`)
 
+## Choose the task path
+
+| Goal | Required reference/route |
+|---|---|
+| Run one calculation and collect files | Doctor/quota → create → upload → foreground exec → download → authorized cleanup |
+| Run long-lived/background work | [Execution modes](references/sandbox/execution-modes.md) and [exec recovery](references/sandbox/exec.md) |
+| Read/write a Wenyon dataset | [Instance lifecycle and settlement](references/sandbox/lifecycle.md#mount-a-wenyon-dataset-in-an-instance) |
+| Install software, expand storage, or save an image | Relevant software/storage/image reference before that operation |
+
+## Workflow: run a script and deliver its output
+
+1. Check `doctor`'s `data.ready`, quota, selected template/resources and authorized cost. Confirm the script, remote paths and local output destination. For this ordinary, non-Wenyon example, generate one create request ID and retain it across tool calls:
+
+```bash
+REQUEST_ID="$(uuidgen)"
+bohr sandbox create sdbxagent --timeout 3600 --request-id "$REQUEST_ID" --yes -o json
+```
+
+2. Set `<sandbox_id>` to the successful response's canonical `data.sandbox_id` (`sandboxID` is the compatibility spelling). Receipt/error wrappers need the reconciliation flow below; an operation ID is not a sandbox ID.
+
+```bash
+bohr sandbox files write --source ./run.py <sandbox_id> /tmp/run.py -o json
+bohr sandbox exec <sandbox_id> -o json -- python /tmp/run.py
+bohr sandbox files read <sandbox_id> /tmp/result.json --destination ./result.json -o json
+```
+
+3. The script must actually produce `/tmp/result.json`. For foreground execution require `data.result_known=true` and `data.exit_code=0`, then inspect the requested output. A background receipt with `start_confirmed=true` and `result_known=false` confirms launch only. In argv mode put global CLI flags before `--`; anything after it is a remote argument.
+4. Verify download's reported `output`, transfer summary and manifest against the requested local artifact before cleanup. Delete only after outputs are safe and disposal is authorized. Wenyon write mounts additionally require the explicit commit/discard settlement below.
+5. Unknown create outcomes use the original request ID and scope to reconcile; unknown exec outcomes use the returned process/request evidence in the exec reference. Re-running create or a side-effecting script can duplicate work. A local deadline does not prove the remote task ended.
+
 CLI for managing **on-demand cloud sandboxes** on the Bohrium platform via the
 `bohr sandbox` command group (open-platform v4). Covers sandbox lifecycle
 (`create`, `exec`, `delete`, `list`, `describe`), quota self-query (`quota`),

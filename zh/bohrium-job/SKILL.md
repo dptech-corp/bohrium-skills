@@ -8,6 +8,53 @@ description: "通过 bohr job 和 bohr job-group 提交、查询、停止、删�
 
 # Bohrium 计算任务
 
+## 按任务选择路径
+
+| 目标 | 执行顺序 |
+|---|---|
+| 运行批量计算 | 确认资源和费用 → 提交 → 用 Bohr ID 跟踪 → 核实终态 → 下载 |
+| 恢复已有计算的处理 | 对原 Bohr ID 查看详情或日志；重新提交会创建另一任务 |
+| 停止计算 | 确认阶段 → 运行中 terminate／排队中 kill → 确认终态 |
+
+## 工作流：提交计算并取回产物
+
+1. 按下方预检确定项目、镜像、机型及资源预算，提交前确认输入和结果路径。
+2. 需要取回产物时，在 `job.json` 明确收集规则；这些是配置键，不是公开参数：
+
+```json
+{
+  "out_files": ["result.csv"],
+  "log_files": ["run.log"]
+}
+```
+
+所选镜像需要提供 Python，`./input/run.py` 需要在任务工作目录生成 `result.csv`。填入已确定的资源后只提交一次：
+
+```bash
+bohr job submit -i ./job.json --project-id <project_id> --job_name analysis \
+  --image_address <image> --machine_type <machine> \
+  --command "python run.py > run.log 2>&1" --input_directory ./input \
+  --result_path /personal/results --yes -o json
+```
+
+`--result_path` 是远端存储，下载的 `--out` 是本地目录。从实际成功响应中保存标识：
+
+| 返回值 | 下一步消费者 |
+|---|---|
+| `data.bohrJobId` | `job describe --id`、`job log`、`job download` 及生命周期命令 |
+| `data.bohrJobGroupId` | 后续 `job submit --job_group_id` |
+| `data.jobGroupId` | 提交后立即执行的 job-group 生命周期操作 |
+| `data.jobId` | 平台内部 ID，保留作证据，不能代替 Bohr ID |
+
+```bash
+bohr job describe --id <bohr_job_id> -o json
+bohr job download <bohr_job_id> --out ./results -o json
+```
+
+3. 用提交返回的 `data.bohrJobId`，或列表中选定的公开 Bohr ID 替换 `<bohr_job_id>`。单任务详情检查 `data.phase`、`data.terminal` 和 `data.exitCode`。`phase=completed` 且退出码为 `0` 后再下载所需结果；排队、运行中或请求已受理都不算完成。
+4. 失败终态先查看同一 Bohr ID 的 `errorInfo` 和日志，再决定是否需要调整输入或重新计算。保留失败诊断；再次提交属于新的资源操作。
+5. 交付终态结果及下载实际返回的 `data.files[].path`、`bytes`。计算完成但下载失败或产物缺失，应报告计算成功而交付未完成。`JOB_FILES_EMPTY` 表示未发现可下载产物，需检查收集路径并保留本次运行证据。监控超时保留 Bohr ID 供继续查询，不会停止任务。
+
 <a id="resolve-resources-and-cost-before-submission"></a>
 
 ## 提交前确定资源与费用

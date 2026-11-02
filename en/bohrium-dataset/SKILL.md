@@ -1,244 +1,47 @@
 ---
 name: bohrium-dataset
-description: "Manage Bohrium datasets via bohr CLI or open.bohrium.com API. Use when: user asks about creating/listing/deleting datasets on Bohrium, uploading data, or managing dataset versions. NOT for: file management, job submission, or node management."
+description: "Use the bohr CLI to manage Bohrium datasets, versions, and file transfers. Trigger on Bohrium datasets tasks; read the installed CLI's bohr-dataset guide for detailed commands and execution boundaries."
 ---
 
-# SKILL: Bohrium Dataset Management
+# Bohrium Datasets
 
-## Overview
+Use `bohr dataset` for this task. The installed CLI's `bohr-dataset` guide owns the detailed workflow.
 
-Manage datasets on the Bohrium platform. **Prefer `bohr` CLI**; fall back to the API for version management, quota checks, etc.
-
-`bohr dataset create` advantages over web upload: **no size limit** and **resumable upload**.
-
-Datasets solve common pain points:
-- Repeated file upload on every job submission -> mount datasets to avoid re-upload
-- Large input files with slow upload -> datasets support resumable upload
-- Need to share data with collaborators -> datasets support project-level sharing
-
-## Authentication
-
-```json
-"bohrium-dataset": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": { "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY" }
-}
-```
-
-Only configure `BOHR_ACCESS_KEY` for this skill. Helper scripts handle any legacy CLI compatibility internally.
-
-When calling the `bohr` CLI directly, map `BOHR_ACCESS_KEY` to the legacy variable that the CLI reads:
+## 1. Check the CLI
 
 ```bash
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
+bohr --version
 ```
 
-## Prerequisites: Install bohr CLI
+When installation or upgrade is needed, follow the environment's permissions and the user's instructions:
 
 ```bash
-# macOS
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_mac_curl.sh)"
-# Linux
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_linux_curl.sh)"
-source ~/.bashrc && export PATH="$HOME/.bohrium:$PATH"
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
-export OPENAPI_HOST=https://open.bohrium.com
+npm install -g @dptech-corp/bohr-cli@latest
 ```
 
----
+This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
 
-## List Datasets
+## 2. Read version-matched guidance
+
+Before business operations, read:
 
 ```bash
-bohr dataset list                       # Default: recent 50
-bohr dataset list -n 10 --json          # JSON, top 10
-bohr dataset list -p YOUR_PROJECT_ID                # Filter by project ID
-bohr dataset list -t "my-dataset"       # Search by title
+bohr guide read bohr-dataset -o text
+bohr guide list bohr-dataset/references -o json
+bohr guide read bohr-dataset references/commands.md -o text
+bohr dataset --help
 ```
 
-**JSON fields:** `id`, `title`, `path` (mount path like `/bohr/my-dataset/v1`), `projectName`, `creatorName`, `updateTime`, `desc`
+Relative references inside that guide belong to the CLI's embedded resources. Read
+`references/…` with `bohr guide read bohr-dataset references/path-to-file -o text`,
+rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
+and confirm flags through the specific subcommand's `--help`.
 
----
+## 3. Complete the task
 
-## Create Dataset (Upload Data)
+Resolve the dataset, version, and local upload/download paths. Follow the guide for identifier types, writable versions, and supported operations; confirm the exact target before deletion. Wenyon datasets use a separate command domain discoverable through `bohr --help`.
 
-```bash
-bohr dataset create \
-  -n "my-dataset" \
-  -p "my-dataset" \
-  -i YOUR_PROJECT_ID \
-  -l "/path/to/local/data"
-```
-
-| Parameter | Short | Required | Description |
-|-----------|-------|----------|-------------|
-| `--name` | `-n` | Yes | Dataset name |
-| `--path` | `-p` | Yes | Dataset path identifier (alphanumeric) |
-| `--pid` | `-i` | Yes | Project ID |
-| `--lp` | `-l` | Yes | Local data directory path |
-| `--comment` | `-m` | No | Description |
-
-> **Resumable upload**: If interrupted (network issues, etc.), re-run the same command and enter `y` to resume from breakpoint.
-
----
-
-## Using Datasets
-
-### Mount in Compute Jobs
-
-Add `dataset_path` to `job.json`:
-
-```json
-{
-  "job_name": "DeePMD-kit test",
-  "command": "cd se_e2_a && dp train input.json",
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c4_m15_1 * NVIDIA T4",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6",
-  "dataset_path": ["/bohr/my-dataset/v1", "/bohr/another-dataset/v2"]
-}
-```
-
-> `dataset_path` and `-p` (input directory) can be used simultaneously.
-
-### Mount on Dev Nodes
-
-Select datasets when creating a container node; access via path (e.g. `/bohr/my-dataset/v1`).
-
-- Adds 2-4s boot delay (regardless of count)
-- Use `df -a | grep bohr` to view mount points
-
-### Use in Notebooks
-
-1. Expand side panel in Notebook editor -> Select existing datasets
-2. Hover dataset name -> click copy to get path
-3. Use in code: `cd /bohr/testdataset-6xwt/v1/`
-
-> Datasets must be added **before** connecting to the node. Adding afterward requires a node restart.
-
----
-
-## Version Management
-
-Datasets support multi-version management. Files within a version are immutable once created.
-
-### Create New Version
-
-Via Web UI: Dataset details -> "New Version" -> system imports latest version files -> add/remove files -> Create.
-
-Via API:
-```python
-requests.post(f"{BASE}/{dataset_id}/version", headers=HEADERS_JSON,
-    json={"versionDesc": "v2 update"})
-```
-
-Preparation time depends on file size and count.
-
----
-
-## Delete Datasets
-
-```bash
-bohr dataset delete YOUR_DATASET_ID              # Single
-bohr dataset delete YOUR_DATASET_ID YOUR_DATASET_ID_2       # Batch
-```
-
-> Deleted versions cannot be recovered.
-
----
-
-## Permission Model
-
-| Permission | Description | Default holders |
-|-----------|-------------|-----------------|
-| Manageable | Edit, delete, create versions | Dataset creator, project creator/admin |
-| Usable | View and use | All project members |
-
-> "Usable" permission can be granted to other projects or users via editing.
-
----
-
-## API Supplement (CLI Unsupported)
-
-```python
-import os, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-BASE = "https://open.bohrium.com/openapi/v2/ds"
-HEADERS = {"Authorization": f"Bearer {AK}"}
-HEADERS_JSON = {**HEADERS, "Content-Type": "application/json"}
-
-# Dataset details
-r = requests.get(f"{BASE}/{dataset_id}", headers=HEADERS)
-
-# Version list
-r = requests.get(f"{BASE}/{dataset_id}/version", headers=HEADERS)
-# Returns: [{version, totalCount, totalSize, downloadUri, datasetPath, ...}]
-
-# Specific version
-r = requests.get(f"{BASE}/{dataset_id}/version/{version_id}", headers=HEADERS)
-
-# Create via API
-r = requests.post(f"{BASE}/", headers=HEADERS_JSON, json={
-    "title": "my-dataset", "projectId": YOUR_PROJECT_ID,
-    "identifier": "my-dataset",  # Required, unique ID
-})
-# Returns: {datasetId, tiefbluePath, requestId}
-# Then upload files via tiefblue, then call commit
-
-# Commit
-requests.put(f"{BASE}/commit", headers=HEADERS_JSON,
-    json={"datasetId": dataset_id})
-
-# New version
-requests.post(f"{BASE}/{dataset_id}/version", headers=HEADERS_JSON,
-    json={"versionDesc": "v2 update"})
-
-# Update info
-requests.put(f"{BASE}/{dataset_id}", headers=HEADERS_JSON,
-    json={"title": "new-title"})
-
-# Delete version
-requests.delete(f"{BASE}/{dataset_id}/version/{version_id}", headers=HEADERS)
-
-# Check quota
-r = requests.get(f"{BASE}/quota/check", headers=HEADERS,
-    params={"projectId": YOUR_PROJECT_ID})
-# Returns: {result: true, limit: 30, used: 5}
-
-# Upload token (for tiefblue)
-r = requests.get(f"{BASE}/input/token", headers=HEADERS,
-    params={"projectId": YOUR_PROJECT_ID, "path": "/bohr/my-dataset"})
-
-# Permissions
-r = requests.get(f"{BASE}/{dataset_id}/permission", headers=HEADERS)
-
-# Associated projects
-r = requests.get(f"{BASE}/project", headers=HEADERS)
-```
-
-**Important**: The dataset list API path is `GET /v2/ds/` (**with trailing slash**), not `/v2/ds/list` (`/list` gets caught by the `/:id` route).
-
----
-
-## Status Codes
-
-| status | Meaning |
-|--------|---------|
-| 1 | Creating / uncommitted |
-| 2 | Committed / available |
-
-## Troubleshooting
-
-| Problem | Cause | Solution |
-|---------|-------|----------|
-| `AccessKey Invalid` | Direct `bohr` calls are missing the legacy variable name | Run `export ACCESS_KEY="$BOHR_ACCESS_KEY"` and retry |
-| Upload interrupted | Network instability | Re-run same command, enter `y` to resume |
-| Dataset path not found | Wrong mount path | Check `path` with `bohr dataset list --json` |
-| Job can't access dataset | Not in job.json | Add `"dataset_path": ["/bohr/xxx/v1"]` |
-| `/ds/list` returns error | Route caught by `/:id` | Use `GET /ds/` (root path) |
-| Missing `identifier` error | Required field | Add `identifier` (alphanumeric) |
-| Version preparing (~5 min) | Files being copied | Large files take time; contact support on failure |
-| Dataset unavailable in Notebook | Added after node connection | Restart node to take effect |
+- Before account access, run `bohr auth status -o json`. If signed out, use `bohr auth login` and have the user complete browser authorization. Let the CLI manage credentials; keep credential files and secrets out of output.
+- Follow the guide for current prices, payment source, and write effects. Add `--yes` only when the user has authorized the specific spending or target operation. Preview with `--dry-run` where supported and retain CLI confirmation controls.
+- Use `-o json` for automated business commands. Check the exit status, `ok`, error details, and business state. Follow asynchronous requests to a verifiable result; report missing fields and unknown states accurately.
+- If the CLI lacks a guide or capability, report its version and the missing item and suggest an upgrade. Stay within supported CLI operations rather than constructing HTTP requests or restoring the old Python clients.

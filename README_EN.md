@@ -1,176 +1,123 @@
 # Bohrium Skills
 
-AI Agent skills for the Bohrium scientific computing platform.
-
-> For new integrations, we recommend starting with [Bohrium CLI (`bohr`)](https://www.bohrium.com/bohr-cli/intro). It provides a unified command-line interface and embeds Agent Skills that match the installed CLI version. This repository continues to keep the standalone `SKILL.md` files available for existing integrations.
+Agent Skills for the Bohrium scientific computing platform, powered by the [Bohrium CLI (`bohr`)](https://www.bohrium.com/bohr-cli/intro).
 
 [中文](README.md)
 
-## Use Bohrium CLI
+This repository provides 17 Skills in Chinese and English. Each Skill identifies the task, checks the CLI, and loads its embedded guidance. Detailed commands, flags, billing, and recovery rules stay aligned with the installed CLI version.
 
-### Install
-
-```bash
-npm install -g @dptech-corp/bohr-cli
-```
-
-The package supports x64 and arm64 on macOS, Linux, and Windows. After installation, we recommend signing in to your Bohrium account through the browser:
+## 1. Install and sign in to the Bohrium CLI
 
 ```bash
-bohr auth login    # Sign in to Bohrium
-bohr doctor        # Check local configuration and connectivity
-bohr --help        # List all commands
+npm install -g @dptech-corp/bohr-cli@latest
+bohr --version
+bohr auth login
+bohr doctor
 ```
 
-### Common commands
+Supports macOS, Linux, and Windows on x64 / arm64. Installing a Skill and installing `bohr` are separate steps; the Skill does not bundle the CLI. The verified baseline is **2.9.19**; use the latest stable release.
 
-Start with the root command to discover Bohrium CLI capabilities, then enter a command namespace to inspect its subcommands and options:
+The CLI guides the user through browser authorization. On servers or in non-interactive environments, check `bohr auth login --help` for supported sign-in methods. Provide credentials through the environment's established CLI configuration; keep secrets out of Skills, the repository, and conversations.
 
-```bash
-bohr --help
-bohr wiki --help
-bohr wiki search --help
-```
+## 2. Install these Skills
 
-Other capabilities follow the same pattern:
+### Claude Code
 
-```bash
-bohr job --help
-bohr sandbox --help
-bohr lkm --help
-bohr agents mentor --help
-```
-
-The `bohr` command corresponding to each standalone Skill is listed below. Always use the installed CLI's `--help` output as the source of truth for subcommands and options.
-
-### Agent Skills
-
-`bohr` embeds command guidance designed for AI Agents, versioned together with the CLI. First check which Skills are available in the installed version; commands not listed there remain discoverable through `bohr <command> --help`:
-
-```bash
-bohr skills list                              # List Skills embedded in this version
-bohr skills read bohr-sandbox                 # Read a Skill
-bohr skills list bohr-sandbox/references      # List a Skill's references
-```
-
-Upgrade the CLI to receive new commands and their matching Skills:
-
-```bash
-bohr update
-```
-
-## Help and documentation
-
-- [Bohrium CLI overview](https://www.bohrium.com/bohr-cli/intro)
-- [Bohrium CLI installation guide](https://docs.bohrium.com/docs/bohrctl/install/)
-- [Bohrium CLI pricing](https://docs.bohrium.com/docs/bohrctl/pricing)
-- [Bohrium CLI on npm](https://www.npmjs.com/package/@dptech-corp/bohr-cli)
-- [Bohrium platform](https://www.bohrium.com/)
-- In-command help: `bohr --help`, `bohr <command> --help`
-
-## Standalone Skills in this repository
-
-The following `SKILL.md` files remain available for Agents and automation that already depend on this repository. New integrations should prefer `bohr` and its embedded Skills.
-
-### Existing integration configuration
-
-> This section applies only to existing integrations that continue to use the standalone Skills in this repository directly. For new integrations, we still recommend installing `bohr` and running `bohr auth login`.
-
-Standalone Skills that call the platform API directly require a Bohrium AccessKey. Get one from [Bohrium account settings](https://www.bohrium.com/settings/account), then provide it through an environment variable:
-
-![Get AccessKey](docs/images/access-key-settings.png)
-
-```bash
-export BOHR_ACCESS_KEY="YOUR_ACCESS_KEY"
-```
-
-Never hard-code or commit real credentials.
-
-Existing Claude Code plugin users can continue to use the original installation method:
+The existing marketplace and plugin names are preserved. This installs the English Skills:
 
 ```text
 /plugin marketplace add dptech-corp/bohrium-skills
 /plugin install bohrium-skills@bohrium
 ```
 
-### Skill list
+### Codex, Claude Code, or DSH: install one Skill
 
-| Skill | Corresponding `bohr` command | Description |
-|-------|------------------------------|-------------|
-| [bohrium-job](en/bohrium-job/SKILL.md) | `bohr job` | Compute job management — submit, query, stop, and delete jobs |
-| [bohrium-node](en/bohrium-node/SKILL.md) | `bohr node` | Development node management — create, start, stop, and delete containers/VMs |
-| [bohrium-dataset](en/bohrium-dataset/SKILL.md) | `bohr dataset` | Dataset management — create, upload, download, and version datasets |
-| [bohrium-file](en/bohrium-file/SKILL.md) | `bohr file` | File storage management — list, upload, download, move, copy, and delete files |
-| [bohrium-database](en/bohrium-database/SKILL.md) | `bohr database` | Scientific databases — browse domain libraries and tabular data |
-| [bohrium-image](en/bohrium-image/SKILL.md) | `bohr image` | Container image management — list, pull, create, and delete images |
-| [bohrium-project](en/bohrium-project/SKILL.md) | `bohr project` | Project management — create projects, manage members, and set budgets |
-| [bohrium-knowledge-base](en/bohrium-knowledge-base/SKILL.md) | `bohr kb` | Knowledge base management — literature, tags, notes, and recall search |
-| [bohrium-paper-search](en/bohrium-paper-search/SKILL.md) | `bohr paper` | Paper and patent search — keyword and semantic retrieval |
-| [bohrium-pdf-parser](en/bohrium-pdf-parser/SKILL.md) | `bohr pdf` | PDF parsing — extract text, tables, charts, and formulas |
-| [bohrium-scholar-search](en/bohrium-scholar-search/SKILL.md) | `bohr scholar` | Scholar search and profiles — publications, citations, metrics, and research areas |
-| [bohrium-sciencepedia](en/bohrium-sciencepedia/SKILL.md) | `bohr wiki` | SciencePedia — search topics, courses, knowledge points, and knowledge graphs |
-| [bohrium-tools](en/bohrium-tools/SKILL.md) | `bohr tools` | Scientific tools — browse, search, and inspect tools |
-| [bohrium-web-search](en/bohrium-web-search/SKILL.md) | `bohr search` | Web search — search the open internet |
-| [bohrium-sandbox](en/bohrium-sandbox/SKILL.md) | `bohr sandbox` | Cloud sandbox — create temporary VMs and run Shell/Python |
-| [bohrium-lkm](en/bohrium-lkm/SKILL.md) | `bohr lkm` | Large Knowledge Model — knowledge retrieval, reasoning chains, paper graphs, references/cited-by, and async PDF extraction |
-| [bohrium-mentor](en/bohrium-mentor/SKILL.md) | `bohr agents mentor` | AI Science Mentor — literature-grounded scientific Q&A |
+Get the current GitHub content and select a directory under `zh/` or `en/`. For example, install English paper search:
 
-## Billing
-
-Charged skills bill your account balance per call or per compute-hour. Check your balance and bills on the [Research Assets](https://www.bohrium.com/en/assets). Refer to [Bohrium CLI pricing](https://docs.bohrium.com/docs/bohrctl/pricing) for the latest pricing rules:
-
-| Skill | Charged | Price | Unit | Notes |
-|-------|:-------:|-------|------|-------|
-| bohrium-job | Yes | See pricing page | ¥/hour | Compute-hour fee after machine starts; see Job pricing page |
-| bohrium-node | Yes | See pricing page | ¥/hour | Compute-hour fee after machine starts; see Node pricing page |
-| bohrium-sandbox | Yes | See pricing page | ¥/hour | Compute-hour fee after machine starts; see Node pricing page |
-| bohrium-paper-search | Yes | From ¥0.05/call | ¥/call | Paper: standard (type 0) ¥0.05, enhanced (type 1) ¥0.1/call; Patent: type 0 ¥0.1, type 1 ¥0.3, type 2 ¥0.5/call |
-| bohrium-pdf-parser | Yes | ¥0.05/page | ¥/page | Charged on trigger; fetching results is free |
-| bohrium-lkm | Yes | Search ¥0.05/call; Parse ¥1 / ¥0.1 on cache hit | ¥/call | Search endpoints (search, reasoning/search, papers/graph, papers/reference, claims/{id}/reasoning, variables/batch): first 1,000 calls/month free, then ¥0.05/call. Parse: ¥1/call, ¥0.1/call on cache hit. feedback is free |
-| bohrium-mentor | Yes | 200 photons/call | photons/call | Charged on session creation; 200 photons/call |
-| bohrium-sciencepedia | Yes | First 1,000 calls/month shared with Tools are free; then from ¥0.01/call | ¥/call | article, keyword, knowledge_graph ¥0.02/call each; search/universal, get_wiki_index ¥0.01/call each |
-| bohrium-tools | Yes | First 1,000 calls/month shared with SciencePedia are free; then from ¥0.01/call | ¥/call | search/hybrid ¥0.01/call; detail ¥0.02/call |
-| bohrium-dataset / bohrium-image / bohrium-project / bohrium-knowledge-base / bohrium-scholar-search / bohrium-web-search | Free | - | - | - |
-
-## Repository structure
-
-```text
-bohrium-skills/
-├── zh/              # Chinese Skills
-├── en/              # English Skills
-├── docs/            # Legacy documentation and assets
-├── README.md        # Chinese README
-└── README_EN.md     # English README (this file)
+```bash
+git clone https://github.com/dptech-corp/bohrium-skills.git
+cd bohrium-skills
+bohr skill install ./en/bohrium-paper-search --target codex --scope user
 ```
 
-## SKILL.md format
+Supported `--target` values are `codex`, `claude`, and `dsh`. Choose one language per Skill. Other clients can use the selected directory in their supported Skill location. See `bohr skill install --help` for installation options and conflict handling.
 
-Each `SKILL.md` contains at least:
+### Install all 17 Skills
 
-```yaml
----
-name: skill-name
-description: "One-line description. Use when: ... NOT for: ..."
----
+With Go 1.23+, use the existing installer source from the cloned repository:
+
+```bash
+go run ./cmd/bohrium-skills-cli install --lang en
+# For Chinese, use --lang zh
 ```
 
-- **Frontmatter** — `name` + `description` with use and exclusion scenarios; `version` is optional.
-- **Body** — Feature description, API endpoints, parameter tables, response fields, code examples, and error handling.
-- **Code examples** — Use Python `requests` style and never hard-code credentials.
+This syncs to `~/.agents/skills`, `~/.claude/skills`, and `~/.codex/skills`, backing up replaced Skills. See the [full-set installer guide](docs/cli.md).
 
-## How to cite
+**Published `bohrium-skills-cli` npm packages and Release binaries embed the Skill snapshot from their release.** Updating GitHub does not change old packages. Get the current CLI-backed content through the GitHub plugin, `bohr skill install`, or this repository's installer source. This migration does not publish a new installer release.
 
-If you use Bohrium Skills in your research, please cite this repository. To support reproducibility, also specify the version or commit SHA used.
+## 3. Read version-matched guidance
 
-Citation metadata is available in [CITATION.cff](CITATION.cff). You can also use the following BibTeX:
-
-```bibtex
-@misc{bohrium_skills,
-  author       = {{DP Technology}},
-  title        = {{Bohrium Skills}},
-  howpublished = {\url{https://github.com/dptech-corp/bohrium-skills}}
-}
+```bash
+bohr guide list -o json
+bohr guide read bohr-paper-search -o text
+bohr guide list bohr-paper-search/references -o json
+bohr guide read bohr-paper-search references/commands.md -o text
+bohr paper --help
 ```
+
+Relative links inside a guide refer to CLI-embedded resources. Read them with `bohr guide read <guide> <path> -o text`; they are not files in this repository's Skill directories. If a command or guide is missing, check `bohr --version` and install the latest stable release.
+
+`bohr guide` reads local embedded guidance; `bohr agents skills` manages the cloud Skill Hub; `bohr skill install` installs a local Skill package.
+
+## Skill catalog
+
+Public Skill names remain `bohrium-*`; embedded CLI guides use `bohr-*`.
+
+| Skill | Command entry point | Embedded guide | Purpose |
+|-------|---------------------|----------------|---------|
+| [bohrium-job](en/bohrium-job/SKILL.md) | `bohr job` | `bohr-job` | Compute jobs, logs, and results |
+| [bohrium-node](en/bohrium-node/SKILL.md) | `bohr node` | `bohr-node` | Interactive development nodes |
+| [bohrium-dataset](en/bohrium-dataset/SKILL.md) | `bohr dataset` | `bohr-dataset` | Datasets, versions, and files |
+| [bohrium-file](en/bohrium-file/SKILL.md) | `bohr file` | `bohr-file` | Personal/share file storage |
+| [bohrium-database](en/bohrium-database/SKILL.md) | `bohr database` | `bohr-database` | Scientific databases and table schemas |
+| [bohrium-image](en/bohrium-image/SKILL.md) | `bohr image` | `bohr-image` | Container images, builds, and snapshots |
+| [bohrium-project](en/bohrium-project/SKILL.md) | `bohr project` | `bohr-project` | Projects, members, and quotas |
+| [bohrium-knowledge-base](en/bohrium-knowledge-base/SKILL.md) | `bohr kb` | `bohr-knowledge-base` | Knowledge bases, literature, and retrieval |
+| [bohrium-paper-search](en/bohrium-paper-search/SKILL.md) | `bohr paper` | `bohr-paper-search` | Paper and patent search |
+| [bohrium-pdf-parser](en/bohrium-pdf-parser/SKILL.md) | `bohr pdf` | `bohr-pdf-parse` | PDF parsing and result retrieval |
+| [bohrium-scholar-search](en/bohrium-scholar-search/SKILL.md) | `bohr scholar` | `bohr-scholar-search` | Scholar search and profiles |
+| [bohrium-sciencepedia](en/bohrium-sciencepedia/SKILL.md) | `bohr wiki` | `bohr-wiki` | Scientific articles, courses, and graphs |
+| [bohrium-tools](en/bohrium-tools/SKILL.md) | `bohr tools` | `bohr-tools` | Scientific tool discovery and details |
+| [bohrium-web-search](en/bohrium-web-search/SKILL.md) | `bohr search` | `bohr-web-search` | Public web search |
+| [bohrium-sandbox](en/bohrium-sandbox/SKILL.md) | `bohr sandbox` | `bohr-sandbox` | Cloud sandboxes, execution, and files |
+| [bohrium-lkm](en/bohrium-lkm/SKILL.md) | `bohr lkm` | `bohr-lkm` | Knowledge, claims, reasoning, and evidence |
+| [bohrium-mentor](en/bohrium-mentor/SKILL.md) | `bohr agents mentor` | `bohr-mentor` | Literature-grounded scientific Q&A |
+
+## Execution and billing
+
+- Read the embedded guide before business operations, then confirm flags through the specific command's `--help`.
+- Use `bohr billing pricing --help` to discover the current pricing query. Follow the guide for cost, payment source, and spending authorization; this repository does not duplicate the price catalog.
+- Use `--yes` only for authorized operations. Preview with `--dry-run` where supported. For automated business calls, use `-o json` and check the exit status, `ok`, and business state.
+- Request acceptance does not prove asynchronous completion. Verify the terminal state and results. Report missing CLI capabilities instead of automatically switching to direct API calls.
+
+## Migrating from the API version
+
+All 17 Skill names, language directories, and Claude installation entry points are preserved. Skill content now uses the CLI. The bundled Python API clients, example request files, API smoke/demo scripts, and `requirements.txt` have been retired. Automation invoking those scripts must move to CLI commands and consult their current help.
+
+Update the same-named Skills through the GitHub installation path, then prepare `bohr` using the installation and sign-in steps above. Old scripts remain available in Git history. Historical API verification reports do not establish current CLI acceptance. The [OpenAPI specification](docs/api/README.md) remains independently maintained; its interface definitions and published path are unchanged by this migration.
+
+## Content maintenance and verification
+
+`zh/<name>/SKILL.md` and `en/<name>/SKILL.md` each provide a task entry point. Detailed reference files live in `bohr`; this repository references guide names and embedded resource paths.
+
+GitHub CI checks all Skills, the Claude manifest, the installer, and guide/help commands against the real published CLI without calling business APIs. See [.github/workflows/check.yml](.github/workflows/check.yml) for test commands and version requirements.
+
+## Help
+
+- [Bohrium CLI introduction](https://www.bohrium.com/bohr-cli/intro)
+- [CLI installation](https://docs.bohrium.com/docs/bohrctl/install/)
+- [CLI pricing](https://docs.bohrium.com/docs/bohrctl/pricing)
+- [CLI npm package](https://www.npmjs.com/package/@dptech-corp/bohr-cli)
 
 ## License
 

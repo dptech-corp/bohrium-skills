@@ -10,41 +10,59 @@ import (
 	"testing"
 	"time"
 
+	bohriumskills "github.com/dptech-corp/bohrium-skills"
 	"github.com/dptech-corp/bohrium-skills/internal/build"
 	"github.com/dptech-corp/bohrium-skills/internal/syncer"
 )
 
 func TestInstallWritesBundledSkillsToThreeTargets(t *testing.T) {
-	home := t.TempDir()
-	var stdout, stderr bytes.Buffer
-	code := run([]string{"install", "--home", home, "--json"}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("run install exit = %d, stdout = %s, stderr = %s", code, stdout.String(), stderr.String())
-	}
-
-	var out struct {
-		Lang        string   `json:"lang"`
-		Official    []string `json:"official"`
-		Updated     []string `json:"updated"`
-		TargetDirs  []string `json:"target_dirs"`
-		BackupCount int      `json:"backup_count"`
-	}
-	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
-		t.Fatalf("install output is not JSON: %v\n%s", err, stdout.String())
-	}
-	if out.Lang != "zh" {
-		t.Fatalf("lang = %q, want zh", out.Lang)
-	}
-	if got, want := len(out.Official), 17; got != want {
-		t.Fatalf("official count = %d, want %d", got, want)
-	}
-	if got, want := len(out.TargetDirs), 3; got != want {
-		t.Fatalf("target dir count = %d, want %d", got, want)
-	}
-	for _, dir := range out.TargetDirs {
-		if _, err := os.Stat(filepath.Join(dir, "bohrium-job", "SKILL.md")); err != nil {
-			t.Fatalf("bohrium-job not installed in %s: %v", dir, err)
-		}
+	for _, lang := range []string{"zh", "en"} {
+		t.Run(lang, func(t *testing.T) {
+			home := t.TempDir()
+			args := []string{"install", "--home", home, "--json"}
+			if lang == "en" {
+				args = append(args, "--lang", lang)
+			}
+			var stdout, stderr bytes.Buffer
+			code := run(args, &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("run install exit = %d, stdout = %s, stderr = %s", code, stdout.String(), stderr.String())
+			}
+			var out struct {
+				Lang       string   `json:"lang"`
+				Official   []string `json:"official"`
+				TargetDirs []string `json:"target_dirs"`
+			}
+			if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
+				t.Fatalf("install output is not JSON: %v\n%s", err, stdout.String())
+			}
+			if out.Lang != lang || len(out.Official) != 17 || len(out.TargetDirs) != 3 {
+				t.Fatalf("incorrect install receipt: %+v", out)
+			}
+			for _, dir := range out.TargetDirs {
+				for _, name := range out.Official {
+					skillDir := filepath.Join(dir, name)
+					entries, err := os.ReadDir(skillDir)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if len(entries) != 1 || entries[0].Name() != "SKILL.md" {
+						t.Fatalf("unexpected installed resources in %s: %v", skillDir, entries)
+					}
+					installed, err := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
+					if err != nil {
+						t.Fatal(err)
+					}
+					source, err := bohriumskills.EmbeddedFS.ReadFile(lang + "/" + name + "/SKILL.md")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if !bytes.Equal(installed, source) {
+						t.Fatalf("installed content differs from embedded Skill %s", skillDir)
+					}
+				}
+			}
+		})
 	}
 }
 

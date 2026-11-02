@@ -1,12 +1,16 @@
 # bohrium-skills-cli 详细指南
 
+> **CLI 版 Skill 安装提示：** 本仓库当前 Skills 通过 `bohr` 执行业务。此文的 `bohrium-skills-cli` 只负责同步 Skill 文件，不安装 `bohr`，也不代用户登录。先安装 `@dptech-corp/bohr-cli@latest` 并完成 CLI 登录。
+>
+> npm 包和 GitHub Release 二进制内嵌发布时的 Skill 快照，旧版本不会随 GitHub 更新。获取本次 CLI 版内容，请使用根 README 的 GitHub 安装方式；整套安装可在当前仓库运行 `go run ./cmd/bohrium-skills-cli install --lang zh`（需 Go 1.23+）。下文的 npm/Release 安装方式仅获取已发布快照，不能保证包含本次迁移。
+
 `bohrium-skills-cli` 管理本仓库内嵌的整套 Bohrium AI Skills，将 `zh/` 或 `en/` 下的官方 skills 同步到本地 agent 目录。
 
 ---
 
 ## 安装方式
 
-### npm 安装（推荐）
+### npm 安装（已发布快照）
 
 ```bash
 npm install -g bohrium-skills-cli

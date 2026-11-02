@@ -1,3 +1,5 @@
+> **历史 API 验证记录。** 本文记录旧版直接调用 API 的 Skills，不代表当前 CLI 版的验收结果。配套 API 冒烟和示例提取脚本已随 CLI 迁移退役；当前检查见 `.github/workflows/check.yml`。
+
 # Bohrium Skills API 端点验证报告
 
 **最近验证**: 2026-06-30（bohrium-file 全链路实测 + 文档/校验补齐）｜2026-06-26（bohrium-sciencepedia 重写后 12 端点真实实测，原 bohrium-wiki 重命名）｜2026-06-15（全量真实冒烟，含 mentor/sandbox）｜2026-06-11（bohrium-tools 真实实测）｜2026-06-08（v2 网关冒烟实测）｜详细功能基线: 2026-05-11

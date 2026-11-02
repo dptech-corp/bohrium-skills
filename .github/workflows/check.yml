@@ -1,0 +1,39 @@
+name: check
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  cli-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install the published Bohrium CLI
+        run: |
+          npm install --prefix "$RUNNER_TEMP/bohr-cli" --no-audit --no-fund @dptech-corp/bohr-cli@2.9.19
+          echo "BOHR_SKILLS_TEST_BIN=$RUNNER_TEMP/bohr-cli/node_modules/.bin/bohr" >> "$GITHUB_ENV"
+      - name: Check CLI content, guides, and isolated installation
+        run: |
+          "$BOHR_SKILLS_TEST_BIN" --version
+          go test ./... -count=1
+      - name: Vet
+        run: go vet ./...
+      - name: Check Go formatting
+        run: |
+          files="$(gofmt -l bundle_cli_test.go cmd/bohrium-skills-cli/main_test.go)"
+          if [ -n "$files" ]; then
+            echo "$files"
+            exit 1
+          fi

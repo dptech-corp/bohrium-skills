@@ -41,7 +41,7 @@ the route from the user's intent:
 - Browse the free major/level hierarchy with `wiki levels`.
 - Read a course's chapter and knowledge-entry tree with `wiki course`.
 - Expand an article or keyword into related concepts with `wiki graph`.
-- Find scientific software in SciencePedia's tool library with `bohr tools`;
+- Find scientific software in SciencePedia's tool library with `bohr wiki tools`;
   read `bohr guide read bohr-tools` for its routes and prices.
 
 Use `bohr paper search` for papers and `bohr kb` for a personal knowledge base.

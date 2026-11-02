@@ -19,7 +19,7 @@ description: "通过 bohr node 创建、查询、连接、重启、停止或删�
 ## 工作流：创建、使用并停止开发机
 
 1. 按下方费用预检选择项目、镜像、机型、磁盘和自动关机时间。获授权创建后，将 `data.id` 保存为 Node ID；从列表选择时使用 `data.items[].nodeId`。
-2. 用同一 Node ID 查询至 `data.status=2`，再连接：
+2. 在约定的等待预算内，用同一 Node ID 查询至 `data.status=2` 再连接；到期仍未就绪时保留该 ID，并报告就绪尚未确认：
 
 ```bash
 bohr node get <node_id> -o json

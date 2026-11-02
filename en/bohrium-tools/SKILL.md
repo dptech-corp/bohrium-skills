@@ -24,8 +24,8 @@ description: >-
 2. Search for the task, then inspect one promising candidate:
 
 ```bash
-bohr tools search "molecular dynamics trajectory analysis" --k 10 --lang en-US --yes -o json
-bohr tools info <tool_unique_key> --yes -o json
+bohr wiki tools search "molecular dynamics trajectory analysis" --k 10 --lang en-US --yes -o json
+bohr wiki tools info <tool_unique_key> --yes -o json
 ```
 
 3. Replace `<tool_unique_key>` with the selected search record's `data.tools[].tool_unique_key`. Category discovery uses `data.items[].node_id`; that node ID is not accepted as a tool key. Search has no `--domain` filter: encode the relevant field in the query rather than inventing a flag.

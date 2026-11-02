@@ -148,7 +148,7 @@ def check_workflow_previews(repo, cli):
         operations = preview["operations"]
         request = next(item["body"] for item in operations if item["path"] == "/openapi/v4/job/add")
         require(request["outFiles"] == ["result.csv"] and request["logFiles"] == ["run.log"], "job recipe dropped its output/log collection contract")
-        require(request["downloadPath"] == "/personal/results" and request["projectId"] == 1234, "job recipe lost remote result/project scope")
+        require(request["downloadPath"] == "/personal/results/" and request["projectId"] == 1234, "job recipe lost remote result/project scope")
         require(any(item["method"] == "UPLOAD" and item["path"] == str(inputs) for item in operations), "job recipe did not preserve its explicit input tree")
 
     # Take the actual argv example from the guide so putting CLI flags after

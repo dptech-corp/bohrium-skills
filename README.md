@@ -99,7 +99,7 @@ bohr paper --help
 | [bohrium-pdf-parser](zh/bohrium-pdf-parser/SKILL.md) | `bohr pdf` | `bohr-pdf-parse` | PDF 解析与结果查询 |
 | [bohrium-scholar-search](zh/bohrium-scholar-search/SKILL.md) | `bohr scholar` | `bohr-scholar-search` | 学者检索与画像 |
 | [bohrium-sciencepedia](zh/bohrium-sciencepedia/SKILL.md) | `bohr wiki` | `bohr-wiki` | 科学词条、课程与图谱 |
-| [bohrium-tools](zh/bohrium-tools/SKILL.md) | `bohr tools` | `bohr-tools` | 科学工具检索与详情 |
+| [bohrium-tools](zh/bohrium-tools/SKILL.md) | `bohr wiki tools` | `bohr-tools` | 科学工具检索与详情 |
 | [bohrium-web-search](zh/bohrium-web-search/SKILL.md) | `bohr search` | `bohr-web-search` | 公开网页搜索 |
 | [bohrium-sandbox](zh/bohrium-sandbox/SKILL.md) | `bohr sandbox` | `bohr-sandbox` | 云沙箱、执行与文件传输 |
 | [bohrium-lkm](zh/bohrium-lkm/SKILL.md) | `bohr lkm` | `bohr-lkm` | 知识、论断、推理链与证据 |

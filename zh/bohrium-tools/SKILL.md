@@ -1,7 +1,7 @@
 ---
 name: bohrium-tools
 compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
-description: "通过 bohr tools 浏览领域和科学工具、混合检索并读取详情。用于工具分类标识、唯一工具键、显式关键词权重、定价和适用条件核对。"
+description: "通过 bohr wiki tools 浏览领域和科学工具、混合检索并读取详情。用于工具分类标识、唯一工具键、显式关键词权重、定价和适用条件核对。"
 ---
 
 <a id="bohrium-scientific-tools"></a>
@@ -22,8 +22,8 @@ description: "通过 bohr tools 浏览领域和科学工具、混合检索并读
 2. 搜索任务，再查看一个有希望的候选：
 
 ```bash
-bohr tools search "molecular dynamics trajectory analysis" --k 10 --lang en-US --yes -o json
-bohr tools info <tool_unique_key> --yes -o json
+bohr wiki tools search "molecular dynamics trajectory analysis" --k 10 --lang en-US --yes -o json
+bohr wiki tools info <tool_unique_key> --yes -o json
 ```
 
 3. 从选中的搜索记录 `data.tools[].tool_unique_key` 填入 `<tool_unique_key>`。分类发现使用 `data.items[].node_id`，该节点 ID 不能作为工具键。搜索没有 `--domain` 过滤参数；将领域写进查询，不要编造参数。

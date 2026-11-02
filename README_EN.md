@@ -99,7 +99,7 @@ Public Skill names remain `bohrium-*`; embedded CLI guides use `bohr-*`.
 | [bohrium-pdf-parser](en/bohrium-pdf-parser/SKILL.md) | `bohr pdf` | `bohr-pdf-parse` | PDF parsing and result retrieval |
 | [bohrium-scholar-search](en/bohrium-scholar-search/SKILL.md) | `bohr scholar` | `bohr-scholar-search` | Scholar search and profiles |
 | [bohrium-sciencepedia](en/bohrium-sciencepedia/SKILL.md) | `bohr wiki` | `bohr-wiki` | Scientific articles, courses, and graphs |
-| [bohrium-tools](en/bohrium-tools/SKILL.md) | `bohr tools` | `bohr-tools` | Scientific tool discovery and details |
+| [bohrium-tools](en/bohrium-tools/SKILL.md) | `bohr wiki tools` | `bohr-tools` | Scientific tool discovery and details |
 | [bohrium-web-search](en/bohrium-web-search/SKILL.md) | `bohr search` | `bohr-web-search` | Public web search |
 | [bohrium-sandbox](en/bohrium-sandbox/SKILL.md) | `bohr sandbox` | `bohr-sandbox` | Cloud sandboxes, execution, and files |
 | [bohrium-lkm](en/bohrium-lkm/SKILL.md) | `bohr lkm` | `bohr-lkm` | Knowledge, claims, reasoning, and evidence |

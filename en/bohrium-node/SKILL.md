@@ -21,7 +21,7 @@ description: >-
 ## Workflow: create, use, and stop a development node
 
 1. Select project/image/machine, disk and auto-shutdown using the cost preflight below. After authorized create, preserve `data.id` as the Node ID. From a list, use `data.items[].nodeId`.
-2. Inspect the same Node ID until `data.status=2`, then connect:
+2. Inspect the same Node ID within the agreed waiting budget until `data.status=2`, then connect; if the deadline expires, retain this ID and report that readiness is unconfirmed:
 
 ```bash
 bohr node get <node_id> -o json

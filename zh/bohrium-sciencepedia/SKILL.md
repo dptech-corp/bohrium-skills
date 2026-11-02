@@ -36,7 +36,7 @@ bohr wiki graph <article_id> --yes -o json
 - `wiki levels` 免费浏览学科/层级结构。
 - `wiki course` 读取课程章节和知识条目树。
 - `wiki graph` 将词条或关键词展开为相关概念图。
-- `bohr tools` 在工具库发现科学软件；路径和价格可通过 `bohr guide read bohr-tools` 查看。
+- `bohr wiki tools` 在工具库发现科学软件；路径和价格可通过 `bohr guide read bohr-tools` 查看。
 
 论文使用 `bohr paper search`，个人知识库使用 `bohr kb`。SciencePedia 是百科系统，应与这两类任务区分。
 

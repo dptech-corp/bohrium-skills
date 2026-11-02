@@ -51,7 +51,7 @@ go run ./cmd/bohrium-skills-cli install --lang en
 # For Chinese, use --lang zh
 ```
 
-This syncs to `~/.agents/skills` (shared by Codex and DSH) and `~/.claude/skills`, backing up replaced Skills. Same-named official copies from the old installer's `~/.codex/skills` location are backed up completely and retired after canonical installation, preventing duplicate Codex discovery. Other custom Skills are preserved. See the [full-set installer guide](docs/cli.md).
+This syncs to `~/.agents/skills` (shared by Codex and DSH) and `~/.claude/skills`, backing up replaced Skills. Same-named official copies from the old installer's `~/.codex/skills` location are backed up completely and retired after canonical installation, preventing duplicate Codex discovery. Other custom Skills are preserved. Shared-root aliases that cannot be migrated safely are preserved and reported as conflicts. See the [full-set installer guide](docs/cli.md).
 
 **Published `bohrium-skills-cli` npm packages and Release binaries embed the Skill snapshot from their release.** Updating GitHub does not change old packages. Get the current CLI-backed content through the GitHub plugin, `bohr skill install`, or this repository's installer source. This migration does not publish a new installer release.
 

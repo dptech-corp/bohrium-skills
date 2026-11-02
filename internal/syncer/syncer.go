@@ -135,6 +135,11 @@ func Sync(opts SyncOptions) (*Result, error) {
 	if defaultTargets {
 		opts.Targets = DefaultTargets(home)
 	}
+	if defaultTargets {
+		if err := checkLegacyRootAlias(home, filepath.Join(home, ".codex", "skills"), opts.Targets); err != nil {
+			return nil, err
+		}
+	}
 	configDir := opts.ConfigDir
 	if configDir == "" {
 		configDir = filepath.Join(home, ".config", "bohrium-skills-cli")
@@ -207,6 +212,15 @@ func Sync(opts SyncOptions) (*Result, error) {
 	}
 
 	if defaultTargets {
+		if err := checkLegacyRootAlias(home, legacyCodexRoot, opts.Targets); err != nil {
+			return result, err
+		}
+	}
+	legacyInfo, legacyRootErr := os.Stat(legacyCodexRoot)
+	if defaultTargets && legacyRootErr != nil && !errors.Is(legacyRootErr, os.ErrNotExist) {
+		return result, legacyRootErr
+	}
+	if defaultTargets && legacyRootErr == nil && legacyInfo.IsDir() {
 		for _, name := range plan.ToUpdate {
 			legacy := filepath.Join(legacyCodexRoot, name)
 			canonical := filepath.Join(home, ".agents", "skills", name)
@@ -365,13 +379,56 @@ func syncOneSkill(sourceFS fs.FS, source sourceSkill, targetRoot, backupDir stri
 	return backupMade, nil
 }
 
+// A root alias may be a user's shared source tree, not a disposable old copy.
+// Only an alias of the canonical agents root is automatically safe to retain.
+func checkLegacyRootAlias(home, legacy string, targets []string) error {
+	info, err := os.Stat(legacy)
+	if errors.Is(err, os.ErrNotExist) {
+		if link, linkErr := os.Lstat(legacy); linkErr == nil && link.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("legacy Codex root %s is an unresolved user alias; preserve it and resolve the configured roots before retrying", legacy)
+		}
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return nil
+	}
+	canonical := filepath.Join(home, ".agents", "skills")
+	if canonicalInfo, err := os.Stat(canonical); err == nil && os.SameFile(info, canonicalInfo) {
+		return nil
+	}
+	for _, target := range targets {
+		if targetInfo, err := os.Stat(target); err == nil && os.SameFile(info, targetInfo) {
+			return fmt.Errorf("legacy Codex root %s aliases active target %s; preserved without retirement; unify the configured roots before retrying", legacy, target)
+		}
+	}
+	resolvedHome, err := filepath.EvalSymlinks(home)
+	if err != nil {
+		return err
+	}
+	resolvedLegacy, err := filepath.EvalSymlinks(legacy)
+	if err != nil {
+		return err
+	}
+	if resolvedLegacy != filepath.Join(resolvedHome, ".codex", "skills") {
+		return fmt.Errorf("legacy Codex root %s aliases a separate shared tree; preserved without retirement; resolve the configured roots before retrying", legacy)
+	}
+	return nil
+}
+
 // retireLegacySkill removes only selected official names after their complete
 // canonical copies were installed. The copied backup retains user additions.
 func retireLegacySkill(dest, backupPath string) (backedUp, retired bool, err error) {
-	if _, err := os.Lstat(dest); errors.Is(err, os.ErrNotExist) {
+	info, err := os.Stat(dest)
+	if errors.Is(err, os.ErrNotExist) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, err
+	}
+	if !info.IsDir() {
+		return false, false, nil // Not a legacy directory bundle; preserve it.
 	}
 	if err := copyDir(dest, backupPath); err != nil {
 		return false, false, err
@@ -459,6 +516,13 @@ func copyDir(src, dest string) error {
 	resolved, err := filepath.EvalSymlinks(src)
 	if err != nil {
 		return err
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("backup source %s is not a directory", src)
 	}
 	src = resolved
 	if err := os.RemoveAll(dest); err != nil {

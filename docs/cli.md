@@ -16,12 +16,11 @@
 npm install -g bohrium-skills-cli
 ```
 
-安装完成后会自动运行 `bohrium-skills-cli install --lang zh --json`，将中文版 skills 同步到：
+已发布的 `0.1.1` 快照安装完成后会自动运行 `bohrium-skills-cli install --lang zh --json`，按该旧版行为同步到 `~/.agents/skills`、`~/.claude/skills` 和 `~/.codex/skills`。它尚不包含本轮完整 CLI Skill 和迁移修复。
 
-- `~/.agents/skills`
-- `~/.claude/skills`
+**当前源码及后续包含本轮修复的新发布版本**只写两个规范根：`~/.agents/skills`（Codex、DSH 共用）和 `~/.claude/skills`。规范目录完整安装后，旧 `.codex/skills` 中同名官方目录副本会先备份再退役，保留其他自定义 Skill。指向规范 `.agents` 的根别名保留；指向 Claude 或其他共享树的根别名明确报冲突，不沿链接删除共享内容。同名普通文件或指向普通文件的链接保留，不伪称已经备份迁移。
 
-Codex 和 DSH 共用 `~/.agents/skills`。默认安装会在规范目录完整安装后，备份并迁移旧 `~/.codex/skills` 中同名官方副本，保留其他自定义 Skill，避免 Codex 同时发现两份。备份目录带唯一后缀，同一秒的连续更新也不会互相覆盖。
+新备份目录带唯一后缀，同一秒内连续同步也不覆盖原备份。获取这些源码行为请使用根 README 的 GitHub/Go 源码安装方式，不能假设上面的旧 npm 命令已经更新。
 
 **跳过安装后自动同步**（CI 或只想下载二进制时）：
 

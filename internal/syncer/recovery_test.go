@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -259,5 +260,108 @@ func TestLegacyRootAliasNeverRetiresCanonicalTree(t *testing.T) {
 	files := readTree(t, filepath.Join(canonical, "bohrium-job"))
 	if files["SKILL.md"] != "---\nname: bohrium-job\ndescription: Job\n---\nnew\n" || len(files) != 3 {
 		t.Fatalf("canonical tree was lost through legacy alias: %v", files)
+	}
+}
+
+func TestLegacyRootAliasesToOtherTreesArePreserved(t *testing.T) {
+	for _, targetName := range []string{".claude/skills", "shared-source"} {
+		t.Run(targetName, func(t *testing.T) {
+			home := t.TempDir()
+			target := filepath.Join(home, filepath.FromSlash(targetName))
+			old := map[string]string{"bohrium-job/SKILL.md": "original user content", "my-custom/SKILL.md": "custom"}
+			writeTree(t, target, old)
+			if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(target, filepath.Join(home, ".codex", "skills")); err != nil {
+				t.Skipf("host cannot create symlinks: %v", err)
+			}
+			_, err := Sync(SyncOptions{Version: "new", Lang: "en", HomeDir: home, ConfigDir: filepath.Join(home, "config"), SourceFS: nativeFixture("new"), Force: true})
+			if err == nil || !strings.Contains(err.Error(), "alias") {
+				t.Fatalf("unsafe root alias was not reported: %v", err)
+			}
+			if got := readTree(t, target); !reflect.DeepEqual(got, old) {
+				t.Fatalf("user shared tree changed: %v", got)
+			}
+		})
+	}
+}
+
+func TestNonDirectoryLegacyItemsAreNeverDeletedOrClaimedAsBackups(t *testing.T) {
+	for _, linked := range []bool{false, true} {
+		t.Run(fmt.Sprintf("symlink=%v", linked), func(t *testing.T) {
+			home := t.TempDir()
+			legacy := filepath.Join(home, ".codex", "skills", "bohrium-job")
+			if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if linked {
+				file := filepath.Join(home, "user-file")
+				if err := os.WriteFile(file, []byte("keep user data"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(file, legacy); err != nil {
+					t.Skipf("host cannot create symlinks: %v", err)
+				}
+			} else if err := os.WriteFile(legacy, []byte("keep user data"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			result, err := Sync(SyncOptions{Version: "new", Lang: "en", HomeDir: home, ConfigDir: filepath.Join(home, "config"), SourceFS: nativeFixture("new"), Force: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(legacy)
+			if err != nil || string(data) != "keep user data" {
+				t.Fatalf("legacy user file changed: %v %q", err, data)
+			}
+			if len(result.MigratedLegacy) != 0 || result.BackupCount != 0 {
+				t.Fatalf("non-directory claimed as migrated/backed up: %+v", result)
+			}
+		})
+	}
+}
+
+func TestBackupRejectsNonDirectoryBeforeChangingExistingBackup(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "file")
+	dest := filepath.Join(root, "backup")
+	if err := os.WriteFile(source, []byte("source file"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeTree(t, dest, map[string]string{"saved": "previous backup"})
+	if err := copyDir(source, dest); err == nil {
+		t.Fatal("file was silently accepted as a directory backup")
+	}
+	if got := readTree(t, dest); !reflect.DeepEqual(got, map[string]string{"saved": "previous backup"}) {
+		t.Fatalf("existing backup was changed: %v", got)
+	}
+}
+
+func TestLegacyLeafAliasIsRemovedWithoutDeletingClaudeTarget(t *testing.T) {
+	home := t.TempDir()
+	claude := filepath.Join(home, ".claude", "skills", "bohrium-job")
+	writeTree(t, claude, map[string]string{"SKILL.md": "old Claude copy", "user-note.txt": "keep"})
+	legacy := filepath.Join(home, ".codex", "skills", "bohrium-job")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(claude, legacy); err != nil {
+		t.Skipf("host cannot create symlinks: %v", err)
+	}
+	result, err := Sync(SyncOptions{Version: "new", Lang: "en", HomeDir: home, ConfigDir: filepath.Join(home, "config"), SourceFS: nativeFixture("new"), Force: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(result.MigratedLegacy, []string{"bohrium-job"}) {
+		t.Fatalf("leaf alias was not retired: %+v", result)
+	}
+	if _, err := os.Lstat(legacy); !os.IsNotExist(err) {
+		t.Fatalf("legacy duplicate alias remains: %v", err)
+	}
+	for _, target := range result.TargetDirs {
+		got := readTree(t, filepath.Join(target, "bohrium-job"))
+		if len(got) != 3 || got["references/commands.md"] != "new reference\n" {
+			t.Fatalf("active canonical target was deleted or incomplete: %v", got)
+		}
 	}
 }

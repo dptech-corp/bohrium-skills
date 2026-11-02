@@ -51,7 +51,7 @@ go run ./cmd/bohrium-skills-cli install --lang zh
 # 英文版改为 --lang en
 ```
 
-这会同步到 `~/.agents/skills`（Codex、DSH 共用）和 `~/.claude/skills`，替换前自动备份。旧安装器写入 `~/.codex/skills` 的同名官方副本会先完整备份、再迁移到规范目录，避免 Codex 重复加载；其他自定义 Skill 保留。详见 [整套安装指南](docs/cli.md)。
+这会同步到 `~/.agents/skills`（Codex、DSH 共用）和 `~/.claude/skills`，替换前自动备份。旧安装器写入 `~/.codex/skills` 的同名官方副本会先完整备份、再迁移到规范目录，避免 Codex 重复加载；其他自定义 Skill 保留；跨消费者的共享根别名若无法安全迁移，会保留原树并明确报冲突。详见 [整套安装指南](docs/cli.md)。
 
 **已发布的 `bohrium-skills-cli` npm 包和 Release 二进制内嵌发布时的 Skill 快照。** GitHub 内容更新不会改写旧发布物；当前 CLI 版内容请通过 GitHub 插件、`bohr skill install` 或本仓库源码安装。本次迁移不发布新的安装器版本。
 

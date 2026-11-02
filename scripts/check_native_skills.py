@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shlex
 import subprocess
 import tempfile
 from urllib.parse import unquote, urlsplit
@@ -124,6 +125,47 @@ class CLI:
         return files
 
 
+def check_workflow_previews(repo, cli):
+    # Exercise the documented config-to-request boundary with the published
+    # binary, without submitting a job or uploading any input.
+    body = (repo / "en/bohrium-job/SKILL.md").read_text()
+    config = json.loads(re.search(r"```json\n(.*?)\n```", body, re.S).group(1))
+    with tempfile.TemporaryDirectory(prefix="bohr-workflow-preview-") as directory:
+        fixture = Path(directory)
+        config_path = fixture / "job.json"
+        config_path.write_text(json.dumps(config))
+        inputs = fixture / "input"
+        inputs.mkdir()
+        (inputs / "run.py").write_text("print('offline preview input')\n")
+        preview = cli.data(
+            "job", "submit", "-i", str(config_path), "--project-id", "1234",
+            "--job_name", "analysis", "--image_address", "registry.example.com/research:v1",
+            "--machine_type", "preview-machine", "--command", "python run.py > run.log 2>&1",
+            "--input_directory", str(inputs), "--result_path", "/personal/results",
+            "--dry-run", "-o", "json",
+        )
+        require(preview.get("dry_run") is True, "job recipe unexpectedly executed")
+        operations = preview["operations"]
+        request = next(item["body"] for item in operations if item["path"] == "/openapi/v4/job/add")
+        require(request["outFiles"] == ["result.csv"] and request["logFiles"] == ["run.log"], "job recipe dropped its output/log collection contract")
+        require(request["downloadPath"] == "/personal/results" and request["projectId"] == 1234, "job recipe lost remote result/project scope")
+        require(any(item["method"] == "UPLOAD" and item["path"] == str(inputs) for item in operations), "job recipe did not preserve its explicit input tree")
+
+    # Take the actual argv example from the guide so putting CLI flags after
+    # the remote delimiter becomes an observable regression.
+    sandbox = (repo / "en/bohrium-sandbox/SKILL.md").read_text()
+    line = next(line for line in sandbox.splitlines() if line.startswith("bohr sandbox exec <sandbox_id> -o json -- "))
+    args = shlex.split(line.replace("<sandbox_id>", "default--preview-abc12"))[1:]
+    delimiter = args.index("--")
+    args.insert(delimiter, "--dry-run")
+    preview = cli.data(*args)
+    require(preview.get("dry_run") is True, "sandbox recipe unexpectedly executed")
+    request = preview["operations"][0]["body"]
+    require("/tmp/run.py" in request["command"] and "json" not in request["command"] and "-o" not in request["command"], "sandbox recipe passed local output flags to the remote script")
+    require(request["background"] is False, "sandbox recipe unexpectedly launches background work")
+    print("Verified documented Job output collection and Sandbox argv handoffs with offline published-CLI previews.")
+
+
 def check_packages(repo, lock, cli):
     version = cli.text("--version").strip()
     require(version == "bohr version " + lock["version"], f"wrong CLI version: {version}")
@@ -198,6 +240,7 @@ def check_packages(repo, lock, cli):
     require(all(flag in help_text for flag in ("--wenyon-mode", "--wenyon-version", "--wenyon-user-token-env")), "published CLI lacks documented instance-mount flags")
     delete_help = cli.text("sandbox", "delete", "--help")
     require("--commit" in delete_help and "--discard" in delete_help, "published CLI lacks documented settlement flags")
+    check_workflow_previews(repo, cli)
     print(f"Verified {len(lock['skills'])} native Skills, {total} source files per language, local links, localized examples, metadata, command help, and complete isolated installs.")
 
 

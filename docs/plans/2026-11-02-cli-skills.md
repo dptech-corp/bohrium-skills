@@ -46,8 +46,17 @@ go vet ./...
 ```
 
 Use the existing installer test seam `run` with `install --home <temporary-directory> --lang zh|en --json`; inspect its JSON receipt and every installed Skill in all three target directories.
-- [ ] Review final diff and run text/whitespace checks. Record remote/CI results and any unverified boundary. Deliver the task branch without triggering a tag/npm release.
+- [x] Review final diff and run text/whitespace checks. Record remote/CI results and any unverified boundary. Deliver the task branch without triggering a tag/npm release.
 
 ## Self-review
 
 The single task covers spec acceptance criteria 1–6. Runtime tests validate the actual published CLI, while installer tests cover the embedded content. No package/version bump or cross-repository implementation is needed.
+
+## Verification result
+
+- Validated implementation: `77d22a1cc74197ec63a4b85d38e0723fc61fd7e0`.
+- Passing GitHub CI: https://github.com/dptech-corp/bohrium-skills/actions/runs/41413233737.
+- `go test ./... -count=1`, `go vet ./...`, and Go formatting checks passed on the GitHub runner with the real published `bohr 2.9.19`.
+- Runtime checks resolved all 17 guides and 17 reference files in JSON and human output, checked reference listings and domain help, and installed a Skill with the published CLI into an isolated project. Installer regression tests verified both languages, all 17 names, byte-identical content, and all three isolated destinations.
+- The initial CI run caught unsupported `-o text` instructions. All published Skills and README examples now use supported `-o human`; checks still compare returned Markdown with JSON content.
+- No authenticated business call, paid operation, npm/tag release, or marketplace submission was performed. The OpenAPI schema and existing release workflow were not changed.

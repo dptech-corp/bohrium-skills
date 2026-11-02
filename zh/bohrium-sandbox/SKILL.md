@@ -79,6 +79,8 @@ GPU 使用快捷参数 `--gpu`：不带值时为默认 `4090`，`--gpu 5090` 和
 使用普通计算模板。数据集、挂载路径、模式和起始版本都是 **sandbox create 参数**，不是模板默认值。参数见 `bohr sandbox create --help`，完整流程见 [生命周期参考](references/sandbox/lifecycle.md#mount-a-wenyon-dataset-in-an-instance)。
 
 ```bash
+REQUEST_ID="$(uuidgen)"
+
 bohr sandbox create sdbxagent \
   --wenyon-dataset-id <dataset-id> \
   --wenyon-mount-path /mnt/wenyon \
@@ -86,6 +88,8 @@ bohr sandbox create sdbxagent \
   --wenyon-user-token-env WENYON_USER_JWT \
   --request-id "$REQUEST_ID" --yes -o json
 ```
+
+对本次逻辑 create 只生成一次 `REQUEST_ID`，在不同 shell 或工具调用之间保留它。核对和恢复原请求时复用该 ID，不要为了重试重新生成。
 
 默认 `read/current` 在创建租约时固定当前版本。`write/current` 或正整数版本会完整预载该基线，只有 `write/none` 从空目录开始。版本不存在或预载失败时，不会回退为空目录。检查响应中的数据集、路径、请求和解析后的版本及实际读写模式，并核对挂载内容。
 

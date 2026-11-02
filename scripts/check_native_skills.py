@@ -172,7 +172,7 @@ def check_packages(repo, lock, cli):
     guardrails = {
         "bohrium-paper-search": ["--page", "--size", "BILLING_INSUFFICIENT", "--payment-source photon", "--payment-source balance", "0.05", "0.50"],
         "bohrium-pdf-parser": ["data.token", "undefined", "processing", "success", "PARSE_FAILED", "--return-half", "proc_page", "total_page"],
-        "bohrium-sandbox": ["--create-request-id", "sandbox_create_outcome_uncertain", "--wenyon-mode", "--commit", "--discard", "produced_version", "data.ready", "capabilities.dynamic_adjustment.available=true"],
+        "bohrium-sandbox": ["--create-request-id", "sandbox_create_outcome_uncertain", "--wenyon-mode", "--commit", "--discard", "produced_version", "data.ready", "capabilities.dynamic_adjustment.available=true", 'REQUEST_ID="$(uuidgen)"', '--request-id "$REQUEST_ID"'],
     }
     for lang in ("en", "zh"):
         for name, tokens in guardrails.items():

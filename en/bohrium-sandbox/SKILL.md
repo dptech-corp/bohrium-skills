@@ -131,6 +131,8 @@ version are **sandbox create parameters**, not template defaults. Check
 [lifecycle reference](references/sandbox/lifecycle.md#mount-a-wenyon-dataset-in-an-instance).
 
 ```bash
+REQUEST_ID="$(uuidgen)"
+
 bohr sandbox create sdbxagent \
   --wenyon-dataset-id <dataset-id> \
   --wenyon-mount-path /mnt/wenyon \
@@ -138,6 +140,8 @@ bohr sandbox create sdbxagent \
   --wenyon-user-token-env WENYON_USER_JWT \
   --request-id "$REQUEST_ID" --yes -o json
 ```
+
+Generate `REQUEST_ID` once for this logical create and retain it across shell/tool invocations. Reuse it while reconciling this request; do not generate a new ID for a retry.
 
 `read/current` is the default and pins the current version when the lease is
 created. `write/current` or a positive version preloads that complete baseline;

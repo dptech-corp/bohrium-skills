@@ -42,9 +42,16 @@
 - [x] Replace single-file/routing-only checks with package inventory, valid local-link, source workflow, and bilingual fenced-example checks.
 - [x] Recursively list/read all selected trees through the real published CLI. Compare inventories, full English adapted files, shared references, source-provided metadata identities, and guide metadata. Retain default JSON, command-help, and isolated `bohr skill install` checks.
 - [x] Expand the existing full-set installer test to compare every source file recursively for both languages and all three destinations; preserve missing/extra-file detection.
-- [ ] Run `go test ./... -count=1`, `python3 -m unittest discover -s scripts -p '*_test.py'`, `python3 scripts/check_native_skills.py --cli "$BOHR_SKILLS_TEST_BIN"`, `go vet ./...`, and formatting checks through the existing `check` workflow, installing the CLI version selected by the source lock.
-- [ ] Inspect the final diff and CI result. Report the actual tested boundary and leave main/npm/tag publication as separate steps.
+- [x] Run `go test ./... -count=1`, `python3 -m unittest discover -s scripts -p '*_test.py'`, `python3 scripts/check_native_skills.py --cli "$BOHR_SKILLS_TEST_BIN"`, `go vet ./...`, and formatting checks through the existing `check` workflow, installing the CLI version selected by the source lock.
+- [x] Inspect the final diff and CI result. Report the actual tested boundary and leave main/npm/tag publication as separate steps.
 
 ## Self-review
 
 Task 1 implements spec acceptance criteria 1–4; Task 2 verifies criteria 1–6. The public package is self-contained for instructions and references while `bohr` remains the runtime dependency. The existing release flow is retained and no independent update/release service is introduced.
+
+## Verification evidence
+
+- The complete native-package implementation at `47cc1c99a9fdbce3c59a6c1d6d68e43c43cef0ff` passed the existing GitHub `check` workflow: https://github.com/dptech-corp/bohrium-skills/actions/runs/41419397136.
+- The runner used the real `bohr 2.9.19` artifact and passed Go tests, source-tree parity, default JSON checks, local file/anchor checks, bilingual fenced examples, workflow boundary checks, checker negative tests, full-package isolated installations, vet, and Go formatting.
+- Standards review reported no actionable violations. Spec review found one P2 in the new Wenyon example: the stable request ID variable needed initialization. Both languages and the source adaptation now initialize it once with `uuidgen` and preserve it across reconciliation; the reviewer closed the finding. Regression anchors cover both initialization and explicit reuse.
+- The final follow-up commit is verified by its attached `check` workflow status. No authenticated business call or paid operation is part of this package verification; no main merge or npm/tag publication is performed.

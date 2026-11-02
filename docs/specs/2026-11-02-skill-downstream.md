@@ -20,12 +20,13 @@ The CLI-native packages remain complete during installation and updates and are 
 - Publish complete staged trees by moving the prior tree aside, then promoting the new tree. Publication failure restores the old tree. If restoration fails, preserve the previous tree and report both errors and its recovery location. Cleanup failure must not erase or misidentify the complete active tree.
 - For bohr 2.9.19 paper/patent queries, document that page is not forwarded. Repeated queries may be billable and must not be described as expanding page coverage. Verify page 1/2 dry-run bodies and correct both language packages and source adaptations.
 - Exercise the real published Codex local skills/list path, DSH filesystem provider list/get, and Claude's offline plugin validation/management where available. Isolate homes/configuration, use no credentials, and make no model calls. A consumer's unavailable/closed-source boundary is a stated limit rather than an inferred pass.
+- Default full-set installation targets `~/.agents/skills` and `~/.claude/skills`. Back up and retire selected official legacy `~/.codex/skills` copies only after canonical installation, preserving unrelated custom Skills. Explicit custom target lists retain their requested destinations.
 - Restrict the installer npm package to runtime files so CI-only check scripts are not shipped.
 
 ## Acceptance criteria
 
 1. Manual and npm layouts are classified correctly, including misleading names and symlinked launchers.
-2. PATH shadowing or a wrong-version child cannot silently synchronize an old snapshot as a new release. Successful npm update synchronizes the verified fresh binary's content.
+2. PATH shadowing or a wrong-version child cannot silently synchronize an old snapshot as a new release. Successful npm update, including same-version force reinstall, synchronizes the verified fresh binary's content.
 3. Same-clock consecutive syncs retain distinct intact backups, including original API files and user additions.
 4. Replacement failures leave a complete old or complete new tree; rollback failure preserves recovery data and both errors.
 5. Published CLI dry-runs confirm the page limitation, and both main/reference documents warn against fake pagination.

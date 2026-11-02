@@ -14,9 +14,12 @@ func TestUpdateNPMInstallThenSyncsSkills(t *testing.T) {
 			calls = append(calls, "install:"+version)
 			return nil
 		},
-		SyncFunc: func(version string, force bool) error {
-			calls = append(calls, "sync:"+version)
-			if force {
+		SyncFunc: func(request SyncRequest) error {
+			if !request.UpdatedBinary {
+				t.Fatal("installed binary was not selected for sync")
+			}
+			calls = append(calls, "sync:"+request.Version)
+			if request.Force {
 				calls = append(calls, "force")
 			}
 			return nil
@@ -49,7 +52,7 @@ func TestUpdateCheckDoesNotInstallOrSync(t *testing.T) {
 			called = true
 			return nil
 		},
-		SyncFunc: func(version string, force bool) error {
+		SyncFunc: func(request SyncRequest) error {
 			called = true
 			return nil
 		},
@@ -76,12 +79,46 @@ func TestFailedSkillSyncDoesNotReportSuccessfulUpdate(t *testing.T) {
 	failure := errors.New("new binary verification failed")
 	result, err := Update(UpdateOptions{CurrentVersion: "1.0.0", Runner: FakeRunner{
 		LatestVersion: "2.0.0", InstallMethod: InstallNPM,
-		SyncFunc: func(string, bool) error { return failure },
+		SyncFunc: func(SyncRequest) error { return failure },
 	}})
 	if !errors.Is(err, failure) {
 		t.Fatalf("sync failure was lost: %v", err)
 	}
 	if result.Action == "updated" || result.CurrentVersion != "1.0.0" || result.SkillsAction == "synced" {
 		t.Fatalf("failed sync reported success: %+v", result)
+	}
+}
+
+func TestSameVersionForceStillSelectsInstalledBinary(t *testing.T) {
+	installed, synced := false, false
+	_, err := Update(UpdateOptions{CurrentVersion: "1.0.0", Force: true, Runner: FakeRunner{
+		LatestVersion: "1.0.0", InstallMethod: InstallNPM,
+		InstallFunc: func(string) error { installed = true; return nil },
+		SyncFunc: func(request SyncRequest) error {
+			synced = true
+			if !request.UpdatedBinary || !request.Force {
+				t.Fatalf("reinstalled binary not selected: %+v", request)
+			}
+			return nil
+		},
+	}})
+	if err != nil || !installed || !synced {
+		t.Fatalf("same-version force did not reinstall/sync: %v", err)
+	}
+}
+
+func TestManualForceUsesCurrentEmbeddedSnapshot(t *testing.T) {
+	_, err := Update(UpdateOptions{CurrentVersion: "1.0.0", Force: true, Runner: FakeRunner{
+		LatestVersion: "2.0.0", InstallMethod: InstallManual,
+		InstallFunc: func(string) error { t.Fatal("manual install invoked npm"); return nil },
+		SyncFunc: func(request SyncRequest) error {
+			if request.UpdatedBinary || request.Version != "1.0.0" || !request.Force {
+				t.Fatalf("incorrect manual sync: %+v", request)
+			}
+			return nil
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

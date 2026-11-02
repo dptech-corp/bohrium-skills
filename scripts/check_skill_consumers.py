@@ -78,8 +78,23 @@ def main():
         env.update({'HOME':str(home), 'CODEX_HOME':str(home/'.codex'), 'CLAUDE_CONFIG_DIR':str(home/'.claude'), 'DSH_HOME':str(home/'.dsh'), 'DSH_AGENTS_HOME':str(home/'.agents'), 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC':'1', 'DISABLE_TELEMETRY':'1', 'DISABLE_ERROR_REPORTING':'1', 'CODEX_APP_SERVER_MANAGED_CONFIG_PATH':str(home/'managed_config.toml')})
         for key in ['OPENAI_API_KEY','ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','DEEPSEEK_API_KEY','DSH_BUNDLED_SKILL_DIR']:
             env.pop(key, None)
+        # Exercise the real upgrade route, not only a clean canonical directory.
+        legacy = home/'.codex/skills'
+        for name in names:
+            leaf = legacy/name
+            leaf.mkdir(parents=True)
+            (leaf/'SKILL.md').write_text(f'---\nname: {name}\ndescription: Legacy API Skill\n---\nLegacy content\n')
+            (leaf/'user-note.txt').write_text('preserve this user addition')
+        custom = legacy/'my-custom-skill'
+        custom.mkdir()
+        (custom/'SKILL.md').write_text('---\nname: my-custom-skill\ndescription: Unrelated user Skill\n---\nUser content\n')
         receipt = json.loads(run([str(Path(args.installer).resolve()), 'install', '--home', str(home), '--lang', 'en', '--json'], env, repo))
         assert set(receipt['official']) == names
+        assert set(receipt['migrated_legacy']) == names
+        assert all(not (legacy/name).exists() for name in names), 'Legacy duplicate Skills remain active'
+        assert (custom/'SKILL.md').read_text().endswith('User content\n')
+        notes = list((home/'.config/bohrium-skills-cli/backups').rglob('user-note.txt'))
+        assert len(notes) == len(names) and all(p.read_text() == 'preserve this user addition' for p in notes)
         failures = []
         try:
             result = rpc_skills(str(bins/'codex'), env, project)
@@ -98,6 +113,19 @@ def main():
                     assert interface and '$'+skill['name'] in interface['defaultPrompt'], f"Codex did not load interface identity for {skill['name']}"
                 assert (path.parent/'references').is_dir()
             print(f"Codex real app-server discovered {len(selected)} complete Skills with interface metadata.")
+            alias_home = Path(temp)/'alias-home'
+            canonical = alias_home/'.agents/skills'
+            canonical.mkdir(parents=True)
+            (alias_home/'.codex').mkdir()
+            (alias_home/'.codex/skills').symlink_to(canonical, target_is_directory=True)
+            alias_env = env.copy()
+            alias_env.update({'HOME':str(alias_home), 'CODEX_HOME':str(alias_home/'.codex'), 'CLAUDE_CONFIG_DIR':str(alias_home/'.claude'), 'DSH_HOME':str(alias_home/'.dsh'), 'DSH_AGENTS_HOME':str(alias_home/'.agents'), 'CODEX_APP_SERVER_MANAGED_CONFIG_PATH':str(alias_home/'managed_config.toml')})
+            run([str(Path(args.installer).resolve()), 'install', '--home', str(alias_home), '--lang', 'en', '--json'], alias_env, repo)
+            alias_result = rpc_skills(str(bins/'codex'), alias_env, project)
+            alias_counts = Counter(skill['name'] for item in alias_result['data'] for skill in item['skills'] if skill['name'] in names)
+            assert set(alias_counts) == names and all(value == 1 for value in alias_counts.values()), f'Codex canonical root alias duplicates/loss: {dict(alias_counts)}'
+            print('Codex whole-root symlink aliases preserve one complete Skill per name.')
+
         except Exception as error:
             failures.append(f"Codex: {type(error).__name__}: {error}")
         try:

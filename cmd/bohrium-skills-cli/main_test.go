@@ -16,7 +16,7 @@ import (
 	"github.com/dptech-corp/bohrium-skills/internal/syncer"
 )
 
-func TestInstallWritesBundledSkillsToThreeTargets(t *testing.T) {
+func TestInstallWritesCompleteSkillsToCanonicalTargets(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
 		t.Run(lang, func(t *testing.T) {
 			home := t.TempDir()
@@ -37,7 +37,7 @@ func TestInstallWritesBundledSkillsToThreeTargets(t *testing.T) {
 			if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
 				t.Fatalf("install output is not JSON: %v\n%s", err, stdout.String())
 			}
-			if out.Lang != lang || len(out.Official) != 17 || len(out.TargetDirs) != 3 {
+			if out.Lang != lang || len(out.Official) != 17 || len(out.TargetDirs) != 2 {
 				t.Fatalf("incorrect install receipt: %+v", out)
 			}
 			skills, err := bohriumskills.OfficialSkills(lang)

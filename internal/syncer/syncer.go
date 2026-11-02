@@ -64,6 +64,7 @@ type Result struct {
 	BackupCount    int      `json:"backup_count"`
 	TargetDirs     []string `json:"target_dirs"`
 	StatePath      string   `json:"state_path"`
+	MigratedLegacy []string `json:"migrated_legacy,omitempty"`
 }
 
 type sourceSkill struct {
@@ -130,7 +131,8 @@ func Sync(opts SyncOptions) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(opts.Targets) == 0 {
+	defaultTargets := len(opts.Targets) == 0
+	if defaultTargets {
 		opts.Targets = DefaultTargets(home)
 	}
 	configDir := opts.ConfigDir
@@ -153,7 +155,12 @@ func Sync(opts SyncOptions) (*Result, error) {
 	if err != nil {
 		readable = false
 	}
-	localSkills := listLocalSkills(opts.Targets)
+	discoveryTargets := append([]string{}, opts.Targets...)
+	legacyCodexRoot := filepath.Join(home, ".codex", "skills")
+	if defaultTargets {
+		discoveryTargets = append(discoveryTargets, legacyCodexRoot)
+	}
+	localSkills := listLocalSkills(discoveryTargets)
 	plan := PlanSync(PlanInput{
 		Version:        opts.Version,
 		OfficialSkills: official,
@@ -199,6 +206,28 @@ func Sync(opts SyncOptions) (*Result, error) {
 		}
 	}
 
+	if defaultTargets {
+		for _, name := range plan.ToUpdate {
+			legacy := filepath.Join(legacyCodexRoot, name)
+			canonical := filepath.Join(home, ".agents", "skills", name)
+			legacyInfo, legacyErr := os.Stat(legacy)
+			canonicalInfo, canonicalErr := os.Stat(canonical)
+			if legacyErr == nil && canonicalErr == nil && os.SameFile(legacyInfo, canonicalInfo) {
+				continue // A user-managed alias already points at the canonical tree.
+			}
+			backedUp, retired, err := retireLegacySkill(filepath.Join(legacyCodexRoot, name), filepath.Join(backupDir, "legacy-codex", name))
+			if backedUp {
+				result.BackupCount++
+			}
+			if retired {
+				result.MigratedLegacy = append(result.MigratedLegacy, name)
+			}
+			if err != nil {
+				return result, err
+			}
+		}
+	}
+
 	state = &State{
 		Version:              opts.Version,
 		Lang:                 opts.Lang,
@@ -219,7 +248,6 @@ func DefaultTargets(home string) []string {
 	return []string{
 		filepath.Join(home, ".agents", "skills"),
 		filepath.Join(home, ".claude", "skills"),
-		filepath.Join(home, ".codex", "skills"),
 	}
 }
 
@@ -337,6 +365,32 @@ func syncOneSkill(sourceFS fs.FS, source sourceSkill, targetRoot, backupDir stri
 	return backupMade, nil
 }
 
+// retireLegacySkill removes only selected official names after their complete
+// canonical copies were installed. The copied backup retains user additions.
+func retireLegacySkill(dest, backupPath string) (backedUp, retired bool, err error) {
+	if _, err := os.Lstat(dest); errors.Is(err, os.ErrNotExist) {
+		return false, false, nil
+	} else if err != nil {
+		return false, false, err
+	}
+	if err := copyDir(dest, backupPath); err != nil {
+		return false, false, err
+	}
+	holder, err := os.MkdirTemp(filepath.Dir(dest), "."+filepath.Base(dest)+".retired-")
+	if err != nil {
+		return true, false, err
+	}
+	defer os.Remove(holder)
+	previous := filepath.Join(holder, "previous")
+	if err := os.Rename(dest, previous); err != nil {
+		return true, false, fmt.Errorf("retire duplicate legacy Codex Skill %s (backup at %s): %w", dest, backupPath, err)
+	}
+	if err := os.RemoveAll(holder); err != nil {
+		return true, true, fmt.Errorf("legacy Codex Skill retired and backed up at %s; cleanup failed at %s: %w", backupPath, previous, err)
+	}
+	return true, true, nil
+}
+
 // publishSkillDirectory never recursively deletes the active installation.
 // The rename seam allows filesystem fault tests without changing Sync's API.
 func publishSkillDirectory(staged, dest string, rename func(string, string) error) error {
@@ -402,6 +456,11 @@ func copySkillFromFS(sourceFS fs.FS, sourcePath, destRoot string) error {
 }
 
 func copyDir(src, dest string) error {
+	resolved, err := filepath.EvalSymlinks(src)
+	if err != nil {
+		return err
+	}
+	src = resolved
 	if err := os.RemoveAll(dest); err != nil {
 		return err
 	}
@@ -443,7 +502,12 @@ func listLocalSkills(targets []string) []string {
 			continue
 		}
 		for _, entry := range entries {
-			if entry.IsDir() {
+			isDir := entry.IsDir()
+			if entry.Type()&os.ModeSymlink != 0 {
+				info, err := os.Stat(filepath.Join(target, entry.Name()))
+				isDir = err == nil && info.IsDir()
+			}
+			if isDir {
 				seen[entry.Name()] = true
 			}
 		}

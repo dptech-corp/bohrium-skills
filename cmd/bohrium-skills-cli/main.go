@@ -123,8 +123,8 @@ func runUpdate(args []string, stdout, stderr io.Writer) int {
 	}
 
 	runner := updater.RealRunner{
-		SyncFunc: func(version string, force bool) error {
-			return syncForVersion(version, *lang, force)
+		SyncFunc: func(request updater.SyncRequest) error {
+			return syncForVersion(request, *lang)
 		},
 	}
 	result, err := updater.Update(updater.UpdateOptions{
@@ -237,8 +237,9 @@ func runVersion(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func syncForVersion(version, lang string, force bool) error {
-	if normalizeVersion(version) != normalizeVersion(build.Version) {
+func syncForVersion(request updater.SyncRequest, lang string) error {
+	version, force := request.Version, request.Force
+	if request.UpdatedBinary || normalizeVersion(version) != normalizeVersion(build.Version) {
 		binary, err := installedNPMBinary(version)
 		if err != nil {
 			return err

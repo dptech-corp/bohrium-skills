@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/dptech-corp/bohrium-skills/internal/updater"
 )
 
 func TestUpdatedBinaryIsResolvedAndVerifiedBeforeSync(t *testing.T) {
@@ -48,10 +50,13 @@ func main(){
 		receiptVersion string
 		wantError      bool
 		wantSync       bool
+		parentVersion  string
 	}{
-		{"wrong binary version", "0.1.0", "", true, false},
-		{"wrong sync receipt", "0.2.0", "0.1.0", true, true},
-		{"fresh binary despite PATH shadow", "0.2.0", "", false, true},
+		{"wrong binary version", "0.1.0", "", true, false, "0.1.0"},
+		{"wrong sync receipt", "0.2.0", "0.1.0", true, true, "0.1.0"},
+		{"fresh binary despite PATH shadow", "0.2.0", "", false, true, "0.1.0"},
+		{"same-version force rejects wrong new binary", "0.1.0", "", true, false, "0.2.0"},
+		{"same-version force uses fresh binary", "0.2.0", "", false, true, "0.2.0"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -83,8 +88,8 @@ func main(){
 			t.Setenv("FIXTURE_SYNC_MARKER", syncMarker)
 			// An old internal guard must not bypass child-version verification.
 			t.Setenv("BOHRIUM_SKILLS_CLI_CHILD_SYNC", "1")
-			withVersion(t, "0.1.0")
-			err := syncForVersion("0.2.0", "en", false)
+			withVersion(t, tc.parentVersion)
+			err := syncForVersion(updater.SyncRequest{Version: "0.2.0", Force: true, UpdatedBinary: true}, "en")
 			if (err != nil) != tc.wantError {
 				t.Fatalf("sync error = %v, want error %v", err, tc.wantError)
 			}

@@ -246,6 +246,20 @@
       "old": "# Paper and patent command reference\n\n## Academic papers\n\n```text\nbohr paper search <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Page number; each invocation may be billed |\n| `--size` | `10` | Page size |\n| `--year-from` | unset | Inclusive start year |\n| `--year-to` | unset | Inclusive end year |\n| `--type` | `0` | `0` normal, `1` enhanced |\n| `--jcr` | empty | Comma-separated JCR zones |\n| `--db` | empty | Comma-separated source databases |\n\nPrices: normal **0.05 CNY**, enhanced **0.10 CNY** per request.\n\n## Patents\n\n```text\nbohr paper patent <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Page number; each invocation may be billed |\n| `--size` | `10` | Page size |\n| `--type` | `0` | `0` normal, `1` enhanced, `2` professional |\n\nPrices: normal **0.10 CNY**, enhanced **0.30 CNY**, professional **0.50 CNY**\nper request.\n\n",
       "new": "# Paper and patent command reference\n\n## Academic papers\n\n```text\nbohr paper search <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Accepted but not forwarded in 2.9.19; keep 1 (not pagination) |\n| `--size` | `10` | Page size |\n| `--year-from` | unset | Inclusive start year |\n| `--year-to` | unset | Inclusive end year |\n| `--type` | `0` | `0` normal, `1` enhanced |\n| `--jcr` | empty | Comma-separated JCR zones |\n| `--db` | empty | Comma-separated source databases |\n\nPrices: normal **0.05 CNY**, enhanced **0.10 CNY** per request.\n\n## Patents\n\n```text\nbohr paper patent <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Accepted but not forwarded in 2.9.19; keep 1 (not pagination) |\n| `--size` | `10` | Page size |\n| `--type` | `0` | `0` normal, `1` enhanced, `2` professional |\n\nPrices: normal **0.10 CNY**, enhanced **0.30 CNY**, professional **0.50 CNY**\nper request.\n\n",
       "reason": "Both page flags are registered but absent from the actual outgoing request bodies."
+    },
+    {
+      "guide": "bohr-paper-search",
+      "path": "SKILL.md",
+      "old": "safe pagination rule",
+      "new": "result-volume limits and the unsupported-pagination boundary",
+      "reason": "Remove residual pagination wording because the published page flag is not forwarded."
+    },
+    {
+      "guide": "bohr-paper-search",
+      "path": "references/commands.md",
+      "old": "every page and tier",
+      "new": "every invocation and tier",
+      "reason": "Remove residual pagination wording because the published page flag is not forwarded."
     }
   ]
 }

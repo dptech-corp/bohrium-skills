@@ -40,7 +40,7 @@ bohr billing pricing --resource paper -o json
 bohr billing pricing --resource patent -o json
 ```
 
-The CLI confirmation gate applies to every page and tier. A request to prepare
+The CLI confirmation gate applies to every invocation and tier. A request to prepare
 a search is not spending authorization. After authorization, add `--yes` to
 that exact invocation and preserve its request ID.
 

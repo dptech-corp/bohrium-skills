@@ -49,4 +49,4 @@ bohr paper patent "solid-state battery dendrite suppression" \
 显式指定的渠道返回 `BILLING_INSUFFICIENT` 且 `retryable: false` 时，报告拒绝结果，等待用户为该渠道充值，或授权原命令使用另一渠道。显式选择余额但余额不足时，也会停止而不扣光子；只有获准后才能改用 `--payment-source photon`。`--yes` 确认执行，不代表授权切换支付来源。只有余额渠道已获授权时才使用 `--payment-source balance`。多步流程的后续计费调用应保持已选渠道；上次 CLI 调用的参数不会保存。`bohr api` 遵循同一规则。
 
 
-全部过滤条件、档位、价格、结果边界和安全翻页规则见 [命令参考](references/commands.md)。
+全部过滤条件、档位、价格、结果量限制和不支持翻页的边界见 [命令参考](references/commands.md)。

@@ -62,6 +62,18 @@ func TestInstallMethodUsesPackageProvenance(t *testing.T) {
 			if got := strings.TrimSpace(string(out)); got != string(tc.want) {
 				t.Fatalf("install method = %q, want %q", got, tc.want)
 			}
+			if tc.name == "npm global package" {
+				link := filepath.Join(t.TempDir(), NpmPackage+ext)
+				if err := os.Symlink(binary, link); err != nil {
+					t.Skipf("host does not permit launcher symlinks: %v", err)
+				}
+				linked := exec.Command(link, "-test.run=^TestInstallMethodHelper$")
+				linked.Env = cmd.Env
+				out, err := linked.CombinedOutput()
+				if err != nil || strings.TrimSpace(string(out)) != string(InstallNPM) {
+					t.Fatalf("symlinked npm launcher misclassified: %v %s", err, out)
+				}
+			}
 		})
 	}
 }

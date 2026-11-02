@@ -28,11 +28,17 @@ const (
 	InstallManual InstallMethod = "manual"
 )
 
+type SyncRequest struct {
+	Version       string
+	Force         bool
+	UpdatedBinary bool
+}
+
 type Runner interface {
 	FetchLatest() (string, error)
 	DetectInstallMethod() InstallMethod
 	Install(version string) error
-	Sync(version string, force bool) error
+	Sync(request SyncRequest) error
 }
 
 type UpdateOptions struct {
@@ -54,7 +60,7 @@ type Result struct {
 }
 
 type RealRunner struct {
-	SyncFunc func(version string, force bool) error
+	SyncFunc func(request SyncRequest) error
 	Timeout  time.Duration
 }
 
@@ -62,7 +68,7 @@ type FakeRunner struct {
 	LatestVersion string
 	LatestErr     error
 	InstallFunc   func(version string) error
-	SyncFunc      func(version string, force bool) error
+	SyncFunc      func(request SyncRequest) error
 	InstallMethod InstallMethod
 }
 
@@ -98,7 +104,7 @@ func Update(opts UpdateOptions) (*Result, error) {
 	}
 
 	if method != InstallNPM {
-		if err := opts.Runner.Sync(cur, opts.Force); err != nil {
+		if err := opts.Runner.Sync(SyncRequest{Version: cur, Force: opts.Force}); err != nil {
 			return result, err
 		}
 		result.SkillsAction = "synced"
@@ -123,7 +129,7 @@ func Update(opts UpdateOptions) (*Result, error) {
 		result.Action = "already_up_to_date"
 		result.Message = fmt.Sprintf("bohrium-skills-cli %s is already up to date", cur)
 	}
-	if err := opts.Runner.Sync(targetVersion, opts.Force); err != nil {
+	if err := opts.Runner.Sync(SyncRequest{Version: targetVersion, Force: opts.Force, UpdatedBinary: newer || opts.Force}); err != nil {
 		return result, err
 	}
 	if newer || opts.Force {
@@ -188,11 +194,11 @@ func (r RealRunner) Install(version string) error {
 	return nil
 }
 
-func (r RealRunner) Sync(version string, force bool) error {
+func (r RealRunner) Sync(request SyncRequest) error {
 	if r.SyncFunc == nil {
 		return errors.New("sync function is nil")
 	}
-	return r.SyncFunc(version, force)
+	return r.SyncFunc(request)
 }
 
 func (f FakeRunner) FetchLatest() (string, error) {
@@ -216,11 +222,11 @@ func (f FakeRunner) Install(version string) error {
 	return f.InstallFunc(version)
 }
 
-func (f FakeRunner) Sync(version string, force bool) error {
+func (f FakeRunner) Sync(request SyncRequest) error {
 	if f.SyncFunc == nil {
 		return nil
 	}
-	return f.SyncFunc(version, force)
+	return f.SyncFunc(request)
 }
 
 func IsNewer(candidate, current string) bool {

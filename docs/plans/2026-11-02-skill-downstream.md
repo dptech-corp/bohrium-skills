@@ -29,3 +29,10 @@
 ## Review
 
 The source/read traces resolve the technical choices without a new public interface. Each test asserts an independently observable process, filesystem, request body or consumer result; it does not merely echo the content generator. CI results are attached to each commit. Vendor/model execution and authenticated business acceptance remain separate boundaries.
+
+## Observed downstream evidence and resolved choices
+
+- RED at `ea541af`: CI https://github.com/dptech-corp/bohrium-skills/actions/runs/41428971629 reproduced manual/npm misclassification, overwritten same-clock backups, and partial active trees after removal failure.
+- At `92bf083`, Go regressions/native package checks passed. Real DSH provider and Claude plugin validation/install passed. Real Codex `skills/list` returned two copies of every public Skill because the old full-set installer populated both user roots: https://github.com/dptech-corp/bohrium-skills/actions/runs/41431527133.
+- Default full-set roots are now `.agents/skills` and `.claude/skills`. Selected official legacy Codex copies are backed up and retired after canonical publication; other custom Skills remain. Physical root aliases must never retire the canonical tree.
+- `SyncRequest.UpdatedBinary` explicitly communicates an npm install, including same-version force reinstall. This selects verified fresh-child synchronization; a manual force continues to use its current embedded snapshot.

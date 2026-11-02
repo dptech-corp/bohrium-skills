@@ -186,3 +186,78 @@ func TestRollbackFailureRetainsRecoveryTreeAndBothErrors(t *testing.T) {
 		t.Fatalf("recoverable previous tree was deleted or changed: %v", got)
 	}
 }
+
+func TestDefaultInstallMigratesLegacyCodexWithoutDuplicatingSkills(t *testing.T) {
+	home := t.TempDir()
+	legacy := filepath.Join(home, ".codex", "skills", "bohrium-job")
+	writeTree(t, legacy, map[string]string{"SKILL.md": "old API", "custom-note.txt": "keep user edit"})
+	custom := filepath.Join(home, ".codex", "skills", "my-custom-skill")
+	writeTree(t, custom, map[string]string{"SKILL.md": "unrelated user skill"})
+	config := filepath.Join(home, "config")
+	if err := WriteState(config, State{Version: "0.1.1", OfficialSkills: []string{"bohrium-job"}, TargetDirs: []string{filepath.Dir(legacy)}}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Sync(SyncOptions{Version: "native", Lang: "en", HomeDir: home, ConfigDir: config, SourceFS: nativeFixture("new")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.TargetDirs) != 2 || !reflect.DeepEqual(result.MigratedLegacy, []string{"bohrium-job"}) {
+		t.Fatalf("incorrect migration receipt: %+v", result)
+	}
+	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
+		t.Fatalf("duplicate legacy copy remains: %v", err)
+	}
+	if got := readTree(t, custom); !reflect.DeepEqual(got, map[string]string{"SKILL.md": "unrelated user skill"}) {
+		t.Fatalf("unrelated custom Skill changed: %v", got)
+	}
+	for _, target := range result.TargetDirs {
+		got := readTree(t, filepath.Join(target, "bohrium-job"))
+		if got["references/commands.md"] != "new reference\n" || got["agents/openai.yaml"] != "new interface\n" {
+			t.Fatalf("canonical package incomplete: %v", got)
+		}
+	}
+	var originalNote bool
+	if err := filepath.WalkDir(filepath.Join(config, "backups"), func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.Name() == "custom-note.txt" {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			originalNote = string(data) == "keep user edit"
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !originalNote {
+		t.Fatal("legacy user additions were not backed up")
+	}
+}
+
+func TestLegacyRootAliasNeverRetiresCanonicalTree(t *testing.T) {
+	home := t.TempDir()
+	canonical := filepath.Join(home, ".agents", "skills")
+	if err := os.MkdirAll(canonical, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(canonical, filepath.Join(home, ".codex", "skills")); err != nil {
+		t.Skipf("host does not permit directory symlinks: %v", err)
+	}
+	result, err := Sync(SyncOptions{Version: "new", Lang: "en", HomeDir: home, ConfigDir: filepath.Join(home, "config"), SourceFS: nativeFixture("new")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.MigratedLegacy) != 0 {
+		t.Fatalf("canonical aliases were retired: %v", result.MigratedLegacy)
+	}
+	files := readTree(t, filepath.Join(canonical, "bohrium-job"))
+	if files["SKILL.md"] != "---\nname: bohrium-job\ndescription: Job\n---\nnew\n" || len(files) != 3 {
+		t.Fatalf("canonical tree was lost through legacy alias: %v", files)
+	}
+}

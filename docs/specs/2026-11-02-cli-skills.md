@@ -18,7 +18,7 @@ The existing 17 public Bohrium Skills include the CLI-native task workflows, loc
 - Make only explicit distribution adaptations: rename the frontmatter Skill name, rename `$skill` references in agent default prompts, add a short CLI setup/compatibility note, and replace the environment-specific sandbox proxy host with a documented placeholder. Preserve command names, arguments, result fields, costs, failure conditions, and lifecycle rules. Explicitly record source-document corrections in the lock: remove the stale Wenyon template-only contract in favor of the published instance-mount interface/lifecycle reference, remove the unsupported pretty output label, and keep persistent confirmation changes separately authorized.
 - Translate Chinese main documents completely. Preserve the English CLI reference documents in both language packages and document that choice. Keep fenced command examples identical between English and Chinese main documents. Localize existing agent UI metadata while preserving the public Skill identifier.
 - Prefer local `references/` links in installed packages. `bohr guide` remains available for version inspection and cross-guide lookup, with JSON for agent calls and Markdown in `data.content`.
-- Keep source files, installer package version, tag/release workflow, OpenAPI schema, and existing published releases unchanged. This task changes public Skill distribution content only.
+- Keep the separate CLI source, installer package version, tag/release workflow, OpenAPI schema, and existing published releases unchanged. Public installer/update corrections and canonical default directories follow [the downstream correctness spec](2026-11-02-skill-downstream.md).
 
 ## Behavior scenarios
 

@@ -70,4 +70,4 @@ from a previous CLI invocation are not saved. `bohr api` follows the same rule.
 
 
 Read [`references/commands.md`](references/commands.md) for every filter, tier,
-price, result boundary, and safe pagination rule.
+price, result boundary, and result-volume limits and the unsupported-pagination boundary.

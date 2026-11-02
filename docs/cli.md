@@ -20,7 +20,8 @@ npm install -g bohrium-skills-cli
 
 - `~/.agents/skills`
 - `~/.claude/skills`
-- `~/.codex/skills`
+
+Codex 和 DSH 共用 `~/.agents/skills`。默认安装会在规范目录完整安装后，备份并迁移旧 `~/.codex/skills` 中同名官方副本，保留其他自定义 Skill，避免 Codex 同时发现两份。备份目录带唯一后缀，同一秒的连续更新也不会互相覆盖。
 
 **跳过安装后自动同步**（CI 或只想下载二进制时）：
 

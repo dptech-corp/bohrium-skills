@@ -49,6 +49,7 @@ jobs:
             version="${GITHUB_REF_NAME#v}"
           fi
           version="${version#v}"
+          version="$(node scripts/check_release_version.mjs "$version")"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 

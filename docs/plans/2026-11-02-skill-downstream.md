@@ -36,3 +36,9 @@ The source/read traces resolve the technical choices without a new public interf
 - At `92bf083`, Go regressions/native package checks passed. Real DSH provider and Claude plugin validation/install passed. Real Codex `skills/list` returned two copies of every public Skill because the old full-set installer populated both user roots: https://github.com/dptech-corp/bohrium-skills/actions/runs/41431527133.
 - Default full-set roots are now `.agents/skills` and `.claude/skills`. Selected official legacy Codex copies are backed up and retired after canonical publication; other custom Skills remain. Physical root aliases must never retire the canonical tree.
 - `SyncRequest.UpdatedBinary` explicitly communicates an npm install, including same-version force reinstall. This selects verified fresh-child synchronization; a manual force continues to use its current embedded snapshot.
+
+## Consumer and failure-path validation
+
+- `e332e3a` passed actual Codex app-server discovery (17 unique public names, including a whole-root canonical alias), DSH provider list/get/resource-base reads, and Claude validation/installation/cache checks: https://github.com/dptech-corp/bohrium-skills/actions/runs/41433464713.
+- Root-alias and non-directory migration protections were added after review and have filesystem regressions. A leaf symlink is retired as a link; other shared root trees are not traversed for retirement.
+- Release version consistency is enforced inside the existing resolve-version step before artifact building/publication; the checker has matching/mismatching/missing-version regressions. No release workflow is triggered by this task.

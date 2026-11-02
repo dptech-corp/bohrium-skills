@@ -36,4 +36,4 @@ The CLI-native packages remain complete during installation and updates and are 
 
 ## Scope and limits
 
-This Standard follow-up is authorized by the request to inspect downstream code and fix migration-related problems. It keeps the existing release workflow and does not publish, merge main, change vendor code, or introduce an independent updater service. The existing release version/package version consistency issue is recorded as a publication prerequisite; no release is claimed here.
+This Standard follow-up is authorized by the request to inspect downstream code and fix migration-related problems. It keeps the existing release workflow and does not publish, merge main, change vendor code, or introduce an independent updater service. The existing release flow validates requested asset/tag version against package.json before building/publishing assets; no release is executed or claimed here.

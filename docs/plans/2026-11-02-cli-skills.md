@@ -41,7 +41,7 @@
 
 - [x] Replace single-file/routing-only checks with package inventory, valid local-link, source workflow, and bilingual fenced-example checks.
 - [x] Recursively list/read all selected trees through the real published CLI. Compare inventories, full English adapted files, shared references, source-provided metadata identities, and guide metadata. Retain default JSON, command-help, and isolated `bohr skill install` checks.
-- [x] Expand the existing full-set installer test to compare every source file recursively for both languages and all three destinations; preserve missing/extra-file detection.
+- [x] Expand the existing full-set installer test to compare every source file recursively for both languages and both canonical default destinations; preserve missing/extra-file detection.
 - [x] Run `go test ./... -count=1`, `python3 -m unittest discover -s scripts -p '*_test.py'`, `python3 scripts/check_native_skills.py --cli "$BOHR_SKILLS_TEST_BIN"`, `go vet ./...`, and formatting checks through the existing `check` workflow, installing the CLI version selected by the source lock.
 - [x] Inspect the final diff and CI result. Report the actual tested boundary and leave main/npm/tag publication as separate steps.
 

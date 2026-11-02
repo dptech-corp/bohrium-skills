@@ -29,6 +29,7 @@ jobs:
         run: |
           "$BOHR_SKILLS_TEST_BIN" --version
           go test ./... -count=1
+          node --test scripts/check_release_version.test.mjs
           python3 -m unittest discover -s scripts -p '*_test.py'
           python3 scripts/check_native_skills.py --cli "$BOHR_SKILLS_TEST_BIN"
       - name: Check real downstream consumer discovery

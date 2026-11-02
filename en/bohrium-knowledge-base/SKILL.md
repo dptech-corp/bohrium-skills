@@ -26,14 +26,16 @@ This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
 Before business operations, read:
 
 ```bash
-bohr guide read bohr-knowledge-base -o human
+bohr guide read bohr-knowledge-base -o json
 bohr guide list bohr-knowledge-base/references -o json
-bohr guide read bohr-knowledge-base references/commands.md -o human
+bohr guide read bohr-knowledge-base references/commands.md -o json
 bohr kb --help
 ```
 
+These read commands return JSON. Check `ok=true`, then read the Markdown in `data.content` as the instructions. Use `data.name`, `data.version`, and `data.path` to identify the guide. Directory listings expose `data.items`.
+
 Relative references inside that guide belong to the CLI's embedded resources. Read
-`references/…` with `bohr guide read bohr-knowledge-base references/path-to-file -o human`,
+`references/…` with `bohr guide read bohr-knowledge-base references/path-to-file -o json`,
 rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
 and confirm flags through the specific subcommand's `--help`.
 

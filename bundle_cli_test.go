@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-var guideReadPattern = regexp.MustCompile(`(?m)^bohr guide read ([a-z0-9-]+)(?: ([a-zA-Z0-9_./-]+))? -o human$`)
+var guideReadPattern = regexp.MustCompile(`(?m)^bohr guide read ([a-z0-9-]+)(?: ([a-zA-Z0-9_./-]+))? -o json$`)
 var helpPattern = regexp.MustCompile(`(?m)^bohr ([a-z][a-z -]*?) --help$`)
 
 func TestPublishedSkillsUseCLI(t *testing.T) {
@@ -39,7 +39,7 @@ func TestPublishedSkillsUseCLI(t *testing.T) {
 						t.Errorf("contains legacy API or credential instruction %q", legacy)
 					}
 				}
-				for _, required := range []string{"bohr --version", "npm install -g @dptech-corp/bohr-cli@latest", "bohr auth status -o json", "bohr auth login"} {
+				for _, required := range []string{"bohr --version", "npm install -g @dptech-corp/bohr-cli@latest", "bohr auth status -o json", "bohr auth login", "data.content"} {
 					if !strings.Contains(text, required) {
 						t.Errorf("missing CLI setup step %q", required)
 					}
@@ -154,14 +154,16 @@ func TestPublishedGuidanceAgainstBohr(t *testing.T) {
 						args = append(args, reference)
 					}
 					out := run(t, append(args, "-o", "json")...)
-					var result struct {
+					type guideResult struct {
 						OK   bool `json:"ok"`
 						Data struct {
 							Name    string `json:"name"`
+							Version string `json:"version"`
 							Path    string `json:"path"`
 							Content string `json:"content"`
 						} `json:"data"`
 					}
+					var result guideResult
 					if err := json.Unmarshal(out, &result); err != nil {
 						t.Fatalf("invalid guide JSON: %v\n%s", err, out)
 					}
@@ -172,12 +174,13 @@ func TestPublishedGuidanceAgainstBohr(t *testing.T) {
 					if !result.OK || result.Data.Name != guide || result.Data.Path != path || strings.TrimSpace(result.Data.Content) == "" {
 						t.Fatalf("incorrect guide identity or empty content: %s", out)
 					}
-					wantText := result.Data.Content
-					if !strings.HasSuffix(wantText, "\n") {
-						wantText += "\n"
+					defaultOutput := run(t, args...)
+					var defaultResult guideResult
+					if err := json.Unmarshal(defaultOutput, &defaultResult); err != nil {
+						t.Fatalf("default non-interactive guide output must be JSON: %v\n%s", err, defaultOutput)
 					}
-					if text := string(run(t, append(args, "-o", "human")...)); text != wantText {
-						t.Fatal("text guide read differs from JSON content")
+					if !defaultResult.OK || defaultResult.Data != result.Data {
+						t.Fatal("default guide data differs from explicit JSON metadata or Markdown content")
 					}
 					if reference == "" {
 						out := run(t, "guide", "list", guide+"/references", "-o", "json")

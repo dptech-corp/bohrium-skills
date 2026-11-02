@@ -21,7 +21,7 @@ Agents installing this repository use the published `bohr` CLI for Bohrium opera
 
 - Keep all existing 17 directory/frontmatter names in each language and the Claude marketplace/plugin names and paths.
 - Each standalone Skill contains a domain-specific trigger, setup steps, an exact embedded-guide name, command-help entry points, and execution/result boundaries. Detailed command/reference content remains in `bohr`.
-- Require the latest stable CLI and record 2.9.19 as the verified baseline. Guide reads explicitly use human output to emit Markdown; directory listing uses JSON.
+- Require the latest stable CLI and record 2.9.19 as the verified baseline. Guide reads and directory listings explicitly use JSON for agents. Check `ok` before reading Markdown from `data.content`; retain guide name, version, and path metadata. Non-interactive default guide reads must return the same guide data as explicit JSON.
 - Distribute only `SKILL.md` within each Skill directory. Retire the direct-API Python helpers, their example payloads, Python dependency file, and API smoke/demo runners. Keep dated API verification evidence clearly marked as historical. Preserve the separately maintained OpenAPI schema and its published path; clarify that CLI Skills no longer serve as its interface documentation.
 - Keep installer source, package version, tag/release workflow, and published releases unchanged. The npm installer embeds its Skill content at release time; changing GitHub does not update previously released installers.
 
@@ -29,7 +29,7 @@ Agents installing this repository use the published `bohr` CLI for Bohrium opera
 
 1. Both language trees expose the same existing 17 names and resolve to guides available in the published CLI.
 2. Every published Skill has CLI setup and domain-specific help; none contains raw HTTP/API fallback, credential-copy instructions, legacy CLI installation, or bundled API scripts.
-3. Every guide/reference and help command used by a Skill succeeds offline with the verified CLI. Guide references are read via `bohr guide read`, not relative filesystem paths.
+3. Every guide/reference and help command used by a Skill succeeds offline with the verified CLI. Guide reads use JSON; instructions identify `data.content`, and default non-interactive reads return the same guide data. Guide references are read via `bohr guide read`, not relative filesystem paths.
 4. The existing installer still installs all 17 Skills into isolated destinations. Claude marketplace entries still resolve to their English directories.
 5. README files describe CLI-backed Skills, installation, login, dynamic pricing, current `guide` commands, migration effects, and the distinction between GitHub content and released installer snapshots.
 6. Existing Go tests and the new distribution checks pass in a remote development or CI environment. No business API or paid operation is required for these checks.

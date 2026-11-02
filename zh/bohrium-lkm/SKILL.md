@@ -26,14 +26,16 @@ npm install -g @dptech-corp/bohr-cli@latest
 业务操作前先读取：
 
 ```bash
-bohr guide read bohr-lkm -o human
+bohr guide read bohr-lkm -o json
 bohr guide list bohr-lkm/references -o json
-bohr guide read bohr-lkm references/commands.md -o human
+bohr guide read bohr-lkm references/commands.md -o json
 bohr lkm --help
 ```
 
+以上读取命令返回 JSON。先确认 `ok=true`，再将 `data.content` 中的 Markdown 作为指引读取；用 `data.name`、`data.version` 和 `data.path` 核对指引身份。目录列表读取 `data.items`。
+
 内嵌指引中的相对引用属于 CLI 内嵌资源。例如 `references/…` 要通过
-`bohr guide read bohr-lkm references/具体文件 -o human` 读取，而不是到本地 Skill 目录查找。
+`bohr guide read bohr-lkm references/具体文件 -o json` 读取，而不是到本地 Skill 目录查找。
 根据任务继续读取相关引用，并用具体子命令的 `--help` 确认参数。
 
 ## 3. 完成任务

@@ -25,14 +25,14 @@
 
 **Produces:** The same installed names with CLI-only instructions, current documentation, and regression checks for the actual distributed content.
 
-- [x] Add Go checks for all 17 names, bilingual mappings, guide references, absence of API clients in bundled files, and marketplace path resolution. Runtime checks invoke the binary supplied through `BOHR_SKILLS_TEST_BIN` and inspect its returned guide metadata and text.
+- [x] Add Go checks for all 17 names, bilingual mappings, guide references, absence of API clients in bundled files, and marketplace path resolution. Runtime checks invoke the binary supplied through `BOHR_SKILLS_TEST_BIN` and inspect its returned guide metadata and `data.content`; compare explicit JSON with default non-interactive output.
 - [x] Rewrite all 34 Skills. Example guide sequence for paper search:
 
 ```bash
 bohr --version
-bohr guide read bohr-paper-search -o human
+bohr guide read bohr-paper-search -o json
 bohr guide list bohr-paper-search/references -o json
-bohr guide read bohr-paper-search references/commands.md -o human
+bohr guide read bohr-paper-search references/commands.md -o json
 bohr paper --help
 ```
 
@@ -52,11 +52,17 @@ Use the existing installer test seam `run` with `install --home <temporary-direc
 
 The single task covers spec acceptance criteria 1–6. Runtime tests validate the actual published CLI, while installer tests cover the embedded content. No package/version bump or cross-repository implementation is needed.
 
-## Verification result
+## Baseline migration verification
 
 - Validated implementation: `77d22a1cc74197ec63a4b85d38e0723fc61fd7e0`.
 - Passing GitHub CI: https://github.com/dptech-corp/bohrium-skills/actions/runs/41413233737.
 - `go test ./... -count=1`, `go vet ./...`, and Go formatting checks passed on the GitHub runner with the real published `bohr 2.9.19`.
-- Runtime checks resolved all 17 guides and 17 reference files in JSON and human output, checked reference listings and domain help, and installed a Skill with the published CLI into an isolated project. Installer regression tests verified both languages, all 17 names, byte-identical content, and all three isolated destinations.
-- The initial CI run caught unsupported `-o text` instructions. All published Skills and README examples now use supported `-o human`; checks still compare returned Markdown with JSON content.
+- Baseline runtime checks resolved all 17 guides and 17 reference files, checked reference listings and domain help, and installed a Skill with the published CLI into an isolated project. Installer regression tests verified both languages, all 17 names, byte-identical content, and all three isolated destinations.
+- Current output policy: all published Skills and README examples use explicit JSON. Runtime checks compare the full guide data from default non-interactive output with explicit JSON; agents read instructions from `data.content`.
 - No authenticated business call, paid operation, npm/tag release, or marketplace submission was performed. The OpenAPI schema and existing release workflow were not changed.
+
+## Structured-output verification
+
+- [x] Align published Skills and README examples with the CLI's agent-facing JSON output and document `data.content` and guide metadata.
+- [x] Update runtime checks to cover both default non-interactive and explicit JSON output while retaining guide identity, content, reference-listing, help, and isolated installation assertions.
+- Verify the final diff and the follow-up commit's GitHub `check` result. The baseline CI above applies to the earlier implementation; commit-specific CI is the verification record for this follow-up.

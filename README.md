@@ -59,13 +59,15 @@ go run ./cmd/bohrium-skills-cli install --lang zh
 
 ```bash
 bohr guide list -o json
-bohr guide read bohr-paper-search -o human
+bohr guide read bohr-paper-search -o json
 bohr guide list bohr-paper-search/references -o json
-bohr guide read bohr-paper-search references/commands.md -o human
+bohr guide read bohr-paper-search references/commands.md -o json
 bohr paper --help
 ```
 
-指引中的相对链接属于 CLI 内嵌资源，通过 `bohr guide read <guide> <path> -o human` 读取。它们不在本仓库的 Skill 目录中。遇到缺失命令或指引时先核对 `bohr --version`，并安装最新正式版。
+Agent 使用 JSON 输出：先检查 `ok=true`，再读取 `data.content` 中的 Markdown 指引；`data.name`、`data.version` 和 `data.path` 用于核对来源，目录列表在 `data.items`。CLI 未指定格式时会按终端类型选择输出，非交互调用默认也是 JSON。
+
+指引中的相对链接属于 CLI 内嵌资源，通过 `bohr guide read <guide> <path> -o json` 读取。它们不在本仓库的 Skill 目录中。遇到缺失命令或指引时先核对 `bohr --version`，并安装最新正式版。
 
 `bohr guide` 读取本机内嵌指引；`bohr agents skills` 管理云端 Skill Hub；`bohr skill install` 安装本地 Skill 包。
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Database"
+  short_description: "Query scientific libraries and private database tables"
+  default_prompt: "Use $bohrium-database to inspect or query a Bohrium scientific database through the CLI."

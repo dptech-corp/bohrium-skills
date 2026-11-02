@@ -1,49 +1,40 @@
 ---
 name: bohrium-scholar-search
-description: "Use the bohr CLI to find scholars and inspect their profiles and research output. Trigger on Bohrium scholar search tasks; read the installed CLI's bohr-scholar-search guide for detailed commands and execution boundaries."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Search Bohrium scholars and retrieve a known scholar profile with the
+  `bohr scholar` CLI. Use for 学者搜索, researcher lookup, affiliation or
+  research-tag filtering, publication/citation summaries, and scholar IDs.
+  Use `bohr paper search` when the primary object is a paper rather than a person.
 ---
 
 # Bohrium Scholar Search
 
-Use `bohr scholar` for this task. The installed CLI's `bohr-scholar-search` guide owns the detailed workflow.
-
-## 1. Check the CLI
+Start with search when no scholar ID is known:
 
 ```bash
-bohr --version
+bohr scholar search "Geoffrey Hinton" --page 1 --size 10 -o json
+bohr scholar search "catalysis" --school "Tsinghua University" --tags "DFT,catalysis" -o json
 ```
 
-When installation or upgrade is needed, follow the environment's permissions and the user's instructions:
+Search is free and read-only. Use filters only when the user supplied them or
+the unfiltered name is ambiguous. Capture the returned scholar ID rather than
+matching a profile by display name alone.
+
+Retrieve the selected profile with:
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr scholar info <scholar_id> -o json
 ```
 
-This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
+Verify identity using name, affiliation, research directions, and other
+returned evidence before attributing publications or metrics. A scholar ID is
+not a paper ID, author-name string, or knowledge-base document ID.
 
-## 2. Read version-matched guidance
+Use `bohr paper search` for paper records and `bohr paper patent` for patents.
+The current scholar CLI does not mutate profiles or expose separate publication,
+education, or citation-history subcommands; those fields may appear inside the
+profile response when available.
 
-Before business operations, read:
-
-```bash
-bohr guide read bohr-scholar-search -o json
-bohr guide list bohr-scholar-search/references -o json
-bohr guide read bohr-scholar-search references/commands.md -o json
-bohr scholar --help
-```
-
-These read commands return JSON. Check `ok=true`, then read the Markdown in `data.content` as the instructions. Use `data.name`, `data.version`, and `data.path` to identify the guide. Directory listings expose `data.items`.
-
-Relative references inside that guide belong to the CLI's embedded resources. Read
-`references/…` with `bohr guide read bohr-scholar-search references/path-to-file -o json`,
-rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
-and confirm flags through the specific subcommand's `--help`.
-
-## 3. Complete the task
-
-Disambiguate name matches before inspecting a profile or publications by returned scholar ID. Distinguish people search from paper search and retain affiliation and research-area evidence. Keep unverified namesakes separate.
-
-- Before account access, run `bohr auth status -o json`. If signed out, use `bohr auth login` and have the user complete browser authorization. Let the CLI manage credentials; keep credential files and secrets out of output.
-- Follow the guide for current prices, payment source, and write effects. Add `--yes` only when the user has authorized the specific spending or target operation. Preview with `--dry-run` where supported and retain CLI confirmation controls.
-- Use `-o json` for automated business commands. Check the exit status, `ok`, error details, and business state. Follow asynchronous requests to a verifiable result; report missing fields and unknown states accurately.
-- If the CLI lacks a guide or capability, report its version and the missing item and suggest an upgrade. Stay within supported CLI operations rather than constructing HTTP requests or restoring the old Python clients.
+Read [`references/commands.md`](references/commands.md) for every current flag,
+the search-to-profile handoff, and presentation boundaries.

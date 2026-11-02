@@ -1,49 +1,162 @@
 ---
 name: bohrium-sciencepedia
-description: "Use the bohr CLI to search scientific articles, concepts, courses, or knowledge graphs. Trigger on Bohrium sciencepedia tasks; read the installed CLI's bohr-wiki guide for detailed commands and execution boundaries."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Search and explain scientific terms, read Bohrium SciencePedia articles and
+  keywords, browse disciplines and course outlines, and explore concept graphs
+  with the `bohr wiki` CLI. Use for SciencePedia, 科学百科, scientific concept
+  explanations, course knowledge trees, or encyclopedia knowledge graphs. Use
+  `bohr paper` or `bohr kb` for paper search or personal knowledge bases.
 ---
 
 # Bohrium SciencePedia
 
-Use `bohr wiki` for this task. The installed CLI's `bohr-wiki` guide owns the detailed workflow.
+Operate SciencePedia through the version-matched `bohr wiki` commands. Choose
+the route from the user's intent:
 
-## 1. Check the CLI
+- Search a term and get snippets plus IDs with `wiki search`.
+- Read a complete topic with `wiki article` or a smaller concept card with
+  `wiki keyword get`.
+- Browse the free major/level hierarchy with `wiki levels`.
+- Read a course's chapter and knowledge-entry tree with `wiki course`.
+- Expand an article or keyword into related concepts with `wiki graph`.
+- Find scientific software in SciencePedia's tool library with `bohr tools`;
+  read `bohr guide read bohr-tools` for its routes and prices.
+
+Use `bohr paper search` for papers and `bohr kb` for a personal knowledge base.
+SciencePedia is an encyclopedia, not either of those systems.
+
+## Authentication, output, and billing
+
+Use an existing Bohrium login or AccessKey and prefer structured output:
 
 ```bash
-bohr --version
+bohr auth whoami -o json
+bohr billing pricing --resource wiki -o json
 ```
 
-When installation or upgrade is needed, follow the environment's permissions and the user's instructions:
+Fixed prices in the current CLI are:
+
+- **0.01 CNY**: `wiki search` and `wiki course`.
+- **0.02 CNY**: `wiki article`, `wiki keyword get`, and `wiki graph`.
+
+These calls use the shared monthly 1,000-call Wiki/Tool quota. The CLI
+confirmation gate applies even when quota may make a call free. In
+non-interactive use, add `--yes` only after spending is authorized; otherwise
+report `CONFIRMATION_REQUIRED`.
+
+`wiki levels`, its `wiki disciplines` compatibility equivalent, and
+`wiki keyword list` are free discovery commands.
+
+## Search and route IDs
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr wiki search "quantum entanglement" \
+  --lang en-US \
+  --style Feynman \
+  --yes \
+  -o json
 ```
 
-This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
+Search mixes concepts and courses. Route by the structured result, not by a
+display name:
 
-## 2. Read version-matched guidance
+- `data.articles[]` with `type=article`: its `id` is an article ID for
+  `bohr wiki article <id>`.
+- `data.articles[]` with `type=keyword`: its `id` is a keyword ID for
+  `bohr wiki keyword get <id>`.
+- `data.fields[]`: its `field_id` is a course field ID for
+  `bohr wiki course <field_id>`.
+- An entry or keyword ID can be the center for `bohr wiki graph <id>`.
 
-Before business operations, read:
+For a user-facing search answer, present title, a cleaned one-sentence snippet,
+and the reading link. Remove `<em>` highlight tags from structured snippets;
+the result type matters for command and link routing but need not burden the
+user.
+
+## Read concepts and courses
 
 ```bash
-bohr guide read bohr-wiki -o json
-bohr guide list bohr-wiki/references -o json
-bohr guide read bohr-wiki references/commands.md -o json
-bohr wiki --help
+bohr wiki article <article_id> --lang en-US --style Feynman --yes -o json
+bohr wiki keyword get <keyword_id> --lang en-US --style Feynman --yes -o json
+bohr wiki levels --lang en-US -o json
+bohr wiki course <field_id> --lang en-US --style Feynman --yes -o json
 ```
 
-These read commands return JSON. Check `ok=true`, then read the Markdown in `data.content` as the instructions. Use `data.name`, `data.version`, and `data.path` to identify the guide. Directory listings expose `data.items`.
+`levels` returns majors and their level IDs. `disciplines` is a compatibility
+equivalent that calls the same supported hierarchy; prefer `levels` in new
+workflows. The current CLI does not list every course beneath a selected level,
+so obtain a course field ID from `wiki search`. Major and level IDs are
+navigation-only in the current CLI; they are not course field IDs.
+If search returns no `field_id`, stop the course workflow and report the
+limitation.
 
-Relative references inside that guide belong to the CLI's embedded resources. Read
-`references/…` with `bohr guide read bohr-wiki references/path-to-file -o json`,
-rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
-and confirm flags through the specific subcommand's `--help`.
+`course` returns a recursive field → category → chapter → entry tree plus
+foundational, core, and advanced counts. Preserve that hierarchy when
+presenting an outline. Entry leaves carry `entry_id` values that can be opened
+as SciencePedia articles.
 
-## 3. Complete the task
+If article or keyword content is not generated for the chosen language/style,
+fall back to the search snippet or retry another supported language/style and
+state the fallback. Do not report a blank document as a complete explanation.
 
-Choose articles, courses, or knowledge graphs before selecting a command from the guide. Preserve returned entity IDs and sources for follow-up reads. Scientific tool discovery uses the separate `bohr tools` command domain.
+## Explore a concept graph
 
-- Before account access, run `bohr auth status -o json`. If signed out, use `bohr auth login` and have the user complete browser authorization. Let the CLI manage credentials; keep credential files and secrets out of output.
-- Follow the guide for current prices, payment source, and write effects. Add `--yes` only when the user has authorized the specific spending or target operation. Preview with `--dry-run` where supported and retain CLI confirmation controls.
-- Use `-o json` for automated business commands. Check the exit status, `ok`, error details, and business state. Follow asynchronous requests to a verifiable result; report missing fields and unknown states accurately.
-- If the CLI lacks a guide or capability, report its version and the missing item and suggest an upgrade. Stay within supported CLI operations rather than constructing HTTP requests or restoring the old Python clients.
+```bash
+bohr wiki graph <entry_or_keyword_id> --yes -o json
+```
+
+The graph returns domains, concept nodes, and relationships. Use node
+`display_name` with `node_name`, `name`, and `node_id` as fallbacks. Explain the
+center first, then the most relevant relationships; preserve source/destination
+direction and distinguish a relationship label from its longer description.
+
+The current graph command has no language, style, depth, node-detail, or
+cross-domain filter flags. Use only flags shown by `bohr wiki graph --help`.
+
+## Reading links
+
+API access remains inside `bohr`, but user-facing reading links use
+`https://www.bohrium.com`. URL-encode every dynamic ID.
+
+- Article: `{site}/sciencepedia/{style-lowercase}/{entry_id}`.
+- Keyword: `{site}/sciencepedia/{style-lowercase}/keyword/{keyword_id}`.
+- Course: `{site}/sciencepedia/field/{style-lowercase}/{field_id}`.
+
+For `en-US`, `{site}` is `https://www.bohrium.com/en`; for `zh-CN`, it is
+`https://www.bohrium.com`. For example, an English Feynman article begins with
+`/en/sciencepedia/feynman/`, a Chinese Feynman keyword contains
+`/sciencepedia/feynman/keyword/`, and every course contains
+`/sciencepedia/field/`.
+
+## Capability boundary
+
+The current CLI intentionally omits several broader service operations,
+including course listing by selected level, separate graph-node or graph-edge
+detail calls, and graph depth/domain filters. Inspect `bohr wiki <command>
+--help` rather than converting service request fields into flags.
+
+## Choose the payment source
+
+Without `--payment-source`, the CLI sends no channel preference: the gateway
+uses photons first and falls back to balance only on definite photon
+insufficiency. Tell the user this policy when obtaining spending authorization.
+To restrict spending to one source, use `--payment-source photon` or
+`--payment-source balance`. Explicit photon stops when photons are insufficient;
+explicit balance charges balance directly. Existing free quotas and exemptions
+still apply.
+
+When an explicitly selected channel returns `BILLING_INSUFFICIENT` with
+`retryable: false`, report the refusal and wait
+for the user to recharge the selected source or authorize the other source for
+the original command. Explicit balance insufficiency also stops without charging
+photons; use `--payment-source photon` only after that source is authorized.
+`--yes` confirms execution; it does not authorize changing the payment source.
+Use `--payment-source balance` only when that source is authorized. Keep the
+selected source on subsequent billable calls in a multi-step workflow; options
+from a previous CLI invocation are not saved. `bohr api` follows the same rule.
+
+## Detailed reference
+
+Read [`references/commands.md`](references/commands.md) for the complete command,
+flag, output, billing, fallback, graph, reading-link, and version reference.

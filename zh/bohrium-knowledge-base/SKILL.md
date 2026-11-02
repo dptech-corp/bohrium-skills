@@ -1,48 +1,48 @@
 ---
 name: bohrium-knowledge-base
-description: "通过 bohr CLI 管理 Bohrium 知识库、文献、标签、笔记及库内检索。当用户需要知识库相关操作时使用；详细命令与执行边界读取已安装 CLI 的 bohr-knowledge-base 指引。"
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr kb 创建、查询、搜索或删除知识库，上传文献、列出和读取文档或删除文档；用于知识库、父节点和文档 ID 的正确交接。"
 ---
+
+<a id="bohrium-knowledge-base"></a>
 
 # Bohrium 知识库
 
-通过 `bohr kb` 完成任务，详细步骤以当前 CLI 内嵌的 `bohr-knowledge-base` 为准。
-
-## 1. 检查 CLI
+先确定知识库 ID：
 
 ```bash
-bohr --version
+bohr kb list --page 1 --size 20 -o json
+bohr kb create "Project literature" -o json
 ```
 
-需要安装或升级时，按当前环境的权限和用户约定执行：
+知识库 ID 标识 KB 本身。上传和列出文档在内部使用根节点或父节点 ID；CLI 可根据 `--kb-id` 解析根节点：
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr kb upload ./paper.pdf --kb-id <kb_id> -o json
+bohr kb document list --kb-id <kb_id> --page 1 --size 50 -o json
 ```
 
-本 Skill 面向最新正式版 CLI，本次核验版本为 **2.9.19**。
+用户选中了具体根节点或文件夹节点时，使用 `--parent-id`。父节点 ID 不等于知识库 ID，也不等于文档 ID。
 
-## 2. 读取与 CLI 版本匹配的指引
-
-业务操作前先读取：
+在单个知识库内搜索内容：
 
 ```bash
-bohr guide read bohr-knowledge-base -o json
-bohr guide list bohr-knowledge-base/references -o json
-bohr guide read bohr-knowledge-base references/commands.md -o json
-bohr kb --help
+bohr kb search <kb_id> "catalyst deactivation mechanism" -o json
 ```
 
-以上读取命令返回 JSON。先确认 `ok=true`，再将 `data.content` 中的 Markdown 作为指引读取；用 `data.name`、`data.version` 和 `data.path` 核对指引身份。目录列表读取 `data.items`。
+先从 `document list` 获取稳定文档 ID，再读取或删除：
 
-内嵌指引中的相对引用属于 CLI 内嵌资源。例如 `references/…` 要通过
-`bohr guide read bohr-knowledge-base references/具体文件 -o json` 读取，而不是到本地 Skill 目录查找。
-根据任务继续读取相关引用，并用具体子命令的 `--help` 确认参数。
+```bash
+bohr kb document get <document_id> -o json
+```
 
-## 3. 完成任务
+upload 会将指定本地文件传到 Bohrium。写入前确认文件、目标知识库或父节点，以及显示名称。当前 KB 命令均免费，但免费不代表允许上传或删除。
 
-区分知识库管理、库内检索和公开论文检索。先确定知识库与文献标识，再按内嵌指引上传、整理或检索；保留引用来源，删除前确认对象与影响范围。
+知识库和文档删除均属于破坏性操作。添加 `--yes` 前立即核对具体目标：
 
-- 需要访问账户时先运行 `bohr auth status -o json`；未登录则使用 `bohr auth login`，由用户完成浏览器授权。凭据交由 CLI 管理，不读取或回显凭据文件。
-- 按内嵌指引核对当前价格、支付来源和写操作影响；只有用户已授权本次费用或具体目标的操作时才添加 `--yes`。命令支持 `--dry-run` 时可先预览；保持 CLI 的确认机制。
-- 自动化业务命令使用 `-o json`，同时检查退出码、`ok`、错误详情和业务状态。异步请求受理后，按指引查询到可验证结果；缺失字段或未知状态如实报告。
-- CLI 缺少指引或能力时，报告版本与缺失项并提供升级建议。操作保持在 CLI 支持范围内，不自行拼接 HTTP 请求或恢复旧 Python 客户端。
+```bash
+bohr kb document delete <document_id> --yes -o json
+bohr kb delete <kb_id> --yes -o json
+```
+
+当前 CLI 不管理文件夹、标签、笔记、收藏、分享或权限。完整命令、标识符边界、上传路由和删除确认见 [命令参考](references/commands.md)。

@@ -1,49 +1,76 @@
 ---
 name: bohrium-job
-description: "Use the bohr CLI to submit, inspect, stop, and retrieve compute jobs. Trigger on Bohrium compute jobs tasks; read the installed CLI's bohr-job guide for detailed commands and execution boundaries."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Submit, list, inspect, stop, delete, download, or group Bohrium compute jobs
+  with `bohr job` and `bohr job-group`. Use for BOHR_ID, machine/image selection,
+  scientific batch computation, job status, logs/results, queued cancellation,
+  running termination, or job-group lifecycle.
 ---
 
-# Bohrium Compute Jobs
+# Bohrium Job
 
-Use `bohr job` for this task. The installed CLI's `bohr-job` guide owns the detailed workflow.
+## Resolve resources and cost before submission
 
-## 1. Check the CLI
-
-```bash
-bohr --version
-```
-
-When installation or upgrade is needed, follow the environment's permissions and the user's instructions:
+Job compute is balance-only and priced by machine type and actual usage. Inspect
+the catalog and available machines before authorizing a submission:
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr billing pricing --resource job -o json
+bohr machine list --scene job --choose-type all -o json
 ```
 
-This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
-
-## 2. Read version-matched guidance
-
-Before business operations, read:
+Confirm the project, machine, image, command, node count, runtime limits, local
+input directory, remote result path, and spending authorization. Then submit:
 
 ```bash
-bohr guide read bohr-job -o json
-bohr guide list bohr-job/references -o json
-bohr guide read bohr-job references/commands.md -o json
-bohr job --help
+bohr job submit --project-id <project_id> --job_name <name> \
+  --image_address <image> --machine_type <machine> --command <command> \
+  --input_directory ./input --result_path /personal/results --yes -o json
 ```
 
-These read commands return JSON. Check `ok=true`, then read the Markdown in `data.content` as the instructions. Use `data.name`, `data.version`, and `data.path` to identify the guide. Directory listings expose `data.items`.
+Omit `--input_directory` for empty input. A config file can supply complex
+settings, but explicit flags and file values must not conflict.
 
-Relative references inside that guide belong to the CLI's embedded resources. Read
-`references/…` with `bohr guide read bohr-job references/path-to-file -o json`,
-rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
-and confirm flags through the specific subcommand's `--help`.
+## Track jobs by Bohr ID
 
-## 3. Complete the task
+The `BOHR_ID` column from `bohr job list` is the public job identifier for
+describe, terminate, kill, delete, download, and log. The CLI resolves the
+internal platform job ID automatically:
 
-Resolve the project, machine, image, inputs, and result path. Follow the embedded guide for running jobs, queued jobs, and job groups. Preserve the public Bohr ID and distinguish request acceptance from a confirmed terminal phase.
+```bash
+bohr job list --running -o json
+bohr job describe --id <bohr_id> -o json
+```
 
-- Before account access, run `bohr auth status -o json`. If signed out, use `bohr auth login` and have the user complete browser authorization. Let the CLI manage credentials; keep credential files and secrets out of output.
-- Follow the guide for current prices, payment source, and write effects. Add `--yes` only when the user has authorized the specific spending or target operation. Preview with `--dry-run` where supported and retain CLI confirmation controls.
-- Use `-o json` for automated business commands. Check the exit status, `ok`, error details, and business state. Follow asynchronous requests to a verifiable result; report missing fields and unknown states accurately.
-- If the CLI lacks a guide or capability, report its version and the missing item and suggest an upgrade. Stay within supported CLI operations rather than constructing HTTP requests or restoring the old Python clients.
+Use normalized `phase` and `terminal` fields when present. An accepted stop
+request or a non-terminal status is not completion.
+
+Running jobs use `bohr job terminate`; queued jobs use `bohr job kill`. By
+default the CLI confirms a terminal phase, bounded by `--confirm-timeout`.
+`--no-wait` returns after acceptance and must be reported as unconfirmed.
+
+`kill` and `delete` are destructive and require exact-target authorization and
+`--yes`. `terminate` is a non-destructive stop request but still requires clear
+user intent. Logs and results write local files; confirm `--out` before download.
+
+## Job groups
+
+`bohr job submit` can return both `jobGroupId` and `bohrJobGroupId`:
+
+- `--job_group_id` on a later submit consumes `bohrJobGroupId`.
+- Group terminate/delete should prefer `jobGroupId` immediately after submit;
+  `bohrJobGroupId` becomes resolvable only after jobs are indexed.
+
+Use canonical `bohr job-group` commands for group create/list/terminate/delete
+and result download. Group termination and deletion are destructive.
+
+Read [`references/commands.md`](references/commands.md) for every current
+command, flag, ID type, pricing boundary, status, and stopping rule.
+
+## Resource payment boundary
+
+Resource actions marked balance-only keep their existing balance billing. The
+global `--payment-source` option does not enable photon billing for these
+resources; explicitly selecting `photon` on a balance-only action is rejected
+before execution. Use the existing resource pricing/authorization workflow.

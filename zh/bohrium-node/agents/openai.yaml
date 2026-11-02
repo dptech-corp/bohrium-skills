@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 开发节点"
+  short_description: "创建、连接和管理交互式开发节点"
+  default_prompt: "请使用 $bohrium-node 通过 Bohrium CLI 完成相关任务。"

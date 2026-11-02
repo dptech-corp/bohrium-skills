@@ -1,48 +1,89 @@
 ---
 name: bohrium-image
-description: "通过 bohr CLI 搜索、构建、推送或管理 Bohrium 容器镜像。当用户需要容器镜像相关操作时使用；详细命令与执行边界读取已安装 CLI 的 bohr-image 指引。"
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr image 发现、查看、拉取、推送、构建或删除容器镜像。用于本地 Docker 上下文、远程 Dockerfile 构建、沙箱快照、构建日志、镜像状态与生命周期。"
 ---
+
+<a id="bohrium-image"></a>
 
 # Bohrium 容器镜像
 
-通过 `bohr image` 完成任务，详细步骤以当前 CLI 内嵌的 `bohr-image` 为准。
+有本地上下文的 Docker 构建使用 `build --mode local`，之后单独执行返回的推送命令。默认 `build --mode remote` 只把 Dockerfile 文本发给远程构建器。`commit` 在服务端保存运行中沙箱容器的根文件系统快照，不能假设挂载卷会包含在内。
 
-## 1. 检查 CLI
-
-```bash
-bohr --version
-```
-
-需要安装或升级时，按当前环境的权限和用户约定执行：
+创建镜像前先发现已有镜像：
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr image list --limit 50 -o json
+bohr image search "DeePMD" -o json
+bohr image get <image_id> -o json
 ```
 
-本 Skill 面向最新正式版 CLI，本次核验版本为 **2.9.19**。
+`--limit` 范围为 `1-512`，默认 `512`；只需有限目录样本时使用更小的值。
 
-## 2. 读取与 CLI 版本匹配的指引
-
-业务操作前先读取：
+pull 将 Bohrium 镜像复制到本地 Docker daemon。先确认 Docker 已安装并运行，且镜像地址属于 Bohrium registry：
 
 ```bash
-bohr guide read bohr-image -o json
-bohr guide list bohr-image/references -o json
-bohr guide read bohr-image references/commands.md -o json
-bohr image --help
+bohr image pull <bohrium_image_address> --timeout 30m -o json
 ```
 
-以上读取命令返回 JSON。先确认 `ok=true`，再将 `data.content` 中的 Markdown 作为指引读取；用 `data.name`、`data.version` 和 `data.path` 核对指引身份。目录列表读取 `data.items`。
+使用本地上下文构建，再在相同 Docker context/daemon、Bohrium profile 和身份、项目及短名称下执行返回的 `pushCommand`：
 
-内嵌指引中的相对引用属于 CLI 内嵌资源。例如 `references/…` 要通过
-`bohr guide read bohr-image references/具体文件 -o json` 读取，而不是到本地 Skill 目录查找。
-根据任务继续读取相关引用，并用具体子命令的 `--help` 确认参数。
+```bash
+bohr image build --mode local --dockerfile ./Dockerfile --context . \
+  --name my-image:v1 --project-id 1234 -o json
+```
 
-## 3. 完成任务
+该流程会通过 prepare 预留远程镜像记录和配额，并非离线操作。本地构建不提交远程计算、不要求 `--yes`，也不会自动推送。本地成功后执行 `pushCommand`；不要用 prepare 记录 ID 轮询 `image status` 或 `build-log`。使用唯一名称，不要并发执行同名操作。明确的构建失败会尝试 abort；prepare 未返回可靠结果时，先检查状态，错误也可能留下记录，不能假设记录不存在或已被清理。
 
-区分本地 Docker 构建、远程构建和沙箱快照。快照前执行内嵌指引要求的 rootfs 容量检查；构建受理、构建成功和镜像可用分别核验。镜像名、项目、费用和删除目标先确认。
+也可使用 AccessKey 推送 Docker daemon 中已有镜像。此命令调用 `PATH` 上的 Docker CLI，不会构建镜像，也不会上传 Dockerfile 或上下文。先自行使用 `docker build`、`docker load` 或 `docker pull` 准备镜像。第二个参数是与 build/commit 相同风格的短镜像名；项目 ID 来自 `--project-id` 或 `BOHR_PROJECT_ID`：
 
-- 需要访问账户时先运行 `bohr auth status -o json`；未登录则使用 `bohr auth login`，由用户完成浏览器授权。凭据交由 CLI 管理，不读取或回显凭据文件。
-- 按内嵌指引核对当前价格、支付来源和写操作影响；只有用户已授权本次费用或具体目标的操作时才添加 `--yes`。命令支持 `--dry-run` 时可先预览；保持 CLI 的确认机制。
-- 自动化业务命令使用 `-o json`，同时检查退出码、`ok`、错误详情和业务状态。异步请求受理后，按指引查询到可验证结果；缺失字段或未知状态如实报告。
-- CLI 缺少指引或能力时，报告版本与缺失项并提供升级建议。操作保持在 CLI 支持范围内，不自行拼接 HTTP 请求或恢复旧 Python 客户端。
+```bash
+docker build -t my-image:v1 .
+bohr image push my-image:v1 my-image:v1 --project-id 1234 --timeout 30m -o json
+```
+
+registry 目标只使用 prepare 响应中的规范 `imageUrl`，不能自行拼接项目/用户路径。生命周期和失败恢复见 [命令参考](references/commands.md)。
+
+<a id="rootfs-gate-before-a-sandbox-snapshot-commit"></a>
+
+## 沙箱快照 commit 前的 rootfs 检查
+
+每次 `bohr image commit` 提交前，立即执行 `bohr sandbox storage inspect <sandbox_id> -o json`。不能等 commit 开始后再依靠 80% 阈值扩容：commit apply 消耗临时 rootfs 的速度可能快于扩容进入 Ready。按 [命令参考](references/commands.md) 的失败数据公式估算容量，必要时先扩容，只有 `status=ready` 后才继续。预期未压缩快照增量未知时，不能当作零或声称容量安全。rootfs 只能扩容，不能缩容。
+
+这是 Agent 的前置流程，并非 CLI 自动执行的行为，也不适用于 `bohr image build --dockerfile`。
+
+远程 build 和 commit 按 Sandbox 价目从余额收取资源费用。先查看价格结构并获得费用授权：
+
+```bash
+bohr billing pricing --resource sandbox -o json
+bohr image build --mode remote --dockerfile ./Dockerfile --name project/image:v1 \
+  --project-id <project_id> --wait --yes -o json
+bohr image commit --sandbox-id <sandbox_id> --name project/snapshot:v1 \
+  --project-id <project_id> --wait --yes -o json
+```
+
+使用不可变名称，不要使用可变的 `latest` 标签。远程 build 只发送所选 Dockerfile 文本，不发送本地构建上下文；commit 保存所选运行中沙箱的容器根文件系统快照。两者都不使用本地 Docker 镜像。确认具体本地文件、沙箱、所属项目、名称和费用授权。
+
+没有 `--wait` 的远程构建或快照提交，应保留返回的镜像 ID，再查询：
+
+```bash
+bohr image build-log <image_id> --follow
+bohr image status <image_id> -o json
+bohr image dockerfile <image_id>
+```
+
+Creating（`0`）和 pending（`1`）是非终态；`2` 表示成功，`3` 表示失败，`4` 表示取消。`--wait` 在 `2/3/4` 停止，用 `--wait-timeout` 限定等待。本地超时不能证明远程构建已停止。
+
+delete 是破坏性操作：
+
+```bash
+bohr image delete <image_id> --yes -o json
+```
+
+当前 CLI 没有 share/unshare 或元数据更新命令。完整命令、参数、本地/远程影响、计费和生命周期完成条件见 [命令参考](references/commands.md)。
+
+<a id="resource-payment-boundary"></a>
+
+## 资源支付边界
+
+标记为 balance-only 的资源操作继续按原有规则从余额计费。全局 `--payment-source` 不会为这些资源启用光子支付；显式指定 `photon` 会在执行前被拒绝。按该资源既有的价格查询和费用授权流程操作。

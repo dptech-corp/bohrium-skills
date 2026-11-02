@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 科学工具库"
+  short_description: "按领域发现工具并核对价格和适用条件"
+  default_prompt: "请使用 $bohrium-tools 通过 Bohrium CLI 完成相关任务。"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Paper Search"
+  short_description: "Search academic papers and patents with priced tiers"
+  default_prompt: "Use $bohrium-paper-search to find relevant papers or patents through the Bohrium CLI."

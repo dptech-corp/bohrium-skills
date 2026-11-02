@@ -1,43 +1,40 @@
-# CLI-backed Bohrium Skills
+# Native CLI Skill packages for public distribution
 
 ## Goal
 
-Agents installing this repository use the published `bohr` CLI for Bohrium operations and read guidance from the installed CLI version.
+The existing 17 public Bohrium Skills include the CLI-native task workflows, local references, and available agent interface metadata. An installed Skill can guide its domain task directly from its package.
 
 ## Current evidence
 
-- At `fc4ee753c55fc0fde339c85c5fc5b630d2f6d4fb`, `zh/` and `en/` each contain 17 named Skills. Most describe direct HTTP calls and some bundle Python clients.
-- `bundle.go` embeds both language trees; the existing installer discovers `bohrium-*` directories and validates frontmatter names. Its tests expect 17 Skills per language.
-- `.claude-plugin/marketplace.json` installs the English Skills as `bohrium-skills@bohrium`.
-- The published `@dptech-corp/bohr-cli@2.9.19` provides `bohr guide list`, `bohr guide read`, and domain command help.
-
-## Behavior scenarios
-
-- An agent receiving a paper-search task checks `bohr`, reads `bohr-paper-search` with `bohr guide read`, and follows its pricing and command instructions before searching.
-- An agent without `bohr` provides the npm installation command and waits for installation authorization. Interactive login is completed by the user; account credentials are handled by the CLI.
-- When the installed CLI lacks a guide or command, the agent reports the version and missing capability, then offers an upgrade. It does not reconstruct the API client.
+- The public repository preserves 17 `bohrium-*` names in `zh/` and `en/`, plus `bohrium-skills@bohrium` for Claude.
+- The published `@dptech-corp/bohr-cli@2.9.19` embeds full Skill trees: 17 selected main documents, 31 reference documents, and 16 `agents/openai.yaml` files. Sandbox does not include agent interface metadata in this release.
+- CLI guide reads expose each file's content, canonical guide name, version, and path; guide directory listings enumerate the embedded tree.
+- The current public branch contains standalone routing instructions and no local references. Existing installer checks assume one file per Skill and must account for complete packages.
 
 ## Decisions
 
-- Keep all existing 17 directory/frontmatter names in each language and the Claude marketplace/plugin names and paths.
-- Each standalone Skill contains a domain-specific trigger, setup steps, an exact embedded-guide name, command-help entry points, and execution/result boundaries. Detailed command/reference content remains in `bohr`.
-- Require the latest stable CLI and record 2.9.19 as the verified baseline. Guide reads and directory listings explicitly use JSON for agents. Check `ok` before reading Markdown from `data.content`; retain guide name, version, and path metadata. Non-interactive default guide reads must return the same guide data as explicit JSON.
-- Distribute only `SKILL.md` within each Skill directory. Retire the direct-API Python helpers, their example payloads, Python dependency file, and API smoke/demo runners. Keep dated API verification evidence clearly marked as historical. Preserve the separately maintained OpenAPI schema and its published path; clarify that CLI Skills no longer serve as its interface documentation.
-- Keep installer source, package version, tag/release workflow, and published releases unchanged. The npm installer embeds its Skill content at release time; changing GitHub does not update previously released installers.
+- Keep the existing 17 public names, both language directories, marketplace names/paths, and installer commands. The selected guide mapping and source version live in `cli-skills.lock.json`.
+- Use the published CLI artifact as the authoritative source. English main documents and all reference files retain the complete upstream content. CI compares the distributed files with the real published CLI, not an unshipped source branch.
+- Make only explicit distribution adaptations: rename the frontmatter Skill name, rename `$skill` references in agent default prompts, add a short CLI setup/compatibility note, and replace the environment-specific sandbox proxy host with a documented placeholder. Preserve command names, arguments, result fields, costs, failure conditions, and lifecycle rules. Explicitly record source-document corrections in the lock: remove the stale Wenyon template-only contract in favor of the published instance-mount interface/lifecycle reference, remove the unsupported pretty output label, and keep persistent confirmation changes separately authorized.
+- Translate Chinese main documents completely. Preserve the English CLI reference documents in both language packages and document that choice. Keep fenced command examples identical between English and Chinese main documents. Localize existing agent UI metadata while preserving the public Skill identifier.
+- Prefer local `references/` links in installed packages. `bohr guide` remains available for version inspection and cross-guide lookup, with JSON for agent calls and Markdown in `data.content`.
+- Keep source files, installer package version, tag/release workflow, OpenAPI schema, and existing published releases unchanged. This task changes public Skill distribution content only.
+
+## Behavior scenarios
+
+- For PDF parsing, the installed main document supplies local-file/URL selection, pricing authorization, submission flags, `data.token`, bounded polling, terminal/failure states, and result-shape options. Its detailed reference resolves locally.
+- For paper/patent search, the package supplies command examples, tier selection, per-page spending limits, payment-source behavior, and evidence-quality boundaries.
+- For sandboxes, the package includes lifecycle, execution, files, network, storage, templates, and recovery references. Unknown create outcomes and credentials retain their upstream safeguards. Public network examples require an environment-approved proxy rather than a company-specific endpoint.
 
 ## Acceptance criteria
 
-1. Both language trees expose the same existing 17 names and resolve to guides available in the published CLI.
-2. Every published Skill has CLI setup and domain-specific help; none contains raw HTTP/API fallback, credential-copy instructions, legacy CLI installation, or bundled API scripts.
-3. Every guide/reference and help command used by a Skill succeeds offline with the verified CLI. Guide reads use JSON; instructions identify `data.content`, and default non-interactive reads return the same guide data. Guide references are read via `bohr guide read`, not relative filesystem paths.
-4. The existing installer still installs all 17 Skills into isolated destinations. Claude marketplace entries still resolve to their English directories.
-5. README files describe CLI-backed Skills, installation, login, dynamic pricing, current `guide` commands, migration effects, and the distinction between GitHub content and released installer snapshots.
-6. Existing Go tests and the new distribution checks pass in a remote development or CI environment. No business API or paid operation is required for these checks.
+1. Both languages retain the same 17 public names. All 128 selected package files are present: 64 per language, including source-provided references and agent metadata.
+2. Every English package is byte-identical to the published CLI after the documented deterministic distribution adaptations. Both languages contain exactly the CLI's file inventory.
+3. Every Chinese main document includes its domain's complete native workflow, with identical fenced examples and working local links. Source references are complete and unabridged except for the documented public proxy adaptation.
+4. Source-provided `agents/openai.yaml` files identify the public Skill in default prompts; sandbox retains the source's absence of this optional file.
+5. Both existing full-set installation targets and published `bohr skill install` preserve every package file byte for byte in isolated destinations.
+6. CI checks source/version parity, package inventories, local links, fenced examples, key PDF/search/sandbox workflow boundaries, command help, Go tests, vet, and formatting against the actual published CLI.
 
-## Scope and non-goals
+## Scope and verification limits
 
-This is a Standard content/distribution migration authorized by the request to convert the GitHub repository to the CLI version. It does not change public CLI commands, add a generator, expand the Skill catalog, publish npm/tag releases, or submit marketplace listings.
-
-## Verification
-
-Run `go test ./...` and `go vet ./...` in CI. Install the exact published CLI in a job-owned prefix and run runtime guide/help checks plus an isolated installer smoke test. Inspect the final diff, bilingual mapping, removed resources, and public documentation links. Business API behavior and authenticated/paid flows are outside this migration's verification.
+This Standard migration follows the explicit request to use CLI-native Skills and include their complete resources. It adds no new public CLI command, marketplace listing, scheduler, release pipeline, or npm/tag release. Verification runs in CI; the editing workstation is used for source inspection, editing, and synchronization. CLI source files are inspected only at the published version, and CI's real artifact comparison decides parity. Authenticated business flows and paid operations are separate from package/content verification and are not claimed by passing CI.

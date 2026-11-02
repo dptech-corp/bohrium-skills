@@ -1,49 +1,54 @@
 ---
 name: bohrium-database
-description: "Use the bohr CLI to discover scientific databases, inspect schemas, and query data. Trigger on Bohrium scientific databases tasks; read the installed CLI's bohr-database guide for detailed commands and execution boundaries."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Query Bohrium scientific databases with `bohr database`: browse polymer
+  records, search crystal structures, or inspect and query private tabular
+  databases by db_ak and table_ak. Use for Bohrium database, 私有数据库, polymer
+  library, crystal structure search, table schema, or filtered row queries.
 ---
 
-# Bohrium Scientific Databases
+# Bohrium Database
 
-Use `bohr database` for this task. The installed CLI's `bohr-database` guide owns the detailed workflow.
+Choose the database family before acting:
 
-## 1. Check the CLI
+- Domain libraries use `bohr database polymer` or `bohr database structure`.
+  They return scientific records and do not use private table keys.
+- Private tabular access uses `tables`, `schema`, and `query` with stable
+  `db_ak` and `table_ak` identifiers.
 
-```bash
-bohr --version
-```
-
-When installation or upgrade is needed, follow the environment's permissions and the user's instructions:
-
-```bash
-npm install -g @dptech-corp/bohr-cli@latest
-```
-
-This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
-
-## 2. Read version-matched guidance
-
-Before business operations, read:
+All current database commands are read-only and free. Prefer structured output:
 
 ```bash
-bohr guide read bohr-database -o json
-bohr guide list bohr-database/references -o json
-bohr guide read bohr-database references/commands.md -o json
-bohr database --help
+bohr auth whoami -o json
+bohr database polymer list --page 1 --size 20 -o json
+bohr database structure search --query "Si O" --n-results 5 -o json
 ```
 
-These read commands return JSON. Check `ok=true`, then read the Markdown in `data.content` as the instructions. Use `data.name`, `data.version`, and `data.path` to identify the guide. Directory listings expose `data.items`.
+For a private database, discover tables before querying rows:
 
-Relative references inside that guide belong to the CLI's embedded resources. Read
-`references/…` with `bohr guide read bohr-database references/path-to-file -o json`,
-rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
-and confirm flags through the specific subcommand's `--help`.
+```bash
+bohr database tables <db_ak> -o json
+bohr database schema <db_ak> <table_ak> -o json
+bohr database query <db_ak> <table_ak> \
+  --filter '[{"field":"status","operator":"eq","value":"active"}]' \
+  --limit 20 \
+  --offset 0 \
+  -o json
+```
 
-## 3. Complete the task
+Treat display names as labels, not identifiers. Preserve `db_ak` and
+`table_ak` exactly between discovery, schema, and query calls. The filter is a
+JSON array; use field names and types from the returned schema rather than
+guessing them.
 
-Discover databases, inspect the target table schema, then issue a bounded query. Use returned database and table identifiers, limit result volume, and retain provenance and field meanings.
+Structure search can return CIF or POSCAR output metadata and optionally
+download its result archive. Confirm the local destination before `--download`;
+the remote operation remains read-only, but it writes a local file.
 
-- Before account access, run `bohr auth status -o json`. If signed out, use `bohr auth login` and have the user complete browser authorization. Let the CLI manage credentials; keep credential files and secrets out of output.
-- Follow the guide for current prices, payment source, and write effects. Add `--yes` only when the user has authorized the specific spending or target operation. Preview with `--dry-run` where supported and retain CLI confirmation controls.
-- Use `-o json` for automated business commands. Check the exit status, `ok`, error details, and business state. Follow asynchronous requests to a verifiable result; report missing fields and unknown states accurately.
-- If the CLI lacks a guide or capability, report its version and the missing item and suggest an upgrade. Stay within supported CLI operations rather than constructing HTTP requests or restoring the old Python clients.
+The current CLI does not list private databases or mutate rows, tables, or
+columns. If the requested workflow needs database creation, insert/update/delete,
+or schema alteration, report that it is outside this command surface.
+
+Read [`references/commands.md`](references/commands.md) for every current
+command, flag, identifier, and output/download boundary.

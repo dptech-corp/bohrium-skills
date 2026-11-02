@@ -1,49 +1,57 @@
 ---
 name: bohrium-knowledge-base
-description: "Use the bohr CLI to manage knowledge bases, literature, tags, notes, and retrieval. Trigger on Bohrium knowledge bases tasks; read the installed CLI's bohr-knowledge-base guide for detailed commands and execution boundaries."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Create, list, search, upload to, or delete Bohrium knowledge bases and manage
+  their documents with `bohr kb`. Use for 知识库, KB content search, document
+  IDs, folder/root node IDs, local document upload, or safe document deletion.
+  Use paper search for the public literature catalog and LKM for claim graphs.
 ---
 
-# Bohrium Knowledge Bases
+# Bohrium Knowledge Base
 
-Use `bohr kb` for this task. The installed CLI's `bohr-knowledge-base` guide owns the detailed workflow.
-
-## 1. Check the CLI
+Start by resolving the knowledge-base ID:
 
 ```bash
-bohr --version
+bohr kb list --page 1 --size 20 -o json
+bohr kb create "Project literature" -o json
 ```
 
-When installation or upgrade is needed, follow the environment's permissions and the user's instructions:
+A knowledge-base ID identifies the KB itself. Upload and document listing use a
+root or parent node ID internally; the CLI can resolve the root from `--kb-id`:
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr kb upload ./paper.pdf --kb-id <kb_id> -o json
+bohr kb document list --kb-id <kb_id> --page 1 --size 50 -o json
 ```
 
-This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
+Use `--parent-id` when the user selected a specific root/folder node. A parent
+node ID is not a knowledge-base ID or document ID.
 
-## 2. Read version-matched guidance
-
-Before business operations, read:
+Search content inside one KB with:
 
 ```bash
-bohr guide read bohr-knowledge-base -o json
-bohr guide list bohr-knowledge-base/references -o json
-bohr guide read bohr-knowledge-base references/commands.md -o json
-bohr kb --help
+bohr kb search <kb_id> "catalyst deactivation mechanism" -o json
 ```
 
-These read commands return JSON. Check `ok=true`, then read the Markdown in `data.content` as the instructions. Use `data.name`, `data.version`, and `data.path` to identify the guide. Directory listings expose `data.items`.
+Capture stable document IDs from `document list` before reading or deleting:
 
-Relative references inside that guide belong to the CLI's embedded resources. Read
-`references/…` with `bohr guide read bohr-knowledge-base references/path-to-file -o json`,
-rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
-and confirm flags through the specific subcommand's `--help`.
+```bash
+bohr kb document get <document_id> -o json
+```
 
-## 3. Complete the task
+Upload sends the exact local file to Bohrium. Confirm the file, destination KB
+or parent node, and displayed name before the write. All current KB commands
+are free, but free does not imply upload or deletion consent.
 
-Distinguish knowledge-base management, retrieval within a library, and public paper search. Resolve the library and literature identifiers before upload, organization, or retrieval. Preserve sources and confirm the scope of deletion.
+Both KB deletion and document deletion are destructive. Resolve the exact
+target immediately before adding `--yes`:
 
-- Before account access, run `bohr auth status -o json`. If signed out, use `bohr auth login` and have the user complete browser authorization. Let the CLI manage credentials; keep credential files and secrets out of output.
-- Follow the guide for current prices, payment source, and write effects. Add `--yes` only when the user has authorized the specific spending or target operation. Preview with `--dry-run` where supported and retain CLI confirmation controls.
-- Use `-o json` for automated business commands. Check the exit status, `ok`, error details, and business state. Follow asynchronous requests to a verifiable result; report missing fields and unknown states accurately.
-- If the CLI lacks a guide or capability, report its version and the missing item and suggest an upgrade. Stay within supported CLI operations rather than constructing HTTP requests or restoring the old Python clients.
+```bash
+bohr kb document delete <document_id> --yes -o json
+bohr kb delete <kb_id> --yes -o json
+```
+
+The current CLI does not manage folders, tags, notes, favorites, sharing, or
+permissions. Read [`references/commands.md`](references/commands.md) for the
+complete command set, identifier boundaries, upload routing, and deletion gate.

@@ -1,48 +1,103 @@
 ---
 name: bohrium-mentor
-description: "通过 bohr CLI 使用 Bohrium 科学小导师进行文献支持的科学问答、方法比较或研究进展综述。当用户需要科学小导师相关操作时使用；详细命令与执行边界读取已安装 CLI 的 bohr-mentor 指引。"
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr agents mentor 向 Bohrium 科学小导师提问，获取文献支持的科学解释、研究进展或方法比较。独立论文记录使用 bohr paper，人物画像使用 scholar，论断证据链使用 LKM。"
 ---
+
+<a id="bohrium-mentor"></a>
 
 # Bohrium 科学小导师
 
-通过 `bohr agents mentor` 完成任务，详细步骤以当前 CLI 内嵌的 `bohr-mentor` 为准。
+通过与版本匹配的 `bohr agents mentor` 提出一个明确的科学问题。Mentor 是综合回答流程，会在内部检索科学文献并流式输出 Markdown 解释。
 
-## 1. 检查 CLI
+需要记录而非解释时，选择结构化命令：
 
-```bash
-bohr --version
-```
+- `bohr paper search` 获取具体论文和文献字段。
+- `bohr scholar search` 获取学者画像。
+- `bohr lkm` 获取论断、推理链、论文图谱和来源关系。
+- 可复现检索方案、筛选语料或系统证据表使用专门的文献综述工作流。
 
-需要安装或升级时，按当前环境的权限和用户约定执行：
+<a id="authenticate-and-authorize-the-session"></a>
 
-```bash
-npm install -g @dptech-corp/bohr-cli@latest
-```
+## 身份与会话费用授权
 
-本 Skill 面向最新正式版 CLI，本次核验版本为 **2.9.19**。
-
-## 2. 读取与 CLI 版本匹配的指引
-
-业务操作前先读取：
+创建会话前检查当前身份和版本匹配的价格：
 
 ```bash
-bohr guide read bohr-mentor -o json
-bohr guide list bohr-mentor/references -o json
-bohr guide read bohr-mentor references/commands.md -o json
-bohr agents mentor --help
+bohr auth whoami -o json
+bohr billing pricing --resource mentor -o json
 ```
 
-以上读取命令返回 JSON。先确认 `ok=true`，再将 `data.content` 中的 Markdown 作为指引读取；用 `data.name`、`data.version` 和 `data.path` 核对指引身份。目录列表读取 `data.items`。
+内嵌价目为每个会话 **2.00 CNY**。网关在创建会话前预扣费，并非在回答流完成时才收费。请求回答问题本身不代表允许付费。非交互调用在费用已获授权后才添加 `--yes`，否则向用户报告 `CONFIRMATION_REQUIRED`。
 
-内嵌指引中的相对引用属于 CLI 内嵌资源。例如 `references/…` 要通过
-`bohr guide read bohr-mentor references/具体文件 -o json` 读取，而不是到本地 Skill 目录查找。
-根据任务继续读取相关引用，并用具体子命令的 `--help` 确认参数。
+用 `--dry-run` 查看归一化的问题和选项，不创建会话：
 
-## 3. 完成任务
+```bash
+bohr agents mentor \
+  "Compare density functional theory and Hartree-Fock for periodic solids" \
+  --discipline Physics \
+  --journal-type foreign \
+  --model reason \
+  --dry-run \
+  -o json
+```
 
-科学小导师提供综合解答；需要独立论文记录时使用论文检索。会话创建可能已产生费用，流中断后先保留错误、已有输出和 request ID，不自动创建新会话。使用当前 `bohr agents mentor` 入口。
+<a id="ask-the-question"></a>
 
-- 需要访问账户时先运行 `bohr auth status -o json`；未登录则使用 `bohr auth login`，由用户完成浏览器授权。凭据交由 CLI 管理，不读取或回显凭据文件。
-- 按内嵌指引核对当前价格、支付来源和写操作影响；只有用户已授权本次费用或具体目标的操作时才添加 `--yes`。命令支持 `--dry-run` 时可先预览；保持 CLI 的确认机制。
-- 自动化业务命令使用 `-o json`，同时检查退出码、`ok`、错误详情和业务状态。异步请求受理后，按指引查询到可验证结果；缺失字段或未知状态如实报告。
-- CLI 缺少指引或能力时，报告版本与缺失项并提供升级建议。操作保持在 CLI 支持范围内，不自行拼接 HTTP 请求或恢复旧 Python 客户端。
+## 提出问题
+
+获得授权后，提交一个完整问题：
+
+```bash
+bohr agents mentor \
+  "Explain recent strategies for suppressing lithium dendrites in solid-state batteries" \
+  --discipline Chemistry \
+  --journal-type foreign \
+  --model reason \
+  --yes
+```
+
+常见学科值有 `All`、`Physics`、`Chemistry`、`Biology`、`Materials`、`Computer Science`。CLI 将筛选值传给 Mentor；领域不明确时保留默认 `All`。`foreign` 和 `chinese` 选择期刊范围，默认模型为 `reason`。
+
+自动化调用优先 JSON：
+
+```bash
+bohr agents mentor "Explain the evidence for high-temperature superconductivity" \
+  --yes \
+  -o json
+```
+
+human 输出只流式呈现主 Markdown 回答；结构化成功结果包含 `data.answer` 和 `data.session_id`。回答内的引用标记属于回答内容，不是完整文献记录；需要独立核查的文献时使用 `bohr paper search`。
+
+<a id="handle-delay-and-interruption"></a>
+
+## 处理延迟和中断
+
+深度推理可能有明显的首 token 延迟，命令超时为五分钟。仍有有用输出到达时，保持进程连接。
+
+创建会话与流式回答属于两个阶段。流中断时，会话可能已经计费，human 输出也可能已有部分回答。保留真实 stdout、结构化错误、计费 notice 和 request ID。只有成功的机器结果才返回 `data.session_id`。
+
+**创建会话后或流中断后不要自动重试。** 重试会新建会话并可能再次收费。报告中断，取得用户对新会话的费用授权后再继续。
+
+<a id="capability-boundary"></a>
+
+## 能力边界
+
+CLI 有意只输出主回答，不提供 Mentor 的其他 UI 布局、引用卡片元数据、推荐追问或 resume 命令。使用 `bohr agents mentor`，不要用 shell 或 Python 重建服务传输协议或凭据处理。
+
+旧的顶层 `bohr mentor` 路径已移除，使用 `bohr agents mentor`。
+
+<a id="choose-the-payment-source"></a>
+
+## 选择支付来源
+
+不指定 `--payment-source` 时，CLI 不发送支付渠道偏好：网关优先使用光子，仅在明确光子不足时回退余额。获取费用授权时向用户说明此策略。限定单一来源时，使用 `--payment-source photon` 或 `--payment-source balance`。显式选择 photon 时，光子不足即停止；显式选择 balance 时直接使用余额。现有免费额度和豁免仍然适用。
+
+显式指定的渠道返回 `BILLING_INSUFFICIENT` 且 `retryable: false` 时，报告拒绝结果，等待用户为该渠道充值，或授权原命令使用另一渠道。显式选择余额但余额不足时，也会停止而不扣光子；只有获准后才能改用 `--payment-source photon`。`--yes` 确认执行，不代表授权切换支付来源。只有余额渠道已获授权时才使用 `--payment-source balance`。多步流程的后续计费调用应保持已选渠道；上次 CLI 调用的参数不会保存。`bohr api` 遵循同一规则。
+
+
+<a id="detailed-reference"></a>
+
+## 详细参考
+
+准确参数、输出、计费、dry-run 行为、失败处理和内嵌版本契约见 [命令参考](references/commands.md)。

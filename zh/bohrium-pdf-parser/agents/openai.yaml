@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium PDF 解析"
+  short_description: "提取 PDF 文本、表格、公式和页面布局"
+  default_prompt: "请使用 $bohrium-pdf-parser 通过 Bohrium CLI 完成相关任务。"

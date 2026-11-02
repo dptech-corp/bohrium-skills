@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 论文检索"
+  short_description: "按受控费用档位检索论文和专利"
+  default_prompt: "请使用 $bohrium-paper-search 通过 Bohrium CLI 完成相关任务。"

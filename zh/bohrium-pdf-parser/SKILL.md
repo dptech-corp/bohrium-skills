@@ -1,48 +1,108 @@
 ---
 name: bohrium-pdf-parser
-description: "通过 bohr CLI 解析 PDF 文本、表格、图表或公式并查询解析结果。当用户需要PDF 解析相关操作时使用；详细命令与执行边界读取已安装 CLI 的 bohr-pdf-parse 指引。"
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr pdf parse 和 bohr pdf result 解析 PDF 的文本、表格、公式、图表、图片、分子或页面布局。用于 Uni-Parser、PDF 解析和结构化内容；科研问题、结论或推理抽取使用 bohr lkm extract。"
 ---
+
+<a id="bohrium-pdf-parse"></a>
 
 # Bohrium PDF 解析
 
-通过 `bohr pdf` 完成任务，详细步骤以当前 CLI 内嵌的 `bohr-pdf-parse` 为准。
+通过与版本匹配的 CLI 使用 Bohrium Uni-Parser，从单份 PDF 提取布局和内容。只选择一种输入方式：
 
-## 1. 检查 CLI
+- `bohr pdf parse --file <path>` 上传本地 PDF。
+- `bohr pdf parse --url <url>` 让服务下载 PDF URL。
 
-```bash
-bohr --version
-```
+提交前确认具体本地文件或 URL。本地文件会离开当前机器；URL 必须能被解析服务直接访问。
 
-需要安装或升级时，按当前环境的权限和用户约定执行：
+本流程提取布局、文本、表格、公式、图表、图片或分子。若用户要的是科学论断、研究问题、结论、推理步骤或 LKM 变量图谱，使用 `bohr lkm extract`。
 
-```bash
-npm install -g @dptech-corp/bohr-cli@latest
-```
+<a id="authenticate-and-authorize-parsing"></a>
 
-本 Skill 面向最新正式版 CLI，本次核验版本为 **2.9.19**。
+## 身份与解析费用授权
 
-## 2. 读取与 CLI 版本匹配的指引
-
-业务操作前先读取：
+查看当前身份和价格契约：
 
 ```bash
-bohr guide read bohr-pdf-parse -o json
-bohr guide list bohr-pdf-parse/references -o json
-bohr guide read bohr-pdf-parse references/commands.md -o json
-bohr pdf --help
+bohr auth whoami -o json
+bohr billing pricing --resource pdf -o json
 ```
 
-以上读取命令返回 JSON。先确认 `ok=true`，再将 `data.content` 中的 Markdown 作为指引读取；用 `data.name`、`data.version` 和 `data.path` 核对指引身份。目录列表读取 `data.items`。
+内嵌价目中 PDF 解析为 **0.05 CNY per page（每页）**。最终费用取决于成功解析的页数，服务尚未返回文档大小或计费结果时不能编造总价。非交互调用只有费用已获授权后才能添加 `--yes`；获取已有结果免费，不需要费用确认。
 
-内嵌指引中的相对引用属于 CLI 内嵌资源。例如 `references/…` 要通过
-`bohr guide read bohr-pdf-parse references/具体文件 -o json` 读取，而不是到本地 Skill 目录查找。
-根据任务继续读取相关引用，并用具体子命令的 `--help` 确认参数。
+可用 `--dry-run` 检查输入，不会提交或上传文件。
 
-## 3. 完成任务
+<a id="submit-the-pdf"></a>
 
-先确认本地文件或 URL、解析选项和费用。提交解析与读取已有结果分别处理；保留任务标识，按指引轮询到明确结果。超时或响应丢失时先查询已有任务，避免重复提交和重复收费。
+## 提交 PDF
 
-- 需要访问账户时先运行 `bohr auth status -o json`；未登录则使用 `bohr auth login`，由用户完成浏览器授权。凭据交由 CLI 管理，不读取或回显凭据文件。
-- 按内嵌指引核对当前价格、支付来源和写操作影响；只有用户已授权本次费用或具体目标的操作时才添加 `--yes`。命令支持 `--dry-run` 时可先预览；保持 CLI 的确认机制。
-- 自动化业务命令使用 `-o json`，同时检查退出码、`ok`、错误详情和业务状态。异步请求受理后，按指引查询到可验证结果；缺失字段或未知状态如实报告。
-- CLI 缺少指引或能力时，报告版本与缺失项并提供升级建议。操作保持在 CLI 支持范围内，不自行拼接 HTTP 请求或恢复旧 Python 客户端。
+默认启用快速文本和表格提取。只启用任务需要的额外语义模式：
+
+```bash
+bohr pdf parse --file ./paper.pdf \
+  --textual 2 \
+  --table 2 \
+  --equation 2 \
+  --chart 1 \
+  --figure 0 \
+  --molecule 0 \
+  --yes \
+  -o json
+```
+
+远程文件示例：
+
+```bash
+bohr pdf parse --url "https://example.org/paper.pdf" --yes -o json
+```
+
+从成功提交的响应中保留 `data.token`。`bohr pdf result` 使用这个 token，而不是其他解析器的任务 ID。
+
+<a id="retrieve-to-a-terminal-state"></a>
+
+## 查询直到明确终态
+
+解析默认异步执行：
+
+```bash
+bohr pdf result <token> -o json
+```
+
+`undefined` 和 `processing` 是非终态。使用适中的有界轮询间隔，例如 3–5 秒。返回 `success`、命令返回 `PARSE_FAILED` 或用户等待预算耗尽时停止。本地等待截止只停止轮询，不会取消远程解析。
+
+`--sync` 使提交等待解析完成，但返回 token 仍是交给 `bohr pdf result` 获取所需内容和结构化数据的稳定标识。
+
+只有任务确实需要已完成的部分结果时才使用 `--return-half`。非空的部分内容不能证明解析已经进入终态。
+
+<a id="select-the-result-shape"></a>
+
+## 选择结果形状
+
+默认请求启用 `--content` 和 `--objects`。需要更窄或分层输出时显式选择：
+
+```bash
+bohr pdf result <token> --content --objects -o json
+bohr pdf result <token> --content=false --objects=false --pages-dict -o json
+bohr pdf result <token> --content=false --objects=false --pages-tree -o json
+bohr pdf result <token> --formatted markdown -o json
+bohr pdf result <token> --molecule-source -o json
+```
+
+`--content`、`--objects`、`--pages-dict`、`--pages-tree` 至少保留一项启用。尽管名称像对象，`pages_dict` 和 `pages_tree` 实际是数组；进度使用 `proc_page` 和 `total_page`，不能用数组长度代替。
+
+结构化块保留上游的 class/type、坐标、置信度、层级及未来供应商字段。图表和表格识别结果是提取证据，不是已验证的数值真相；计算或录入关键数值前与原始 PDF 核对。
+
+<a id="choose-the-payment-source"></a>
+
+## 选择支付来源
+
+不指定 `--payment-source` 时，CLI 不发送支付渠道偏好：网关优先使用光子，仅在明确光子不足时回退余额。获取费用授权时向用户说明此策略。限定单一来源时，使用 `--payment-source photon` 或 `--payment-source balance`。显式选择 photon 时，光子不足即停止；显式选择 balance 时直接使用余额。现有免费额度和豁免仍然适用。
+
+显式指定的渠道返回 `BILLING_INSUFFICIENT` 且 `retryable: false` 时，报告拒绝结果，等待用户为该渠道充值，或授权原命令使用另一渠道。显式选择余额但余额不足时，也会停止而不扣光子；只有获准后才能改用 `--payment-source photon`。`--yes` 确认执行，不代表授权切换支付来源。只有余额渠道已获授权时才使用 `--payment-source balance`。多步流程的后续计费调用应保持已选渠道；上次 CLI 调用的参数不会保存。`bohr api` 遵循同一规则。
+
+
+<a id="detailed-reference"></a>
+
+## 详细参考
+
+准确的参数默认值、格式选项、结果字段、轮询状态、错误处理和内嵌版本契约见 [命令参考](references/commands.md)。

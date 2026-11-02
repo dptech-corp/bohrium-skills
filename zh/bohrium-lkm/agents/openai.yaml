@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 大知识模型"
+  short_description: "检索论断和推理链，抽取论文知识图谱"
+  default_prompt: "请使用 $bohrium-lkm 通过 Bohrium CLI 完成相关任务。"

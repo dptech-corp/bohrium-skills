@@ -4,7 +4,7 @@
 
 [English](README_EN.md)
 
-本仓库提供 17 组中英文 Skill。每个 Skill 负责识别任务、检查 CLI，并读取已安装 CLI 的内嵌指引；命令、参数、计费和恢复规则随 CLI 版本更新。
+本仓库提供 17 组完整的 CLI 原生 Skill 包：主文档包含任务流程、命令示例、计费与恢复规则，配套 `references/` 和已有的 `agents/openai.yaml` 一并分发。来源锁定为正式发布的 `bohr 2.9.19`，见 [来源锁文件](cli-skills.lock.json)。
 
 ## 1. 安装并登录 Bohrium CLI
 
@@ -55,21 +55,31 @@ go run ./cmd/bohrium-skills-cli install --lang zh
 
 **已发布的 `bohrium-skills-cli` npm 包和 Release 二进制内嵌发布时的 Skill 快照。** GitHub 内容更新不会改写旧发布物；当前 CLI 版内容请通过 GitHub 插件、`bohr skill install` 或本仓库源码安装。本次迁移不发布新的安装器版本。
 
-## 3. 读取与 CLI 版本匹配的指引
+## 3. 使用完整 Skill 包
+
+以论文检索为例，安装的目录包含：
+
+```text
+bohrium-paper-search/
+├── SKILL.md                 # 完整任务流程与命令示例
+├── references/commands.md   # 随包提供的详细参考
+└── agents/openai.yaml       # CLI 已有的 Agent 界面元数据
+```
+
+Agent 先读取 `SKILL.md`，再按任务需要读取本地参考文件，不需要通过 `bohr guide` 再取回整套步骤。中文包完整翻译主文档与已有界面元数据；详细参考沿用 CLI 英文原文，保留本地链接及章节锚点。Sandbox 的源包没有 `agents/openai.yaml`，保持源包结构。
+
+CLI 仍是执行依赖。所用二进制与本地快照不同或需要跨模块指引时，可核对已安装版本：
 
 ```bash
+bohr --version
 bohr guide list -o json
 bohr guide read bohr-paper-search -o json
-bohr guide list bohr-paper-search/references -o json
-bohr guide read bohr-paper-search references/commands.md -o json
 bohr paper --help
 ```
 
-Agent 使用 JSON 输出：先检查 `ok=true`，再读取 `data.content` 中的 Markdown 指引；`data.name`、`data.version` 和 `data.path` 用于核对来源，目录列表在 `data.items`。CLI 未指定格式时会按终端类型选择输出，非交互调用默认也是 JSON。
+`guide read` 的 JSON 正文在 `data.content`，`data.name`、`data.version` 和 `data.path` 标识来源；先检查 `ok=true`。业务调用按具体命令帮助和实时价目执行。
 
-指引中的相对链接属于 CLI 内嵌资源，通过 `bohr guide read <guide> <path> -o json` 读取。它们不在本仓库的 Skill 目录中。遇到缺失命令或指引时先核对 `bohr --version`，并安装最新正式版。
-
-`bohr guide` 读取本机内嵌指引；`bohr agents skills` 管理云端 Skill Hub；`bohr skill install` 安装本地 Skill 包。
+`bohr guide` 读取本机内嵌指引；`bohr agents skills` 管理云端 Skill Hub；`bohr skill install` 安装本地完整 Skill 包。
 
 ## Skill 清单
 
@@ -79,12 +89,12 @@ Agent 使用 JSON 输出：先检查 `ok=true`，再读取 `data.content` 中的
 |-------|----------|----------|------|
 | [bohrium-job](zh/bohrium-job/SKILL.md) | `bohr job` | `bohr-job` | 计算任务、日志与结果 |
 | [bohrium-node](zh/bohrium-node/SKILL.md) | `bohr node` | `bohr-node` | 交互式开发节点 |
-| [bohrium-dataset](zh/bohrium-dataset/SKILL.md) | `bohr dataset` | `bohr-dataset` | 数据集、版本与文件 |
+| [bohrium-dataset](zh/bohrium-dataset/SKILL.md) | `bohr dataset` | `bohr-dataset` | 数据集上传、版本查询与续传下载 |
 | [bohrium-file](zh/bohrium-file/SKILL.md) | `bohr file` | `bohr-file` | personal/share 文件盘 |
 | [bohrium-database](zh/bohrium-database/SKILL.md) | `bohr database` | `bohr-database` | 科学数据库与表结构 |
 | [bohrium-image](zh/bohrium-image/SKILL.md) | `bohr image` | `bohr-image` | 容器镜像、构建与快照 |
-| [bohrium-project](zh/bohrium-project/SKILL.md) | `bohr project` | `bohr-project` | 项目、成员与额度 |
-| [bohrium-knowledge-base](zh/bohrium-knowledge-base/SKILL.md) | `bohr kb` | `bohr-knowledge-base` | 知识库、文献与库内检索 |
+| [bohrium-project](zh/bohrium-project/SKILL.md) | `bohr project` | `bohr-project` | 项目查询、创建、删除及成员查询 |
+| [bohrium-knowledge-base](zh/bohrium-knowledge-base/SKILL.md) | `bohr kb` | `bohr-knowledge-base` | 知识库、文档上传与库内检索 |
 | [bohrium-paper-search](zh/bohrium-paper-search/SKILL.md) | `bohr paper` | `bohr-paper-search` | 论文与专利检索 |
 | [bohrium-pdf-parser](zh/bohrium-pdf-parser/SKILL.md) | `bohr pdf` | `bohr-pdf-parse` | PDF 解析与结果查询 |
 | [bohrium-scholar-search](zh/bohrium-scholar-search/SKILL.md) | `bohr scholar` | `bohr-scholar-search` | 学者检索与画像 |
@@ -97,8 +107,8 @@ Agent 使用 JSON 输出：先检查 `ok=true`，再读取 `data.content` 中的
 
 ## 执行与计费
 
-- 业务操作前读取对应内嵌指引，再用具体命令的 `--help` 确认参数。
-- 通过 `bohr billing pricing --help` 选择当前价目查询方式，按指引确认费用、支付来源和用户授权；本仓库不维护重复的定价表。
+- 业务操作前读取安装包内的任务流程和相关本地参考，再用具体命令的 `--help` 确认参数。
+- Skill 内的价目和例子属于锁定版本；调用前按指引使用 `bohr billing pricing` 核对当前费用、支付来源和用户授权，不凭缺失的扣费字段推算实际收费。
 - `--yes` 仅用于已授权的具体操作；命令支持 `--dry-run` 时可先预览。自动化业务调用使用 `-o json`，同时检查退出码、`ok` 和业务状态。
 - 异步请求已受理不代表操作成功；按指引验证终态和结果。CLI 缺少能力时报告缺口，不自动改为直接调用 API。
 
@@ -108,11 +118,13 @@ Agent 使用 JSON 输出：先检查 `ok=true`，再读取 `data.content` 中的
 
 通过 GitHub 安装方式更新同名 Skill 后，按上面的安装和登录步骤准备 `bohr`。旧脚本可从 Git 历史追溯；历史 API 验证记录不作为当前 CLI 版的验收结果。[OpenAPI 规范](docs/api/README.md) 继续独立维护，本次不修改其接口定义或发布路径。
 
-## 内容维护与验证
+## 内容来源与验证
 
-`zh/<name>/SKILL.md` 与 `en/<name>/SKILL.md` 各维护一个任务入口。详细参考文档在 `bohr` 中维护，本仓库只引用 guide 名称和资源路径。
+`cli-skills.lock.json` 记录来源 npm 包、正式版本、gitHead、公开名称与内嵌 guide 映射，以及完整文件清单。每种语言有 64 个文件：17 份主文档、31 份参考文档、16 份源包已有的 Agent 元数据。
 
-GitHub CI 检查全部 Skill、Claude 清单、安装器和真实发布 CLI 的 guide/help 命令，不调用业务 API。测试命令与版本要求见 [.github/workflows/check.yml](.github/workflows/check.yml)。
+英文主文档和参考文件取自同版本已发布 CLI。公开适配仅包括 Skill 名称、Agent 默认提示中的 `$skill` 名称、运行依赖说明和环境专属代理地址占位符。少量原生文档过时描述的修正逐项记录在锁文件 `patches` 中：Wenyon 实例挂载以同版本命令帮助和 lifecycle 参考为准，移除不受支持的 pretty 格式描述，持久确认设置变更需独立授权。
+
+更新时以正式 npm 产物为源导出选定 guide 的完整树，更新锁文件并复核中文正文；按本仓库既有检查与发布流程交付。CI 使用真实发布版逐文件对比英文包、核对完整参考与界面元数据，检查中英文代码示例、本地链接/锚点、关键流程边界，以及安装器在隔离目录中复制全部文件的结果。测试不调用业务 API，不能替代真实 Agent 业务验收。见 [.github/workflows/check.yml](.github/workflows/check.yml)。
 
 ## 帮助
 

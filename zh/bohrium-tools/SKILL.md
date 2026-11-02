@@ -1,48 +1,46 @@
 ---
 name: bohrium-tools
-description: "通过 bohr CLI 检索科学工具、查看工具详情与适用条件。当用户需要科学工具库相关操作时使用；详细命令与执行边界读取已安装 CLI 的 bohr-tools 指引。"
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr tools 浏览领域和科学工具、混合检索并读取详情。用于工具分类标识、唯一工具键、显式关键词权重、定价和适用条件核对。"
 ---
+
+<a id="bohrium-scientific-tools"></a>
 
 # Bohrium 科学工具库
 
-通过 `bohr tools` 完成任务，详细步骤以当前 CLI 内嵌的 `bohr-tools` 为准。
-
-## 1. 检查 CLI
+已知领域时，优先免费浏览，再考虑付费查询：
 
 ```bash
-bohr --version
+bohr wiki tools domains -o json
+bohr wiki tools subdomains --domain <domain_id> -o json
+bohr wiki tools list --domain <domain_id> -o json
 ```
 
-需要安装或升级时，按当前环境的权限和用户约定执行：
+`domains`、`subdomains` 和 `list` 免费。领域 ID 是分类节点标识，不是工具标识。读取详情使用返回的唯一工具键。
+
+按任务意图发现工具：
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr billing pricing --resource tools -o json
+bohr wiki tools search "molecular dynamics trajectory analysis" --k 20 --lang en-US --yes -o json
+bohr wiki tools info <unique_tool_key> --yes -o json
 ```
 
-本 Skill 面向最新正式版 CLI，本次核验版本为 **2.9.19**。
+混合检索每次 **0.01 CNY**，详情每次 **0.02 CNY**，优先使用 Wiki/Tool 共享的每月 1,000 次额度。即使额度可能使调用免费，确认门禁仍然适用。费用已获授权后才能添加 `--yes`。
 
-## 2. 读取与 CLI 版本匹配的指引
+运行时 notice 可能只给出剩余额度或支付渠道，而没有实际扣费金额。不能根据额度用量推算实际收费。
 
-业务操作前先读取：
+搜索可能根据 query 自动生成加权关键词。只有用户需要显式权重时，才将 `--keywords` 作为 JSON 对象提供。检索排名只是返回顺序，不是质量或兼容性保证。推荐执行工具前，根据返回来源核对仓库、许可证、安装要求和平台条件。
 
-```bash
-bohr guide read bohr-tools -o json
-bohr guide list bohr-tools/references -o json
-bohr guide read bohr-tools references/commands.md -o json
-bohr tools --help
-```
+除上述规范命令外，当前 CLI 没有独立的 summary、tags、subdomain-detail 或 tools-under-subdomain 接口。
 
-以上读取命令返回 JSON。先确认 `ok=true`，再将 `data.content` 中的 Markdown 作为指引读取；用 `data.name`、`data.version` 和 `data.path` 核对指引身份。目录列表读取 `data.items`。
+<a id="choose-the-payment-source"></a>
 
-内嵌指引中的相对引用属于 CLI 内嵌资源。例如 `references/…` 要通过
-`bohr guide read bohr-tools references/具体文件 -o json` 读取，而不是到本地 Skill 目录查找。
-根据任务继续读取相关引用，并用具体子命令的 `--help` 确认参数。
+## 选择支付来源
 
-## 3. 完成任务
+不指定 `--payment-source` 时，CLI 不发送支付渠道偏好：网关优先使用光子，仅在明确光子不足时回退余额。获取费用授权时向用户说明此策略。限定单一来源时，使用 `--payment-source photon` 或 `--payment-source balance`。显式选择 photon 时，光子不足即停止；显式选择 balance 时直接使用余额。现有免费额度和豁免仍然适用。
 
-先限定科学任务和检索范围，再读取工具详情。工具目录中的条目和说明不代表已经安装或执行了该工具；使用细节和计费边界以当前 CLI 指引为准。
+显式指定的渠道返回 `BILLING_INSUFFICIENT` 且 `retryable: false` 时，报告拒绝结果，等待用户为该渠道充值，或授权原命令使用另一渠道。显式选择余额但余额不足时，也会停止而不扣光子；只有获准后才能改用 `--payment-source photon`。`--yes` 确认执行，不代表授权切换支付来源。只有余额渠道已获授权时才使用 `--payment-source balance`。多步流程的后续计费调用应保持已选渠道；上次 CLI 调用的参数不会保存。`bohr api` 遵循同一规则。
 
-- 需要访问账户时先运行 `bohr auth status -o json`；未登录则使用 `bohr auth login`，由用户完成浏览器授权。凭据交由 CLI 管理，不读取或回显凭据文件。
-- 按内嵌指引核对当前价格、支付来源和写操作影响；只有用户已授权本次费用或具体目标的操作时才添加 `--yes`。命令支持 `--dry-run` 时可先预览；保持 CLI 的确认机制。
-- 自动化业务命令使用 `-o json`，同时检查退出码、`ok`、错误详情和业务状态。异步请求受理后，按指引查询到可验证结果；缺失字段或未知状态如实报告。
-- CLI 缺少指引或能力时，报告版本与缺失项并提供升级建议。操作保持在 CLI 支持范围内，不自行拼接 HTTP 请求或恢复旧 Python 客户端。
+
+完整命令、标识符交接、当前参数、价格与能力边界见 [命令参考](references/commands.md)。

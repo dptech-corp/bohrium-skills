@@ -22,12 +22,15 @@ jobs:
           node-version: "24"
       - name: Install the published Bohrium CLI
         run: |
-          npm install --prefix "$RUNNER_TEMP/bohr-cli" --no-audit --no-fund @dptech-corp/bohr-cli@2.9.19
+          version="$(node -p 'require("./cli-skills.lock.json").version')"
+          npm install --prefix "$RUNNER_TEMP/bohr-cli" --no-audit --no-fund "@dptech-corp/bohr-cli@$version"
           echo "BOHR_SKILLS_TEST_BIN=$RUNNER_TEMP/bohr-cli/node_modules/.bin/bohr" >> "$GITHUB_ENV"
       - name: Check CLI content, guides, and isolated installation
         run: |
           "$BOHR_SKILLS_TEST_BIN" --version
           go test ./... -count=1
+          python3 -m unittest discover -s scripts -p '*_test.py'
+          python3 scripts/check_native_skills.py --cli "$BOHR_SKILLS_TEST_BIN"
       - name: Vet
         run: go vet ./...
       - name: Check Go formatting

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -39,26 +40,55 @@ func TestInstallWritesBundledSkillsToThreeTargets(t *testing.T) {
 			if out.Lang != lang || len(out.Official) != 17 || len(out.TargetDirs) != 3 {
 				t.Fatalf("incorrect install receipt: %+v", out)
 			}
+			skills, err := bohriumskills.OfficialSkills(lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			byName := make(map[string]bohriumskills.Skill)
+			for _, skill := range skills {
+				byName[skill.Name] = skill
+			}
 			for _, dir := range out.TargetDirs {
 				for _, name := range out.Official {
+					skill, ok := byName[name]
+					if !ok {
+						t.Fatalf("unknown installed Skill %s", name)
+					}
 					skillDir := filepath.Join(dir, name)
-					entries, err := os.ReadDir(skillDir)
+					var installedFiles []string
+					err := filepath.WalkDir(skillDir, func(path string, entry os.DirEntry, walkErr error) error {
+						if walkErr != nil {
+							return walkErr
+						}
+						if entry.IsDir() {
+							return nil
+						}
+						rel, err := filepath.Rel(skillDir, path)
+						if err != nil {
+							return err
+						}
+						installedFiles = append(installedFiles, filepath.ToSlash(rel))
+						return nil
+					})
 					if err != nil {
 						t.Fatal(err)
 					}
-					if len(entries) != 1 || entries[0].Name() != "SKILL.md" {
-						t.Fatalf("unexpected installed resources in %s: %v", skillDir, entries)
+					sort.Strings(installedFiles)
+					if strings.Join(installedFiles, "\n") != strings.Join(skill.Files, "\n") {
+						t.Fatalf("installed inventory differs in %s: %v, want %v", skillDir, installedFiles, skill.Files)
 					}
-					installed, err := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
-					if err != nil {
-						t.Fatal(err)
-					}
-					source, err := bohriumskills.EmbeddedFS.ReadFile(lang + "/" + name + "/SKILL.md")
-					if err != nil {
-						t.Fatal(err)
-					}
-					if !bytes.Equal(installed, source) {
-						t.Fatalf("installed content differs from embedded Skill %s", skillDir)
+					for _, file := range skill.Files {
+						installed, err := os.ReadFile(filepath.Join(skillDir, filepath.FromSlash(file)))
+						if err != nil {
+							t.Fatal(err)
+						}
+						source, err := bohriumskills.EmbeddedFS.ReadFile(lang + "/" + name + "/" + file)
+						if err != nil {
+							t.Fatal(err)
+						}
+						if !bytes.Equal(installed, source) {
+							t.Fatalf("installed content differs: %s/%s", skillDir, file)
+						}
 					}
 				}
 			}

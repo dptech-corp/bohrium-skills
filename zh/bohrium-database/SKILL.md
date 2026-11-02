@@ -1,48 +1,42 @@
 ---
 name: bohrium-database
-description: "通过 bohr CLI 发现 Bohrium 科学数据库、查看表结构并查询数据。当用户需要科学数据库相关操作时使用；详细命令与执行边界读取已安装 CLI 的 bohr-database 指引。"
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr database 查询聚合物或结构数据库，以及使用 db_ak/table_ak 发现私有表、读取 schema 和查询数据；用于科学记录检索和结构文件下载。"
 ---
+
+<a id="bohrium-database"></a>
 
 # Bohrium 科学数据库
 
-通过 `bohr database` 完成任务，详细步骤以当前 CLI 内嵌的 `bohr-database` 为准。
+先选择数据库类型：
 
-## 1. 检查 CLI
+- 领域库使用 `bohr database polymer` 或 `bohr database structure`，返回科学记录，不使用私有表标识。
+- 私有表格访问使用 `tables`、`schema` 和 `query`，传入稳定的 `db_ak` 和 `table_ak`。
 
-```bash
-bohr --version
-```
-
-需要安装或升级时，按当前环境的权限和用户约定执行：
+当前数据库命令均为只读且免费，优先使用结构化输出：
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr auth whoami -o json
+bohr database polymer list --page 1 --size 20 -o json
+bohr database structure search --query "Si O" --n-results 5 -o json
 ```
 
-本 Skill 面向最新正式版 CLI，本次核验版本为 **2.9.19**。
-
-## 2. 读取与 CLI 版本匹配的指引
-
-业务操作前先读取：
+私有数据库先发现表，再查询行：
 
 ```bash
-bohr guide read bohr-database -o json
-bohr guide list bohr-database/references -o json
-bohr guide read bohr-database references/commands.md -o json
-bohr database --help
+bohr database tables <db_ak> -o json
+bohr database schema <db_ak> <table_ak> -o json
+bohr database query <db_ak> <table_ak> \
+  --filter '[{"field":"status","operator":"eq","value":"active"}]' \
+  --limit 20 \
+  --offset 0 \
+  -o json
 ```
 
-以上读取命令返回 JSON。先确认 `ok=true`，再将 `data.content` 中的 Markdown 作为指引读取；用 `data.name`、`data.version` 和 `data.path` 核对指引身份。目录列表读取 `data.items`。
+显示名称是标签，不是标识符。在发现、schema 和 query 调用之间原样保留 `db_ak` 与 `table_ak`。filter 是 JSON 数组，应使用返回 schema 中的字段名和类型，不能猜测。
 
-内嵌指引中的相对引用属于 CLI 内嵌资源。例如 `references/…` 要通过
-`bohr guide read bohr-database references/具体文件 -o json` 读取，而不是到本地 Skill 目录查找。
-根据任务继续读取相关引用，并用具体子命令的 `--help` 确认参数。
+结构搜索可返回 CIF 或 POSCAR 输出元数据，并可选下载结果压缩包。使用 `--download` 前确认本地目标位置；远程操作仍只读，但会写入本地文件。
 
-## 3. 完成任务
+当前 CLI 不能列出私有数据库，也不能修改行、表或列。数据库创建、插入、更新、删除和 schema 变更均不在当前命令范围内，应如实报告能力边界。
 
-先发现可用数据库，再查看目标表结构，最后执行范围明确的查询。使用真实返回的数据库与表标识，限制结果量，并保留数据来源和字段含义。
-
-- 需要访问账户时先运行 `bohr auth status -o json`；未登录则使用 `bohr auth login`，由用户完成浏览器授权。凭据交由 CLI 管理，不读取或回显凭据文件。
-- 按内嵌指引核对当前价格、支付来源和写操作影响；只有用户已授权本次费用或具体目标的操作时才添加 `--yes`。命令支持 `--dry-run` 时可先预览；保持 CLI 的确认机制。
-- 自动化业务命令使用 `-o json`，同时检查退出码、`ok`、错误详情和业务状态。异步请求受理后，按指引查询到可验证结果；缺失字段或未知状态如实报告。
-- CLI 缺少指引或能力时，报告版本与缺失项并提供升级建议。操作保持在 CLI 支持范围内，不自行拼接 HTTP 请求或恢复旧 Python 客户端。
+完整命令、参数、标识符和输出/下载边界见 [命令参考](references/commands.md)。

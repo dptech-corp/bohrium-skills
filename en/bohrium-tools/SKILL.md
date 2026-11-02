@@ -1,49 +1,70 @@
 ---
 name: bohrium-tools
-description: "Use the bohr CLI to discover scientific tools and inspect their details and applicability. Trigger on Bohrium scientific tool library tasks; read the installed CLI's bohr-tools guide for detailed commands and execution boundaries."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Browse and search the Bohrium scientific Tools library with `bohr wiki tools`.
+  Use for scientific software discovery, 工具搜索, domain/subdomain browsing,
+  hybrid keyword search, tool unique keys, tutorials, usage commands, or
+  repository links. Use paper, Wiki, or LKM commands for literature knowledge.
 ---
 
-# Bohrium Scientific Tool Library
+# Bohrium Scientific Tools
 
-Use `bohr tools` for this task. The installed CLI's `bohr-tools` guide owns the detailed workflow.
-
-## 1. Check the CLI
+Choose free browsing before a paid query when the domain is known:
 
 ```bash
-bohr --version
+bohr wiki tools domains -o json
+bohr wiki tools subdomains --domain <domain_id> -o json
+bohr wiki tools list --domain <domain_id> -o json
 ```
 
-When installation or upgrade is needed, follow the environment's permissions and the user's instructions:
+`domains`, `subdomains`, and `list` are free. Domain IDs identify taxonomy
+nodes, not tools. Use the returned unique tool key for detail retrieval.
+
+For intent-driven discovery:
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr billing pricing --resource tools -o json
+bohr wiki tools search "molecular dynamics trajectory analysis" --k 20 --lang en-US --yes -o json
+bohr wiki tools info <unique_tool_key> --yes -o json
 ```
 
-This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
+Hybrid search costs **0.01 CNY** per request and detail costs **0.02 CNY**,
+covered first by the shared monthly 1,000-call Wiki/Tool quota. The confirmation
+gate still applies when quota may make the request free. Add `--yes` only after
+spending is authorized.
 
-## 2. Read version-matched guidance
+Runtime notices may show quota remaining or a billing channel while the actual
+charged amount may be absent. Do not infer a monetary charge from quota usage.
 
-Before business operations, read:
+Search may auto-generate weighted keywords from the query. Supply `--keywords`
+only as a JSON object when the user needs explicit weights. Treat ranking as
+retrieval order, not a quality or compatibility guarantee. Verify repository,
+license, installation, and platform requirements from returned sources before
+recommending execution.
 
-```bash
-bohr guide read bohr-tools -o json
-bohr guide list bohr-tools/references -o json
-bohr guide read bohr-tools references/commands.md -o json
-bohr tools --help
-```
+The current CLI exposes no separate summary, tags, subdomain-detail, or tools-
+under-subdomain endpoint beyond the canonical commands above.
+## Choose the payment source
 
-These read commands return JSON. Check `ok=true`, then read the Markdown in `data.content` as the instructions. Use `data.name`, `data.version`, and `data.path` to identify the guide. Directory listings expose `data.items`.
+Without `--payment-source`, the CLI sends no channel preference: the gateway
+uses photons first and falls back to balance only on definite photon
+insufficiency. Tell the user this policy when obtaining spending authorization.
+To restrict spending to one source, use `--payment-source photon` or
+`--payment-source balance`. Explicit photon stops when photons are insufficient;
+explicit balance charges balance directly. Existing free quotas and exemptions
+still apply.
 
-Relative references inside that guide belong to the CLI's embedded resources. Read
-`references/…` with `bohr guide read bohr-tools references/path-to-file -o json`,
-rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
-and confirm flags through the specific subcommand's `--help`.
+When an explicitly selected channel returns `BILLING_INSUFFICIENT` with
+`retryable: false`, report the refusal and wait
+for the user to recharge the selected source or authorize the other source for
+the original command. Explicit balance insufficiency also stops without charging
+photons; use `--payment-source photon` only after that source is authorized.
+`--yes` confirms execution; it does not authorize changing the payment source.
+Use `--payment-source balance` only when that source is authorized. Keep the
+selected source on subsequent billable calls in a multi-step workflow; options
+from a previous CLI invocation are not saved. `bohr api` follows the same rule.
 
-## 3. Complete the task
 
-Bound the scientific task and search scope, then inspect tool details. A catalog entry is evidence of discovery, not proof that a tool was installed or executed. Follow the current guide for supported operations and billing boundaries.
-
-- Before account access, run `bohr auth status -o json`. If signed out, use `bohr auth login` and have the user complete browser authorization. Let the CLI manage credentials; keep credential files and secrets out of output.
-- Follow the guide for current prices, payment source, and write effects. Add `--yes` only when the user has authorized the specific spending or target operation. Preview with `--dry-run` where supported and retain CLI confirmation controls.
-- Use `-o json` for automated business commands. Check the exit status, `ok`, error details, and business state. Follow asynchronous requests to a verifiable result; report missing fields and unknown states accurately.
-- If the CLI lacks a guide or capability, report its version and the missing item and suggest an upgrade. Stay within supported CLI operations rather than constructing HTTP requests or restoring the old Python clients.
+Read [`references/commands.md`](references/commands.md) for every command,
+identifier handoff, current flag, price, and capability boundary.

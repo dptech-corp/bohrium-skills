@@ -4,7 +4,7 @@ Agent Skills for the Bohrium scientific computing platform, powered by the [Bohr
 
 [中文](README.md)
 
-This repository provides 17 Skills in Chinese and English. Each Skill identifies the task, checks the CLI, and loads its embedded guidance. Detailed commands, flags, billing, and recovery rules stay aligned with the installed CLI version.
+This repository provides 17 complete CLI-native Skill packages in Chinese and English. Main documents contain task workflows, command examples, billing, and recovery rules; local `references/` and source-provided `agents/openai.yaml` files ship with each package. The source is the published `bohr 2.9.19` artifact, recorded in [cli-skills.lock.json](cli-skills.lock.json).
 
 ## 1. Install and sign in to the Bohrium CLI
 
@@ -55,21 +55,31 @@ This syncs to `~/.agents/skills`, `~/.claude/skills`, and `~/.codex/skills`, bac
 
 **Published `bohrium-skills-cli` npm packages and Release binaries embed the Skill snapshot from their release.** Updating GitHub does not change old packages. Get the current CLI-backed content through the GitHub plugin, `bohr skill install`, or this repository's installer source. This migration does not publish a new installer release.
 
-## 3. Read version-matched guidance
+## 3. Use the complete Skill package
+
+For example, an installed paper-search package contains:
+
+```text
+bohrium-paper-search/
+├── SKILL.md                 # Complete workflow and command examples
+├── references/commands.md   # Locally packaged detailed reference
+└── agents/openai.yaml       # Source-provided agent interface metadata
+```
+
+The agent reads `SKILL.md` and follows local references as needed. It does not need to fetch the entire workflow again through `bohr guide`. Chinese packages translate the main document and source-provided UI metadata; reference documents retain the CLI's original English text, with local links and section anchors preserved. Sandbox has no `agents/openai.yaml` in the source release and retains that inventory.
+
+The CLI remains the runtime dependency. When the installed version differs from this snapshot or cross-module guidance is needed, inspect the installed CLI:
 
 ```bash
+bohr --version
 bohr guide list -o json
 bohr guide read bohr-paper-search -o json
-bohr guide list bohr-paper-search/references -o json
-bohr guide read bohr-paper-search references/commands.md -o json
 bohr paper --help
 ```
 
-Agents use JSON output: check `ok=true`, then read the Markdown instructions in `data.content`. Identify the guide using `data.name`, `data.version`, and `data.path`; directory listings expose `data.items`. Without an explicit format, the CLI selects output by terminal type and defaults to JSON for non-interactive calls.
+For `guide read`, the JSON instructions are in `data.content`; `data.name`, `data.version`, and `data.path` identify the source. Check `ok=true` first. Use command help and current pricing for business operations.
 
-Relative links inside a guide refer to CLI-embedded resources. Read them with `bohr guide read <guide> <path> -o json`; they are not files in this repository's Skill directories. If a command or guide is missing, check `bohr --version` and install the latest stable release.
-
-`bohr guide` reads local embedded guidance; `bohr agents skills` manages the cloud Skill Hub; `bohr skill install` installs a local Skill package.
+`bohr guide` reads local embedded guidance; `bohr agents skills` manages the cloud Skill Hub; `bohr skill install` installs a complete local Skill package.
 
 ## Skill catalog
 
@@ -79,12 +89,12 @@ Public Skill names remain `bohrium-*`; embedded CLI guides use `bohr-*`.
 |-------|---------------------|----------------|---------|
 | [bohrium-job](en/bohrium-job/SKILL.md) | `bohr job` | `bohr-job` | Compute jobs, logs, and results |
 | [bohrium-node](en/bohrium-node/SKILL.md) | `bohr node` | `bohr-node` | Interactive development nodes |
-| [bohrium-dataset](en/bohrium-dataset/SKILL.md) | `bohr dataset` | `bohr-dataset` | Datasets, versions, and files |
+| [bohrium-dataset](en/bohrium-dataset/SKILL.md) | `bohr dataset` | `bohr-dataset` | Dataset uploads, version lookup, and resumable downloads |
 | [bohrium-file](en/bohrium-file/SKILL.md) | `bohr file` | `bohr-file` | Personal/share file storage |
 | [bohrium-database](en/bohrium-database/SKILL.md) | `bohr database` | `bohr-database` | Scientific databases and table schemas |
 | [bohrium-image](en/bohrium-image/SKILL.md) | `bohr image` | `bohr-image` | Container images, builds, and snapshots |
-| [bohrium-project](en/bohrium-project/SKILL.md) | `bohr project` | `bohr-project` | Projects, members, and quotas |
-| [bohrium-knowledge-base](en/bohrium-knowledge-base/SKILL.md) | `bohr kb` | `bohr-knowledge-base` | Knowledge bases, literature, and retrieval |
+| [bohrium-project](en/bohrium-project/SKILL.md) | `bohr project` | `bohr-project` | Project discovery, creation/deletion, and member lookup |
+| [bohrium-knowledge-base](en/bohrium-knowledge-base/SKILL.md) | `bohr kb` | `bohr-knowledge-base` | Knowledge bases, document upload, and retrieval |
 | [bohrium-paper-search](en/bohrium-paper-search/SKILL.md) | `bohr paper` | `bohr-paper-search` | Paper and patent search |
 | [bohrium-pdf-parser](en/bohrium-pdf-parser/SKILL.md) | `bohr pdf` | `bohr-pdf-parse` | PDF parsing and result retrieval |
 | [bohrium-scholar-search](en/bohrium-scholar-search/SKILL.md) | `bohr scholar` | `bohr-scholar-search` | Scholar search and profiles |
@@ -97,8 +107,8 @@ Public Skill names remain `bohrium-*`; embedded CLI guides use `bohr-*`.
 
 ## Execution and billing
 
-- Read the embedded guide before business operations, then confirm flags through the specific command's `--help`.
-- Use `bohr billing pricing --help` to discover the current pricing query. Follow the guide for cost, payment source, and spending authorization; this repository does not duplicate the price catalog.
+- Read the installed task workflow and relevant local references, then confirm flags through the specific command's `--help`.
+- Prices and examples belong to the pinned snapshot. Query current prices through `bohr billing pricing` as documented and confirm payment source and spending authorization. Missing billing amounts do not establish an actual charge.
 - Use `--yes` only for authorized operations. Preview with `--dry-run` where supported. For automated business calls, use `-o json` and check the exit status, `ok`, and business state.
 - Request acceptance does not prove asynchronous completion. Verify the terminal state and results. Report missing CLI capabilities instead of automatically switching to direct API calls.
 
@@ -108,11 +118,13 @@ All 17 Skill names, language directories, and Claude installation entry points a
 
 Update the same-named Skills through the GitHub installation path, then prepare `bohr` using the installation and sign-in steps above. Old scripts remain available in Git history. Historical API verification reports do not establish current CLI acceptance. The [OpenAPI specification](docs/api/README.md) remains independently maintained; its interface definitions and published path are unchanged by this migration.
 
-## Content maintenance and verification
+## Source and verification
 
-`zh/<name>/SKILL.md` and `en/<name>/SKILL.md` each provide a task entry point. Detailed reference files live in `bohr`; this repository references guide names and embedded resource paths.
+`cli-skills.lock.json` records the source npm package, published version, gitHead, public-name/guide mapping, and complete file inventory. Each language contains 64 files: 17 main documents, 31 reference documents, and 16 source-provided agent metadata files.
 
-GitHub CI checks all Skills, the Claude manifest, the installer, and guide/help commands against the real published CLI without calling business APIs. See [.github/workflows/check.yml](.github/workflows/check.yml) for test commands and version requirements.
+English main documents and references come from the same published CLI. Distribution adaptations cover public Skill names, `$skill` identities in default prompts, runtime compatibility, and a placeholder for an environment-specific proxy host. Bounded corrections to stale native documentation are recorded in `patches`: instance Wenyon mounts follow the same release's command help and lifecycle reference; unsupported pretty output labels are removed; persistent confirmation changes require separate authorization.
+
+For updates, export the selected guides' complete trees from a published npm artifact, update the source lock, and review Chinese main documents through the existing check/release process. CI compares complete English packages with the real published CLI, validates references and agent metadata, bilingual command examples, local links/anchors, key workflow boundaries, and byte-identical full-package installation in isolated directories. These checks do not call business APIs or establish real-agent business acceptance. See [.github/workflows/check.yml](.github/workflows/check.yml).
 
 ## Help
 

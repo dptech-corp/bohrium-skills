@@ -1,49 +1,47 @@
 ---
 name: bohrium-project
-description: "Use the bohr CLI to inspect or manage Bohrium projects, members, and quotas. Trigger on Bohrium projects tasks; read the installed CLI's bohr-project guide for detailed commands and execution boundaries."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Create, list, inspect, or delete Bohrium projects and list their members with
+  `bohr project`. Use for 项目管理, project IDs, project ownership, creation-time
+  monthly/total cost limits, member visibility, and project deletion. Use File
+  commands for share/ data and resource commands for project-owned compute.
 ---
 
-# Bohrium Projects
+# Bohrium Project
 
-Use `bohr project` for this task. The installed CLI's `bohr-project` guide owns the detailed workflow.
-
-## 1. Check the CLI
-
-```bash
-bohr --version
-```
-
-When installation or upgrade is needed, follow the environment's permissions and the user's instructions:
+Resolve projects and IDs before using them in Dataset, File, Job, Node, Image,
+Notebook, or Sandbox workflows:
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr project list -o json
+bohr project get <project_id> -o json
+bohr project members <project_id> -o json
 ```
 
-This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
-
-## 2. Read version-matched guidance
-
-Before business operations, read:
+Project commands are currently free. Create is a write and accepts cost limits
+at creation time:
 
 ```bash
-bohr guide read bohr-project -o json
-bohr guide list bohr-project/references -o json
-bohr guide read bohr-project references/commands.md -o json
-bohr project --help
+bohr project create --name research-project \
+  --total_cost_limit 1000 --month_cost_limit 200 -o json
 ```
 
-These read commands return JSON. Check `ok=true`, then read the Markdown in `data.content` as the instructions. Use `data.name`, `data.version`, and `data.path` to identify the guide. Directory listings expose `data.items`.
+Treat `0` according to the platform response rather than assuming it means a
+particular unlimited or disabled policy. Preserve the returned project ID; a
+project name, member user ID, and project ID are not interchangeable.
 
-Relative references inside that guide belong to the CLI's embedded resources. Read
-`references/…` with `bohr guide read bohr-project references/path-to-file -o json`,
-rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
-and confirm flags through the specific subcommand's `--help`.
+Delete is destructive and can affect access to project-owned resources. Inspect
+the project and members, identify dependent share paths or compute resources,
+then obtain exact-target authorization:
 
-## 3. Complete the task
+```bash
+bohr project delete <project_id> --yes -o json
+```
 
-Resolve the project, membership permissions, and intended change. Apply membership, quota, and deletion changes only to the requested target and read back the result. Report operations absent from the CLI as capability gaps.
+The current CLI cannot rename a project, change limits after creation, or add,
+remove, promote, demote, or recover members. Do not translate those upstream
+service operations into invented flags.
 
-- Before account access, run `bohr auth status -o json`. If signed out, use `bohr auth login` and have the user complete browser authorization. Let the CLI manage credentials; keep credential files and secrets out of output.
-- Follow the guide for current prices, payment source, and write effects. Add `--yes` only when the user has authorized the specific spending or target operation. Preview with `--dry-run` where supported and retain CLI confirmation controls.
-- Use `-o json` for automated business commands. Check the exit status, `ok`, error details, and business state. Follow asynchronous requests to a verifiable result; report missing fields and unknown states accurately.
-- If the CLI lacks a guide or capability, report its version and the missing item and suggest an upgrade. Stay within supported CLI operations rather than constructing HTTP requests or restoring the old Python clients.
+Read [`references/commands.md`](references/commands.md) for every command,
+creation input, project-ID handoff, and deletion boundary.

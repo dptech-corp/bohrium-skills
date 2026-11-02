@@ -1,0 +1,237 @@
+{
+  "package": "@dptech-corp/bohr-cli",
+  "version": "2.9.19",
+  "git_head": "efb5ba5707427708c2a82b794598868160a87ed0",
+  "skills": [
+    {
+      "name": "bohrium-job",
+      "guide": "bohr-job",
+      "command": "bohr job",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-node",
+      "guide": "bohr-node",
+      "command": "bohr node",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-dataset",
+      "guide": "bohr-dataset",
+      "command": "bohr dataset",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-file",
+      "guide": "bohr-file",
+      "command": "bohr file",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-database",
+      "guide": "bohr-database",
+      "command": "bohr database",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-image",
+      "guide": "bohr-image",
+      "command": "bohr image",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-project",
+      "guide": "bohr-project",
+      "command": "bohr project",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-knowledge-base",
+      "guide": "bohr-knowledge-base",
+      "command": "bohr kb",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-paper-search",
+      "guide": "bohr-paper-search",
+      "command": "bohr paper",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-pdf-parser",
+      "guide": "bohr-pdf-parse",
+      "command": "bohr pdf",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-scholar-search",
+      "guide": "bohr-scholar-search",
+      "command": "bohr scholar",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-sciencepedia",
+      "guide": "bohr-wiki",
+      "command": "bohr wiki",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-tools",
+      "guide": "bohr-tools",
+      "command": "bohr tools",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-web-search",
+      "guide": "bohr-web-search",
+      "command": "bohr search",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-sandbox",
+      "guide": "bohr-sandbox",
+      "command": "bohr sandbox",
+      "files": [
+        "SKILL.md",
+        "references/images.md",
+        "references/platform-snapshot.md",
+        "references/sandbox/exec.md",
+        "references/sandbox/execution-modes.md",
+        "references/sandbox/files.md",
+        "references/sandbox/lifecycle.md",
+        "references/sandbox/network.md",
+        "references/sandbox/pitfalls.md",
+        "references/sandbox/remote-storage-index.md",
+        "references/sandbox/storage.md",
+        "references/sandbox/templates.md",
+        "references/sandbox/terminal.md",
+        "references/software-install/README.md",
+        "references/software-install/mirrors.md",
+        "references/software-install/pre-installed.md"
+      ]
+    },
+    {
+      "name": "bohrium-lkm",
+      "guide": "bohr-lkm",
+      "command": "bohr lkm",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-mentor",
+      "guide": "bohr-mentor",
+      "command": "bohr agents mentor",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    }
+  ],
+  "compatibility": "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access.",
+  "public_proxy_host": "proxy.example.com",
+  "proxy_notice": "> Public distribution note: `proxy.example.com:3128` is a placeholder. Before configuring a proxy, obtain the proxy URL approved for the target sandbox and replace the placeholder throughout that operation. If no approved proxy is available, leave it disabled and report the network limitation. Never execute the placeholder configuration as-is.\n\n",
+  "patches": [
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "## Wenyon-backed sandboxes (two-stage contract)\n\nWenyon dataset mounting is supported only through a template created with the\nexact Provider value `volcengine-openkruise`. Template creation stores the\ndataset descriptor; it does **not** create a lease and does not need a Wenyon\nJWT. A Wenyon template is always private (`visibility=2`), has `replicas=0`,\ncannot be shared, and cannot have prewarmed sandbox instances.\n\nThe current template API does not echo a Wenyon-backed acknowledgement, so the\nCLI cannot preflight-prove that an arbitrary existing template has the\ndescriptor. Use only a template created in a known supported environment, heed\nthe CLI warning, and verify the configured mount after the first create. Do not\nguess from the template name or treat dry-run as server capability proof.\n\n```bash\n# Stage 1: descriptor only; no Wenyon JWT is read or sent.\nbohr sandbox template create wenyon-work \\\n  --image <immutable-image> \\\n  --sku-name <sku> \\\n  --provider volcengine-openkruise \\\n  --wenyon-dataset-id <dataset-id> \\\n  --wenyon-mount-path /mnt/wenyon \\\n  --visibility 2 \\\n  -o json\n\n# Stage 2: the secret/session must already export WENYON_USER_JWT; do not\n# substitute BOHR_ACCESS_KEY.\nREQUEST_ID=\"$(uuidgen)\"\nbohr sandbox create wenyon-work \\\n  --wenyon-user-token-env WENYON_USER_JWT \\\n  --request-id \"$REQUEST_ID\" \\\n  --yes -o json\n\n# Save canonical data.sandbox_id as SANDBOX_ID (data.sandboxID is the retained\n# compatibility spelling), then verify the actual mount.\nbohr sandbox exec \"$SANDBOX_ID\" \\\n  'test -d /mnt/wenyon && (findmnt -T /mnt/wenyon || grep \" /mnt/wenyon \" /proc/mounts) && df -hT /mnt/wenyon'\n```\n\nThe mounted write directory is initially empty. A write lease does **not**\ncopy or seed the dataset's existing current version. Wenyon prewarm/read-open\nonly serves read/warm replicas and never populates this write mount. If old\ncontent must survive into the new version, the user or workflow must obtain it\nthrough a separate Wenyon read flow and explicitly copy/write it into the\nmount before the Sandbox terminates. The current `bohr sandbox` Wenyon flow\ndoes not support a read lease; stop and say so instead of inventing one.\n\n`--wenyon-user-token-env` accepts only the name of the environment variable\nholding the Wenyon/Vouch user JWT. Sandbox create does not implicitly read the\nstored Vouch login. Do not populate this variable from `bohr auth token` when\nthat command reports `auth_method=access_key`; `--as user` does not turn an\nAccessKey into a Vouch JWT. The token is request-scoped: it must not\nenter the create body, Sandbox metadata, environment metadata, dry-run, logs,\nor command output. Dataset ID, mount path, PVC, PFS, and lease details also do\nnot belong in the Stage 2 body; they come from the template and service.\n\n`sandbox create --timeout 43200` controls the Sandbox's 12-hour lifetime. It\nis **not** an HTTP or Wenyon readiness timeout. Do not increase it to work\naround write-mount initialization, and do not invent an async create or\nclient-side lease poll. Template image states `PREPARING`, `READY`, and\n`DEGRADED` describe image preparation only. Even image `READY` does not prove\nthat the Wenyon dataset or PVC is Ready, and a separate prewarm/read-open does\nnot change the empty-write-mount contract.\n\nWenyon creates a write lease for each Sandbox. Reuse the same stable request\nID while reconciling one logical create. Validation/auth errors are not\ntransient; fix the named Provider, mount, or token source before trying again.\nIf create returns `sandbox_create_outcome_uncertain`, list/reconcile by request\nID instead of blind-retrying create, so a late success is not duplicated. Do\nnot mistake the expected empty write mount for a readiness failure or retry\ncreate to obtain the current version.\n\nDeleting a Wenyon-backed Sandbox needs no Wenyon JWT. Once an active Sandbox\nreally reaches `Stopped`, `Deleted`, or `Failed`, the service performs\n`finalize -> end` with its machine token and submits the write mount as the new\ncurrent version; a create that failed before becoming active is ended without\nfinalize. There is no discard/end-only CLI for an active Sandbox, and\n`sandbox delete --force` only skips the process pre-check: it does not discard\npending Wenyon writes or suppress finalization. Retrieve outputs first, then\nuse the normal `bohr sandbox delete` flow.\n\n",
+      "new": "## Mount a Wenyon dataset in an instance\n\nUse an ordinary compute template. The dataset, mount path, mode, and starting\nversion are **sandbox create parameters**, not template defaults. Check\n`bohr sandbox create --help` and the local\n[lifecycle reference](references/sandbox/lifecycle.md#mount-a-wenyon-dataset-in-an-instance).\n\n```bash\nbohr sandbox create sdbxagent \\\n  --wenyon-dataset-id <dataset-id> \\\n  --wenyon-mount-path /mnt/wenyon \\\n  --wenyon-mode read --wenyon-version current \\\n  --wenyon-user-token-env WENYON_USER_JWT \\\n  --request-id \"$REQUEST_ID\" --yes -o json\n```\n\n`read/current` is the default and pins the current version when the lease is\ncreated. `write/current` or a positive version preloads that complete baseline;\nonly `write/none` starts empty. Missing versions and failed preload do not fall\nback to an empty directory. Confirm the dataset, mount path, requested/resolved\nversion, and actual access mode in the response and verify the mounted data.\n\n`--wenyon-user-token-env` names an existing environment variable holding a\nWenyon/Vouch user JWT; it never takes a token literal. AccessKey authentication\nand `--as user` do not supply this JWT. Do not copy `bohr auth token` output when\nit reports `auth_method=access_key`. Keep tokens out of command arguments,\nmetadata, dry-run output, logs, and chat. Do not combine this mount with\n`--inherit-auth`.\n\nA writable mount requires an explicit settlement choice: `sandbox delete\n--commit --wait` publishes the entire workspace, including deletions;\n`--discard --wait` discards it. `--force` only skips the process check and does\nnot choose settlement. Check the returned `produced_version` after commit.\nWithout `--wait`, acceptance is not evidence that the data was saved.\n\nIf writable execution fails or expires and the workspace remains available,\ninspect `recovery_deadline` and choose settlement during the one-hour\n`awaiting_decision` window. The write lock remains held; after the deadline the\nworkspace is discarded. Upstream eviction can make recovery unavailable sooner.\nKeep the same request ID while reconciling an uncertain create instead of\ncreating another instance. A sandbox lifetime limit is not an HTTP or mount\nreadiness timeout, and an image `READY` state does not prove dataset readiness.\n\n",
+      "reason": "Align the stale template-only Wenyon section with 2.9.19 instance-mount flags and its lifecycle reference."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "`-o json|human|pretty|table`",
+      "new": "`-o json|human|table|ndjson|csv|yaml`",
+      "reason": "pretty is not an accepted output format in the published CLI."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "references/sandbox/lifecycle.md",
+      "old": "`-o json|pretty|table|yaml|...`",
+      "new": "`-o json|table|yaml|ndjson|csv`",
+      "reason": "Use the supported structured output formats."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "- Long-running automation: `bohr config set billing_confirmation false --yes`\n  once. Destructive operations still confirm separately.",
+      "new": "- Keep confirmation enabled. Change persistent billing confirmation only when\n  the user explicitly requests that configuration change; it is not a workaround\n  for a refused operation. Destructive operations keep their own confirmation.",
+      "reason": "Keep persistent confirmation changes separate from authorization for one operation."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "Wenyon requires the exact Provider plus dataset/mount flags",
+      "new": "legacy Wenyon descriptor flags do not configure instance mounts",
+      "reason": "Separate legacy template descriptors from the published instance mount workflow."
+    },
+    {
+      "guide": "bohr-wiki",
+      "path": "SKILL.md",
+      "old": "- Find scientific software in SciencePedia's tool library with `wiki tools`;",
+      "new": "- Find scientific software in SciencePedia's tool library with `bohr tools`;",
+      "reason": "Use the canonical scientific-tools command documented by the same release."
+    }
+  ]
+}

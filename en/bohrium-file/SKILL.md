@@ -1,49 +1,67 @@
 ---
 name: bohrium-file
-description: "Use the bohr CLI to browse and manage Bohrium personal/share storage and transfer files. Trigger on Bohrium file storage tasks; read the installed CLI's bohr-file guide for detailed commands and execution boundaries."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Manage files and directories on Bohrium personal or project-share disks with
+  `bohr file`: list, stat, download, upload, mkdir, copy, move, or delete. Use
+  for personal/, share/, 云盘文件, project shared storage, recursive prefixes,
+  and local/remote file transfer. Use Dataset commands for versioned datasets.
 ---
 
-# Bohrium File Storage
+# Bohrium File
 
-Use `bohr file` for this task. The installed CLI's `bohr-file` guide owns the detailed workflow.
+Use canonical path prefixes:
 
-## 1. Check the CLI
+- `personal/<path>` addresses the current user's personal disk and requires
+  `--project-id 0` (the default).
+- `share/<path>` addresses a project share disk and requires a positive
+  `--project-id` for the owning project.
 
-```bash
-bohr --version
-```
-
-When installation or upgrade is needed, follow the environment's permissions and the user's instructions:
-
-```bash
-npm install -g @dptech-corp/bohr-cli@latest
-```
-
-This Skill targets the latest stable CLI; the verified baseline is **2.9.19**.
-
-## 2. Read version-matched guidance
-
-Before business operations, read:
+Resolve a target before changing it:
 
 ```bash
-bohr guide read bohr-file -o json
-bohr guide list bohr-file/references -o json
-bohr guide read bohr-file references/commands.md -o json
-bohr file --help
+bohr file list personal/ --limit 50 -o json
+bohr file stat personal/results/run.log -o json
+bohr file list share/project-data --project-id <project_id> -o json
 ```
 
-These read commands return JSON. Check `ok=true`, then read the Markdown in `data.content` as the instructions. Use `data.name`, `data.version`, and `data.path` to identify the guide. Directory listings expose `data.items`.
+Canonical write and transfer commands are:
 
-Relative references inside that guide belong to the CLI's embedded resources. Read
-`references/…` with `bohr guide read bohr-file references/path-to-file -o json`,
-rather than looking for it in the local Skill directory. Read other referenced files as the task requires,
-and confirm flags through the specific subcommand's `--help`.
+```bash
+bohr file upload ./input.dat personal/jobs/input.dat -o json
+bohr file upload ./large.tar personal/jobs/large.tar --upload-concurrency 8 -o json
+bohr file upload ./large.tar personal/jobs/large.tar --upload-concurrency 8 --resume -o json
+bohr file download personal/jobs/output.dat --dest ./output.dat
+bohr file download personal/jobs/results/ --recursive --dest ./results
+bohr file mkdir share/new-run --project-id <project_id> -o json
+bohr file copy personal/a personal/b -o json
+bohr file move share/old share/new --project-id <project_id> -o json
+```
 
-## 3. Complete the task
+Confirm the exact local source/destination and remote path before uploads or
+downloads. Copy and move affect a single object unless `--recursive` is
+explicitly selected for a prefix.
 
-Distinguish platform storage paths from local paths and preserve CLI-required prefixes such as `personal/` and `share/`. Confirm destinations for moves, overwrites, and deletions. Verify transfers from actual results; let the CLI handle credentials and signed links.
+Uploads at or above 50 MiB use 25 MiB multipart chunks. Set a bounded global
+request limit with `--upload-concurrency` (1–16, default 5). After an
+interruption, keep the same local file and remote path and add `--resume`; the
+CLI reuses completed chunks. Progress goes to stderr, so machine stdout remains
+one result envelope. The File append contract keeps one object's chunks ordered,
+so its observed peak is 1 even when the configured upper bound is higher.
+Smaller binary uploads restart from byte zero.
 
-- Before account access, run `bohr auth status -o json`. If signed out, use `bohr auth login` and have the user complete browser authorization. Let the CLI manage credentials; keep credential files and secrets out of output.
-- Follow the guide for current prices, payment source, and write effects. Add `--yes` only when the user has authorized the specific spending or target operation. Preview with `--dry-run` where supported and retain CLI confirmation controls.
-- Use `-o json` for automated business commands. Check the exit status, `ok`, error details, and business state. Follow asynchronous requests to a verifiable result; report missing fields and unknown states accurately.
-- If the CLI lacks a guide or capability, report its version and the missing item and suggest an upgrade. Stay within supported CLI operations rather than constructing HTTP requests or restoring the old Python clients.
+Delete is destructive. List/stat the exact target and use recursive deletion
+only for an intentionally selected prefix:
+
+```bash
+bohr file delete share/obsolete --project-id <project_id> --recursive --yes -o json
+```
+
+All current File commands are free, but writes, local overwrites, moves, and
+deletion still require user intent. The disk space comes only from the
+`personal/` or `share/` path prefix.
+
+The current CLI does not expose decompression or server-side filename/content
+search. Read [`references/commands.md`](references/commands.md) for every
+canonical command, flag, upload result field, recovery warning, path invariant,
+and confirmation boundary.

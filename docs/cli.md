@@ -4,7 +4,7 @@
 >
 > npm 包和 GitHub Release 二进制内嵌发布时的 Skill 快照，旧版本不会随 GitHub 更新。获取本次 CLI 版内容，请使用根 README 的 GitHub 安装方式；整套安装可在当前仓库运行 `go run ./cmd/bohrium-skills-cli install --lang zh`（需 Go 1.23+）。下文的 npm/Release 安装方式仅获取已发布快照，不能保证包含本次迁移。
 
-`bohrium-skills-cli` 管理本仓库内嵌的整套 Bohrium AI Skills，将 `zh/` 或 `en/` 下的官方 skills 同步到本地 agent 目录。
+`bohrium-skills-cli` 管理本仓库内嵌的整套 Bohrium AI Skills，将 `zh/` 或 `en/` 下的完整包同步到本地 agent 目录，包括 `SKILL.md`、`references/` 和源包已有的 `agents/openai.yaml`。主文档直接提供任务流程；无需先通过 `bohr guide` 取回正文。
 
 ---
 

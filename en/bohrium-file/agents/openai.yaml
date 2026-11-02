@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium File"
+  short_description: "Manage personal and project-share files on Bohrium"
+  default_prompt: "Use $bohrium-file to inspect or manage a Bohrium disk path safely through the CLI."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 项目"
+  short_description: "查询、创建、删除项目及读取成员"
+  default_prompt: "请使用 $bohrium-project 通过 Bohrium CLI 完成相关任务。"

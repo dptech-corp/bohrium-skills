@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 学者检索"
+  short_description: "检索和消歧学者，读取画像与科研成果"
+  default_prompt: "请使用 $bohrium-scholar-search 通过 Bohrium CLI 完成相关任务。"

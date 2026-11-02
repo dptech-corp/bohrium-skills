@@ -1,48 +1,59 @@
 ---
 name: bohrium-node
-description: "通过 bohr CLI 创建、连接、停止或删除 Bohrium 交互式开发节点。当用户需要开发节点相关操作时使用；详细命令与执行边界读取已安装 CLI 的 bohr-node 指引。"
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr node 创建、查询、连接、重启、停止或删除交互式开发节点。用于开发机、长期 CPU/GPU 资源、机器价格、镜像、磁盘、自动关机、SSH 和节点生命周期；非交互批量计算使用 Job。"
 ---
+
+<a id="bohrium-node"></a>
 
 # Bohrium 开发节点
 
-通过 `bohr node` 完成任务，详细步骤以当前 CLI 内嵌的 `bohr-node` 为准。
-
-## 1. 检查 CLI
+Node 是交互式、可能长期运行的计算资源。创建或重启前先查看机器、价格和资源：
 
 ```bash
-bohr --version
+bohr billing pricing --resource node -o json
+bohr machine list --scene node --choose-type all -o json
+bohr node resources -o json
 ```
 
-需要安装或升级时，按当前环境的权限和用户约定执行：
+创建和重启仅使用余额支付。添加 `--yes` 前确认项目、机器、镜像、磁盘、自动关机和费用：
 
 ```bash
-npm install -g @dptech-corp/bohr-cli@latest
+bohr node create --name dev-node --project-id <project_id> \
+  --image_path <image> --machine_type <machine> --disk_size 40 \
+  --turnoff_after 24 --yes -o json
 ```
 
-本 Skill 面向最新正式版 CLI，本次核验版本为 **2.9.19**。
+磁盘大小必填，只能是 **20、40、80、100 GB**。`--turnoff_after` 默认 `24` 小时，常用值为 `1`、`8`、`24`，`-1` 表示永不自动关机。无限期运行的资源需要尤其明确的费用意图。也可通过 JSON 配置文件输入，提交前先检查内容。
 
-## 2. 读取与 CLI 版本匹配的指引
+始终保留创建返回的 ID 作为本次请求的 Node ID。后续详情可能另有内部 machine/node ID，不能静默替换生命周期命令中的创建 ID。
 
-业务操作前先读取：
+按 Node ID 跟踪和连接：
 
 ```bash
-bohr guide read bohr-node -o json
-bohr guide list bohr-node/references -o json
-bohr guide read bohr-node references/commands.md -o json
-bohr node --help
+bohr node list --started -o json
+bohr node get <node_id> -o json
+bohr node connect <node_id>
 ```
 
-以上读取命令返回 JSON。先确认 `ok=true`，再将 `data.content` 中的 Markdown 作为指引读取；用 `data.name`、`data.version` 和 `data.path` 核对指引身份。目录列表读取 `data.items`。
+connect 会在本地启动交互式 SSH 进程。凭据和连接细节不应进入日志或总结。
 
-内嵌指引中的相对引用属于 CLI 内嵌资源。例如 `references/…` 要通过
-`bohr guide read bohr-node references/具体文件 -o json` 读取，而不是到本地 Skill 目录查找。
-根据任务继续读取相关引用，并用具体子命令的 `--help` 确认参数。
+生命周期操作：
 
-## 3. 完成任务
+```bash
+bohr node stop <node_id> -o json
+bohr node restart <node_id> --turnoff_after 24 --yes -o json
+bohr node delete <node_id> --yes -o json
+```
 
-交互式开发环境使用 Node；非交互批量计算使用 Job。创建或重启前确认机器、镜像、磁盘、自动关机时间和费用。保留创建返回的节点 ID，按指引验证停止或删除结果。
+stop 是写操作；restart 可能恢复计费；delete 是破坏性操作。核对返回状态，不能把请求受理当成生命周期完成。删除后确认唯一节点名称或 ID 已从 `bohr node list` 消失。`bohr node get` 在删除后可能短暂返回旧详情，仅凭旧记录不能证明节点仍在运行。
 
-- 需要访问账户时先运行 `bohr auth status -o json`；未登录则使用 `bohr auth login`，由用户完成浏览器授权。凭据交由 CLI 管理，不读取或回显凭据文件。
-- 按内嵌指引核对当前价格、支付来源和写操作影响；只有用户已授权本次费用或具体目标的操作时才添加 `--yes`。命令支持 `--dry-run` 时可先预览；保持 CLI 的确认机制。
-- 自动化业务命令使用 `-o json`，同时检查退出码、`ok`、错误详情和业务状态。异步请求受理后，按指引查询到可验证结果；缺失字段或未知状态如实报告。
-- CLI 缺少指引或能力时，报告版本与缺失项并提供升级建议。操作保持在 CLI 支持范围内，不自行拼接 HTTP 请求或恢复旧 Python 客户端。
+当前 CLI 没有独立的 start、rename 或 dataset-binding 子命令。
+
+完整命令、过滤条件、资源输入、计费边界和生命周期约束见 [命令参考](references/commands.md)。
+
+<a id="resource-payment-boundary"></a>
+
+## 资源支付边界
+
+标记为 balance-only 的资源操作继续按原有规则从余额计费。全局 `--payment-source` 不会为这些资源启用光子支付；显式指定 `photon` 会在执行前被拒绝。按该资源既有的价格查询和费用授权流程操作。

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 容器镜像"
+  short_description: "发现、构建、推送镜像和沙箱快照"
+  default_prompt: "请使用 $bohrium-image 通过 Bohrium CLI 完成相关任务。"

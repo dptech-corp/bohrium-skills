@@ -43,6 +43,8 @@ codex plugin add bohrium-skills@bohrium
 
 也可 clone 后把 Codex 指到仓库根目录（含 `.agents/plugins/marketplace.json`）。
 
+安装后请先跑 **bohrium-setup**（Codex/ChatGPT 的 onboarding skill）：让 agent 安装 `bohr`、完成登录并执行 `bohr doctor`，再使用其他 Bohrium Skill。
+
 ### Codex、Claude Code 或 DSH
 
 获取本仓库，安装需要的 Skill，例如中文版论文检索：
@@ -67,6 +69,7 @@ bohr skill install ./zh/bohrium-paper-search --target codex --scope user
 
 | Skill | 命令入口 | 内嵌指引 | 用途 |
 |-------|----------|----------|------|
+| [bohrium-setup](skills/bohrium-setup/SKILL.md) | `bohr` 安装 / `auth` / `doctor` | — | 安装 CLI、登录、体检，再交给具体 Skill |
 | [bohrium-job](zh/bohrium-job/SKILL.md) | `bohr job` | `bohr-job` | 计算任务、日志与结果 |
 | [bohrium-node](zh/bohrium-node/SKILL.md) | `bohr node` | `bohr-node` | 交互式开发节点 |
 | [bohrium-dataset](zh/bohrium-dataset/SKILL.md) | `bohr dataset` | `bohr-dataset` | 数据集上传、版本查询与续传下载 |

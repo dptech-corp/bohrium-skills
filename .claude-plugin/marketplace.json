@@ -12,11 +12,12 @@
   "plugins": [
     {
       "name": "bohrium-skills",
-      "description": "17 CLI-backed Bohrium skills for compute jobs, development nodes, datasets, files, scientific databases, images, projects, knowledge bases, papers and patents, PDFs, scholars, SciencePedia, scientific tools, web search, sandboxes, LKM, and Science Mentor. Requires the bohr CLI.",
+      "description": "Setup plus 17 CLI-backed Bohrium skills for compute jobs, development nodes, datasets, files, scientific databases, images, projects, knowledge bases, papers and patents, PDFs, scholars, SciencePedia, scientific tools, web search, sandboxes, LKM, and Science Mentor. Requires the bohr CLI (setup skill can install it).",
       "category": "research",
       "source": "./",
       "strict": false,
       "skills": [
+        "./skills/bohrium-setup",
         "./en/bohrium-dataset",
         "./en/bohrium-file",
         "./en/bohrium-database",

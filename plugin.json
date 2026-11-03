@@ -15,5 +15,20 @@
     "scientific-computing",
     "bohr-cli",
     "agent-skills"
-  ]
+  ],
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/bohrium-setup/SKILL.md",
+      "interface": {
+        "displayName": "Bohrium Skills",
+        "shortDescription": "Bohrium scientific workflows via the bohr CLI",
+        "developerName": "DP Technology",
+        "category": "Productivity",
+        "websiteURL": "https://www.bohrium.com/bohr-cli/intro",
+        "defaultPrompt": [
+          "Run Bohrium setup, then help me with a scientific computing task on Bohrium."
+        ]
+      }
+    }
+  }
 }

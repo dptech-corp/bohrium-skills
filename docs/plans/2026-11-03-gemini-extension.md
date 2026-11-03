@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Keep `plugin.json` version `0.1.1`, existing symlinks and skill sources unchanged.
+- Keep `plugin.json` version `0.1.1`, Skill names and sources unchanged; PR #35 supplies real directories for Git installation.
 - Do not modify the CLI, backend, other repositories, credentials or existing Gemini configuration.
 - Run Gemini validation and installation on the development host in the task-owned directory.
 
@@ -20,5 +20,5 @@
 
 - [ ] Add a manifest with `name` = `bohrium-skills`, `version` = `0.1.1`, and description `Bohrium scientific workflows using the bohr CLI.`
 - [ ] In both READMEs document `gemini extensions install https://github.com/dptech-corp/bohrium-skills` and explain that `bohr` must be installed and authenticated separately.
-- [ ] On the development host validate the manifest and install from the proposed source; list all 18 Skills, and read the installed paper-search Skill plus references without relying on the source checkout.
-- [ ] Inspect the final diff, commit only task files, push the feature branch, and install the exact pushed branch by GitHub URL. Record any consumer or external indexing limitation.
+- [ ] On the development host validate the manifest and install the combined PR #35 and Gemini content; list all 18 Skills, and read installed Skill files and references independently of the source checkout.
+- [ ] Inspect the final diff, commit only task files and push the feature branch. Record GitHub connectivity, consumer and external indexing limitations.

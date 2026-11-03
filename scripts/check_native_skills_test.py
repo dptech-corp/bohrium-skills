@@ -8,15 +8,15 @@ import check_native_skills as check
 class NativeDistributionChecks(unittest.TestCase):
     def test_example_validation_forces_help_and_excludes_remote_argv(self):
         text = '```bash\nbohr sandbox exec <sandbox_id> -o json -- python run.py --not-a-cli-flag\n```\n'
-        self.assertEqual(list(check.bash_help_arguments(text)), [("--help", "sandbox", "exec", "1", "-o", "json")])
+        self.assertEqual(list(check.bash_help_arguments(text)), [("sandbox", "exec", "1", "-o", "json", "--help")])
 
     def test_example_cannot_disable_forced_help(self):
         text = '```bash\nbohr image list --help=false -h=false --page <page>\n```\n'
-        self.assertEqual(list(check.bash_help_arguments(text)), [("--help", "image", "list", "--page", "1")])
+        self.assertEqual(list(check.bash_help_arguments(text)), [("image", "list", "--page", "1", "--help")])
 
     def test_continuations_variables_quotes_and_redirection_are_not_executed(self):
         text = '```bash\nbohr job submit --project-id "$PROJECT_ID" \\\n --command "python run.py > run.log" > receipt.json\n```\n'
-        self.assertEqual(list(check.bash_help_arguments(text)), [("--help", "job", "submit", "--project-id", "1", "--command", "python run.py > run.log")])
+        self.assertEqual(list(check.bash_help_arguments(text)), [("job", "submit", "--project-id", "1", "--command", "python run.py > run.log", "--help")])
 
     def test_dynamic_routing_and_non_shell_fences_are_not_executable_examples(self):
         text = '```bash\nbohr sandbox <subcommand> --help\n```\n```json\nbohr ignored\n```\n'
@@ -24,7 +24,7 @@ class NativeDistributionChecks(unittest.TestCase):
 
     def test_multiline_remote_shell_text_stays_one_help_argument(self):
         text = '```bash\nbohr sandbox exec <id> -c "echo first\necho second"\n```\n'
-        self.assertEqual(list(check.bash_help_arguments(text)), [("--help", "sandbox", "exec", "1", "-c", "echo first\necho second")])
+        self.assertEqual(list(check.bash_help_arguments(text)), [("sandbox", "exec", "1", "-c", "echo first\necho second", "--help")])
 
     def test_adaptation_preserves_cli_commands_and_changes_only_public_identity(self):
         source = '---\nname: bohr-demo\ndescription: Demo\n---\n\n# Demo\n\nbohr guide read bohr-demo\n'

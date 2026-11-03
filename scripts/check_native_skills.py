@@ -116,15 +116,17 @@ def bash_help_arguments(text):
                     continue
                 arguments.append(token)
             require(arguments and arguments[0] == "bohr", "invalid bohr example")
-            # Help is forced before every user token. Positional placeholders
-            # become 1 for pflag integer parsing; no RunE/business call occurs.
-            yield ("--help", *arguments[1:])
+            # These pinned native commands use Cobra's interspersed flag
+            # parsing. Put help after the intact command path, after removing
+            # its overrides and the remote delimiter/argv. No RunE occurs.
+            yield (*arguments[1:], "--help")
         require(not pending, "unterminated quoted bohr example")
 
 
 def check_documented_commands(repo, cli):
     # A CLI that ignores tokens after --help would make this check vacuous.
-    for invalid in (("--help", "not-a-bohr-command"), ("--help", "image", "list", "--not-a-bohr-flag")):
+    require("Usage:" in cli.text("image", "list", "--page", "1", "--help"), "published CLI did not resolve the positive help control")
+    for invalid in (("image", "not-a-bohr-command", "--help"), ("image", "list", "--not-a-bohr-flag", "--help")):
         try:
             cli.text(*invalid)
         except AssertionError:

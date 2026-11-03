@@ -69,8 +69,8 @@ cannot substitute for that JWT.
 > requested when creating the template (SKU has no disk field),
 > per-user **running-sandbox quota** (Running+Hibernating — check
 > `bohr sandbox quota -o json` before create; on `limit reached` free slots
-> then retry), `exec` has no execution deadline (network failures and sandbox lifetime still apply), `files read` of a
-> binary is safe only via byte mode, `delete` is **irreversible** and a
+> then retry), `exec` has no execution deadline (network failures and sandbox lifetime still apply), binary downloads use
+> `files read --destination`; stdout byte mode emits base64, `delete` is **irreversible** and a
 > stopped sandbox's files can't be read, the outbound proxy is **off**, and a
 > template image with a mutable `:latest` tag is **rejected** (use an
 > immutable tag). See the consolidated list in
@@ -231,12 +231,6 @@ readiness timeout, and an image `READY` state does not prove dataset readiness.
 | `terminal send <id> <pid> <input>` | Send input to a PTY session |
 | `terminal kill <id> <pid>` | Terminate a PTY session |
 | `machine list` (`machine ls`) | List available sandbox machine SKUs |
-| `image commit` | Snapshot a running sandbox (`--wait` for terminal status) |
-| `image build` | Build an image from a Dockerfile (`--wait` for terminal status) |
-| `image build-log <id>` | Fetch or follow build logs |
-| `image dockerfile <id>` | Print the stored Dockerfile source; `-o json` preserves raw base64 |
-| `image get <id>` | Alias of `bohr image get` (catalog) |
-| `image list` (`image ls`) | Alias of `bohr image list` (catalog) |
 | `template create` | Create a new sandbox template (`--visibility 1`=public / `2`=private, default private); legacy Wenyon descriptor flags do not configure instance mounts |
 | `template list` (`template ls`) | List available templates |
 | `template update` | Update a template's image |
@@ -256,6 +250,19 @@ not be blindly retried. PID reuse between List and the operation cannot be ruled
 out, and the data-plane credential can target any PID visible in that sandbox.
 Recheck with `ps --pid`; use `terminal attach` or `terminal kill` for PTY
 sessions and the manual TERM flow for workloads that need graceful shutdown.
+
+## Image commands
+
+The old `bohr sandbox image` entry is removed. Use these complete paths in the separate image domain:
+
+| Command | Purpose |
+|---|---|
+| `bohr image commit` | Snapshot a running sandbox; run the rootfs gate first |
+| `bohr image build` | Build from a Dockerfile; select local or remote mode |
+| `bohr image build-log <id>` | Read/follow build logs |
+| `bohr image dockerfile <id>` | Read stored Dockerfile source |
+| `bohr image get <id>` | Read the image catalog record |
+| `bohr image list` | Read one image catalog page |
 
 ## Discovering commands
 

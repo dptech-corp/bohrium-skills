@@ -44,6 +44,14 @@ bohr file stat personal/results/run.log -o json
 bohr file list share/project-data --project-id <project_id> -o json
 ```
 
+`list` 每次读取一页。需要完整目录时，保持路径、项目和 limit 相同；`has_more=true` 时将 `data.pagination.next_token` 交给 `--next-token`：
+
+```bash
+bohr file list personal/ --limit 50 --next-token "<next_token>" -o json
+```
+
+`has_more=false` 或达到用户所需数量时停止。`has_more=true` 但游标缺失或重复时，应报告覆盖不完整，不能重复读取首屏。
+
 规范的写入和传输命令如下：
 
 ```bash

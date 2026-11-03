@@ -2,7 +2,7 @@
 
 | Command | Arguments and flags | Effect |
 |---|---|---|
-| `bohr file list [path]` | `--project-id`, `--limit` default `50` | Read one directory/prefix |
+| `bohr file list [path]` | `--project-id`, `--limit` default `50`, `--next-token` from `data.pagination.next_token` | Read one directory/prefix page; follow `has_more` |
 | `bohr file stat <path>` | `--project-id` | Read metadata |
 | `bohr file download <path>` | `--project-id`, `--dest`, `--recursive`, `--concurrency` default `5` (1–16) | Write a local file, or a directory tree with `--recursive`. Recursive download lists in 1000-object pages and starts transferring after the first page; retries retryable transfers up to 3 attempts per file; skips size-matched local files; continues after a per-file failure (`PARTIAL_FAILURE`). |
 | `bohr file upload <local-file> [remote-path]` | `--project-id`, `--upload-concurrency` (1–16, default `5`), `--resume` | Upload local data |

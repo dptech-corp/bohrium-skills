@@ -93,9 +93,13 @@ bohr job describe --id <bohr_id> -o json
 Use normalized `phase` and `terminal` fields when present. An accepted stop
 request or a non-terminal status is not completion.
 
-Running jobs use `bohr job terminate`; queued jobs use `bohr job kill`. By
-default the CLI confirms a terminal phase, bounded by `--confirm-timeout`.
-`--no-wait` returns after acceptance and must be reported as unconfirmed.
+Running jobs use `bohr job terminate`; queued jobs use `bohr job kill`. Running stops confirm a terminal phase by default, bounded by `--confirm-timeout`. Queued cancellation returns after acceptance by default (`confirmed=false`, `terminal=false`); add `--wait` to confirm it, for example:
+
+```bash
+bohr job kill <bohr_id> --wait --confirm-timeout 2m --yes -o json
+```
+
+`--no-wait` skips confirmation for any phase. An accepted cancellation or a confirmation timeout must be reported as unconfirmed, with the original Bohr ID retained.
 
 `kill` and `delete` are destructive and require exact-target authorization and
 `--yes`. `terminate` is a non-destructive stop request but still requires clear

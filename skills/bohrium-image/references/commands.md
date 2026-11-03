@@ -2,8 +2,9 @@
 
 | Command | Inputs | Risk/billing |
 |---|---|---|
-| `bohr image list` | optional `--type/-t`; `--limit` default `512`, range `1-512` | Free read |
-| `bohr image search <keyword>` | keyword | Free read |
+| `bohr image list` | `--type/-t`; `--page` default `1`, `--size` default `100` (`1-512`, server can cap at 100); hidden `--limit` compatibility alias | Free paged read |
+| `bohr image search [keyword...]` | software capability AND search; repeatable `--capability` / `--framework`; `--by-name` requires keyword and excludes those filters; `--page`, `--page-size` | Free public-catalog read |
+| `bohr image packages [imageId]` | catalog ID or mutually exclusive `--image <full-reference>` | Free software-facts read |
 | `bohr image get <id>` | image ID | Free read |
 | `bohr image status <image_id>` | build/commit task ID; reads once, never resubmits | Free read |
 | `bohr image pull <image_address>` | `--image_address/-i`, `--timeout` | Free local Docker write |

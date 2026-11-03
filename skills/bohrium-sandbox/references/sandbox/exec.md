@@ -197,6 +197,8 @@ for retrieving outputs before destroying the sandbox.
 
 ## Environment files and safe summaries
 
+With the npm launcher on Node 24, Node also scans `--env-file` and loads the file locally before the Go CLI starts, including for `--help`. Node's dotenv rules are separate from the Go parsing rules below. Use the native `bohr` binary when the file must affect only the requested remote process rather than the local launcher environment.
+
 Use `--env-file path` for explicit local UTF-8 `KEY=VALUE` files (repeatable,
 maximum 1 MiB per regular file; final-component symlinks and Windows reparse
 points are rejected). Blank lines and lines beginning with # after

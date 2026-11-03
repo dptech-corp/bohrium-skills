@@ -32,6 +32,17 @@ bohr doctor
 /plugin install bohrium-skills@bohrium
 ```
 
+### Agent Plugins / Codex marketplace
+
+本仓库同时是 [Agent Plugins 1.0](https://agent-plugins.org/) 包（根目录 `plugin.json`，`skills/` 指向英文 Skills）。在 Codex 中可先加 marketplace 再安装：
+
+```bash
+codex plugin marketplace add dptech-corp/bohrium-skills
+codex plugin add bohrium-skills@bohrium
+```
+
+也可 clone 后把 Codex 指到仓库根目录（含 `.agents/plugins/marketplace.json`）。
+
 ### Codex、Claude Code 或 DSH
 
 获取本仓库，安装需要的 Skill，例如中文版论文检索：

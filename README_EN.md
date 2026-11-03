@@ -32,6 +32,17 @@ Install the English Skills:
 /plugin install bohrium-skills@bohrium
 ```
 
+### Agent Plugins / Codex marketplace
+
+This repo is also an [Agent Plugins 1.0](https://agent-plugins.org/) package (`plugin.json` + `skills/` → English skills). For Codex, add the repo marketplace then install:
+
+```bash
+codex plugin marketplace add dptech-corp/bohrium-skills
+codex plugin add bohrium-skills@bohrium
+```
+
+Or clone locally and point Codex at the repo root (contains `.agents/plugins/marketplace.json`).
+
 ### Codex, Claude Code, or DSH
 
 Clone this repository and install the Skill you need, such as English paper search:

@@ -49,9 +49,7 @@ Semantics:
 
 Key semantics:
 
-- `terminal send` writes bytes **as-is** — there is no implicit newline. Append
-  `\n` to make a shell run the line; send raw control bytes (e.g. `$'\x03'` for
-  Ctrl-C) to interrupt a running foreground command.
+- `terminal send` converts literal `\n`, `\r` and `\t` into newline, carriage return and tab after joining its arguments. There is no implicit trailing newline and no raw/disable-escape flag. Shell single quotes do not disable this CLI conversion: `'echo hi\n'` sends a newline and can execute the line. Raw control bytes such as `$'\x03'` still send Ctrl-C. When literal backslash text must survive unchanged, use a file transfer or an appropriate `exec` workflow instead of treating PTY send as a byte-preserving channel.
 - `terminal send` joins multiple text arguments after `<pid>` with spaces.
   Pass quoting-sensitive terminal input as one argument. Use `exec` when the
   operation needs its argv-preserving command interface instead of terminal text.

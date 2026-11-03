@@ -53,11 +53,7 @@ Rules and caveats:
 - Only paths under **`/bohr-workspace`** (or its sub-directories) are supported.
   For any other path, upload without `--ti` (via the sandbox filesystem).
 - `--content` is not supported with `--ti`; pass a real `--source` file or dir.
-- **Directory uploads are recursive with no dry-run or confirmation** — every
-  file under `--source` (including hidden files, `.git/`, `node_modules/`, any
-  `.env` secrets) is pushed and overwrites existing remote objects. Double-check
-  the source path and prune unwanted files first; for big/messy trees prefer
-  `tar` + `exec`.
+- **Directory uploads are recursive and have no confirmation gate.** `--dry-run` validates the source/session/path and previews storage-token lookup plus upload without fetching a token or sending files. A real upload includes every file under `--source` (including hidden files, `.git/`, `node_modules/` and `.env`) and overwrites existing remote objects. Confirm/prune the source first; for large trees consider `tar` + `exec`.
 - The `-o json` result reports `objectKey`, `sandboxPath`, `host`, and `bytes`
   per file.
 - Files uploaded via `--ti` appear inside the sandbox owned by `root:root` with
@@ -91,26 +87,16 @@ bohr sandbox files read <sandbox_id> /workspace/model.pt   --destination ./model
 
 ### Text vs bytes (important for binary files)
 
-When `--format` is omitted it defaults to **auto**, which detects the type from
-the file extension: known binary types (`.pt`, `.pth`, `.bin`, `.ckpt`,
-`.safetensors`, `.npy`, `.tar`, `.gz`, `.zip`, `.parquet`, `.pdf`, `.so`,
-images, ...) are read as **bytes**, everything else as **text**. A
-`binary file detected ...` warning is printed to stderr when this happens.
+`--destination` downloads the original bytes to a local file/directory through the transfer path; `--format` does not change those saved bytes. Use it for model/checkpoint/archive downloads.
 
-Reading a binary file as `text` runs it through a charset decode + UTF-8
-re-encode roundtrip that **silently corrupts the bytes** (wrong size,
-`torch.load` / unzip fails with "invalid header or archive is corrupted"). The
-auto-detection prevents this for known extensions; for an unrecognized
-extension on a binary file, pass `--format bytes` explicitly:
+Without `--destination`, `--format` controls stdout. Default **auto** selects bytes for known binary extensions and text otherwise. Byte mode prints base64 (`-o json` carries `content_base64` and `byte_count`); text mode validates UTF-8, rejects invalid sequences, and prints the original valid string. It does not perform charset transcoding or silently repair a binary file. For an unknown binary extension, choose bytes explicitly or download it directly:
 
 ```bash
-bohr sandbox files read <sandbox_id> /workspace/checkpoint.weights --format bytes --destination ./checkpoint.weights
+bohr sandbox files read <sandbox_id> /workspace/checkpoint.weights --destination ./checkpoint.weights
+bohr sandbox files read <sandbox_id> /workspace/checkpoint.weights --format bytes -o json
 ```
 
-When reading a single file to stdout, `--format bytes` emits base64 (the `-o json`
-payload carries `content_base64` + `byte_count`); `--format text` validates
-UTF-8 and carries `content`. Force `--format text` only when you knowingly want
-the decoded string of a binary file (rare).
+A base64 stdout payload is an encoded representation, not a raw binary file. Use the download destination/receipt when the next step needs an ordinary local file. `--format text` is for valid UTF-8 content.
 
 
 ## SHA-256 transfer receipts

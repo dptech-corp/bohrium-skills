@@ -20,7 +20,7 @@ bohr wiki tools search <query> [--lang en-US] [--k 50] [--keywords <json>]
 - `--lang` defaults to `en-US`.
 - `--k` defaults to `50` and controls candidate retrieval.
 - `--keywords` is a JSON object such as `{"dynamics":1.0,"trajectory":0.8}`;
-  omit it to let the service derive keywords from the query.
+  without it, the CLI maps each positional argument to weight `1.0`; a quoted phrase stays one key. It does not tokenize a phrase or derive semantic weights.
 - Price: **0.01 CNY** per request.
 
 Results include display names, unique keys, and repository URLs. The

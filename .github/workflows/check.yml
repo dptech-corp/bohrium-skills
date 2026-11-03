@@ -25,13 +25,15 @@ jobs:
           version="$(node -p 'require("./cli-skills.lock.json").version')"
           npm install --prefix "$RUNNER_TEMP/bohr-cli" --no-audit --no-fund "@dptech-corp/bohr-cli@$version"
           echo "BOHR_SKILLS_TEST_BIN=$RUNNER_TEMP/bohr-cli/node_modules/.bin/bohr" >> "$GITHUB_ENV"
+          npm install --prefix "$RUNNER_TEMP/bohr-cli-compat" --ignore-scripts --no-audit --no-fund "@dptech-corp/bohr-cli@2.9.21"
+          echo "BOHR_SKILLS_COMPAT_BIN=$RUNNER_TEMP/bohr-cli-compat/node_modules/.bin/bohr" >> "$GITHUB_ENV"
       - name: Check CLI content, guides, and isolated installation
         run: |
           "$BOHR_SKILLS_TEST_BIN" --version
           go test ./... -count=1
           node --test scripts/check_release_version.test.mjs
           python3 -m unittest discover -s scripts -p '*_test.py'
-          python3 scripts/check_native_skills.py --cli "$BOHR_SKILLS_TEST_BIN"
+          python3 scripts/check_native_skills.py --cli "$BOHR_SKILLS_TEST_BIN" --compat-cli "$BOHR_SKILLS_COMPAT_BIN" --compat-version 2.9.21
       - name: Check real downstream consumer discovery
         if: always()
         run: |

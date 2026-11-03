@@ -386,6 +386,167 @@
       "old": "Raw provider data may include base64 favicons, internal search URLs, related\nqueries, and other provider extras. When only organic results matter, use the\nsupported jq-like path `-q '.data.organic_results'` rather than object construction.",
       "new": "Raw provider data may include base64 favicons, internal search URLs, related\nqueries, and other extras. JSON is forwarded without normalizing result containers:\ninspect the actual response first (`organic_results[].link` and `results[].url`\nare supported upstream shapes). The shown `-q '.data.organic_results'` projection\napplies only when that field exists; an empty projection is not proof of no hits.",
       "reason": "Web search forwards upstream JSON unchanged; human-renderer fields do not define a normalized machine schema."
+    },
+    {
+      "guide": "bohr-dataset",
+      "path": "SKILL.md",
+      "old": "edit metadata, manage permissions, or query quota through dataset subcommands.",
+      "new": "edit metadata, or query quota through dataset subcommands.",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-dataset",
+      "path": "SKILL.md",
+      "old": "Read [`references/commands.md`](references/commands.md) for every command,",
+      "new": "## Inspect and change dataset access\n\nResolve the dataset and intended user/project IDs, then read its current access list. Granting or changing roles requires dataset management rights and clear write intent; revoking access is destructive and requires `--yes` outside a terminal.\n\n```bash\nbohr dataset permission <dataset_id> -o json\nbohr dataset share <dataset_id> --user <user_id> --role member -o json\nbohr dataset share <dataset_id> --project <project_id> --role manager -o json\nbohr dataset unshare <dataset_id> --user <user_id> --yes -o json\n```\n\n`--user` and `--project` are repeatable and may be combined. `--role` is `member` (default) or `manager`; manager also controls access. Keep principal kind and ID together in `data.items[]`; a user ID is not a project ID. Creator access and the owning project's access are protected.\n\nThe CLI reads, merges, writes and re-reads the whole permission list, preserving other entries; it has no concurrency lock. On `RESOURCE_CONFLICT`, inspect the returned actual list and run `permission` again before deciding on another write. Complete only after the actual list matches the intended grants/revocations; do not treat request acceptance as proof.\n\nRead [`references/commands.md`](references/commands.md) for every command,",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-dataset",
+      "path": "references/commands.md",
+      "old": "| `bohr dataset versions <id>` | dataset ID | Read existing versions |",
+      "new": "| `bohr dataset versions <id>` | dataset ID | Read existing versions |\n| `bohr dataset permission <id>` | dataset ID | Read typed principals and roles |\n| `bohr dataset share <id>` | repeatable `--user` / `--project`; `--role` = `member` or `manager` (default `member`) | Grant/change access; management rights required |\n| `bohr dataset unshare <id>` | repeatable `--user` / `--project`; `--yes` | Destructive access revocation; dataset/version data remains |",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-dataset",
+      "path": "SKILL.md",
+      "old": "project-owned data, resumable transfers, or dataset archives.",
+      "new": "project-owned data, dataset sharing/permissions, resumable transfers, or archives.",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-image",
+      "path": "SKILL.md",
+      "old": "bohr image list --limit 50 -o json\nbohr image search \"DeePMD\" -o json\nbohr image get <image_id> -o json",
+      "new": "bohr image list --page 1 --size 50 -o json\nbohr image search \"lammps cuda\" -o json\nbohr image search \"DeePMD\" --by-name -o json\nbohr image get <image_id> -o json\nbohr image packages <image_id> -o json",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-image",
+      "path": "SKILL.md",
+      "old": "`--limit` accepts `1-512` and defaults to `512`; use a smaller value when only\na bounded catalog sample is needed.",
+      "new": "`list` uses `--page` (default `1`) and `--size` (default `100`, accepted `1-512`). The service can cap a page at 100; follow the returned `data.pagination.page_size` and `has_more` rather than assuming the requested size was honored. `--limit` is a hidden compatibility spelling with the same default.\n\nSearch defaults to an AND intersection of installed software capabilities. Use repeatable `--capability`/`--framework` filters for explicit software requirements, or `--by-name` with a positional keyword for repository/tag name search; name mode cannot combine with those filters. Search pagination uses `--page` and `--page-size`.\n\n`packages` reads extracted software facts grouped in the returned `data.packages` map. Supply either a catalog image ID or `--image <full_registry_reference>`, never both. Scanner facts are evidence for selection, not proof that the workload has run successfully.",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-image",
+      "path": "references/commands.md",
+      "old": "| `bohr image list` | optional `--type/-t`; `--limit` default `512`, range `1-512` | Free read |",
+      "new": "| `bohr image list` | `--type/-t`; `--page` default `1`, `--size` default `100` (`1-512`, server can cap at 100); hidden `--limit` compatibility alias | Free paged read |",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-image",
+      "path": "references/commands.md",
+      "old": "| `bohr image search <keyword>` | keyword | Free read |",
+      "new": "| `bohr image search [keyword...]` | software capability AND search; repeatable `--capability` / `--framework`; `--by-name` requires keyword and excludes those filters; `--page`, `--page-size` | Free public-catalog read |\n| `bohr image packages [imageId]` | catalog ID or mutually exclusive `--image <full-reference>` | Free software-facts read |",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-job",
+      "path": "SKILL.md",
+      "old": "Running jobs use `bohr job terminate`; queued jobs use `bohr job kill`. By\ndefault the CLI confirms a terminal phase, bounded by `--confirm-timeout`.\n`--no-wait` returns after acceptance and must be reported as unconfirmed.",
+      "new": "Running jobs use `bohr job terminate`; queued jobs use `bohr job kill`. Running stops confirm a terminal phase by default, bounded by `--confirm-timeout`. Queued cancellation returns after acceptance by default (`confirmed=false`, `terminal=false`); add `--wait` to confirm it, for example:\n\n```bash\nbohr job kill <bohr_id> --wait --confirm-timeout 2m --yes -o json\n```\n\n`--no-wait` skips confirmation for any phase. An accepted cancellation or a confirmation timeout must be reported as unconfirmed, with the original Bohr ID retained.",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-file",
+      "path": "SKILL.md",
+      "old": "Canonical write and transfer commands are:",
+      "new": "`list` reads one page. For a complete listing, keep the same path, project and limit, and pass `data.pagination.next_token` to `--next-token` while `has_more=true`:\n\n```bash\nbohr file list personal/ --limit 50 --next-token \"<next_token>\" -o json\n```\n\nStop when `has_more=false` or the requested item bound is met. Missing/repeated cursors with `has_more=true` mean incomplete coverage, not a reason to repeat the first page.\n\nCanonical write and transfer commands are:",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-file",
+      "path": "references/commands.md",
+      "old": "| `bohr file list [path]` | `--project-id`, `--limit` default `50` | Read one directory/prefix |",
+      "new": "| `bohr file list [path]` | `--project-id`, `--limit` default `50`, `--next-token` from `data.pagination.next_token` | Read one directory/prefix page; follow `has_more` |",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-tools",
+      "path": "SKILL.md",
+      "old": "Search may auto-generate weighted keywords from the query. Supply `--keywords`\nonly as a JSON object when the user needs explicit weights.",
+      "new": "Without `--keywords`, the CLI maps each positional argument to weight `1.0`; a quoted multi-word query is one keyword phrase. It does not ask the service to derive keyword weights. Supply `--keywords` as a JSON object for explicit weights.",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-tools",
+      "path": "references/commands.md",
+      "old": "  omit it to let the service derive keywords from the query.",
+      "new": "  without it, the CLI maps each positional argument to weight `1.0`; a quoted phrase stays one key. It does not tokenize a phrase or derive semantic weights.",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "| `image commit` | Snapshot a running sandbox (`--wait` for terminal status) |\n| `image build` | Build an image from a Dockerfile (`--wait` for terminal status) |\n| `image build-log <id>` | Fetch or follow build logs |\n| `image dockerfile <id>` | Print the stored Dockerfile source; `-o json` preserves raw base64 |\n| `image get <id>` | Alias of `bohr image get` (catalog) |\n| `image list` (`image ls`) | Alias of `bohr image list` (catalog) |\n",
+      "new": "",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "## Discovering commands\n",
+      "new": "## Image commands\n\nThe old `bohr sandbox image` entry is removed. Use these complete paths in the separate image domain:\n\n| Command | Purpose |\n|---|---|\n| `bohr image commit` | Snapshot a running sandbox; run the rootfs gate first |\n| `bohr image build` | Build from a Dockerfile; select local or remote mode |\n| `bohr image build-log <id>` | Read/follow build logs |\n| `bohr image dockerfile <id>` | Read stored Dockerfile source |\n| `bohr image get <id>` | Read the image catalog record |\n| `bohr image list` | Read one image catalog page |\n\n## Discovering commands\n",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "`files read` of a\n> binary is safe only via byte mode,",
+      "new": "binary downloads use\n> `files read --destination`; stdout byte mode emits base64,",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "references/sandbox/files.md",
+      "old": "- **Directory uploads are recursive with no dry-run or confirmation** — every\n  file under `--source` (including hidden files, `.git/`, `node_modules/`, any\n  `.env` secrets) is pushed and overwrites existing remote objects. Double-check\n  the source path and prune unwanted files first; for big/messy trees prefer\n  `tar` + `exec`.",
+      "new": "- **Directory uploads are recursive and have no confirmation gate.** `--dry-run` validates the source/session/path and previews storage-token lookup plus upload without fetching a token or sending files. A real upload includes every file under `--source` (including hidden files, `.git/`, `node_modules/` and `.env`) and overwrites existing remote objects. Confirm/prune the source first; for large trees consider `tar` + `exec`.",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "references/sandbox/files.md",
+      "old": "When `--format` is omitted it defaults to **auto**, which detects the type from\nthe file extension: known binary types (`.pt`, `.pth`, `.bin`, `.ckpt`,\n`.safetensors`, `.npy`, `.tar`, `.gz`, `.zip`, `.parquet`, `.pdf`, `.so`,\nimages, ...) are read as **bytes**, everything else as **text**. A\n`binary file detected ...` warning is printed to stderr when this happens.\n\nReading a binary file as `text` runs it through a charset decode + UTF-8\nre-encode roundtrip that **silently corrupts the bytes** (wrong size,\n`torch.load` / unzip fails with \"invalid header or archive is corrupted\"). The\nauto-detection prevents this for known extensions; for an unrecognized\nextension on a binary file, pass `--format bytes` explicitly:",
+      "new": "`--destination` downloads the original bytes to a local file/directory through the transfer path; `--format` does not change those saved bytes. Use it for model/checkpoint/archive downloads.\n\nWithout `--destination`, `--format` controls stdout. Default **auto** selects bytes for known binary extensions and text otherwise. Byte mode prints base64 (`-o json` carries `content_base64` and `byte_count`); text mode validates UTF-8, rejects invalid sequences, and prints the original valid string. It does not perform charset transcoding or silently repair a binary file. For an unknown binary extension, choose bytes explicitly or download it directly:",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "references/sandbox/files.md",
+      "old": "bohr sandbox files read <sandbox_id> /workspace/checkpoint.weights --format bytes --destination ./checkpoint.weights",
+      "new": "bohr sandbox files read <sandbox_id> /workspace/checkpoint.weights --destination ./checkpoint.weights\nbohr sandbox files read <sandbox_id> /workspace/checkpoint.weights --format bytes -o json",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "references/sandbox/files.md",
+      "old": "When reading a single file to stdout, `--format bytes` emits base64 (the `-o json`\npayload carries `content_base64` + `byte_count`); `--format text` validates\nUTF-8 and carries `content`. Force `--format text` only when you knowingly want\nthe decoded string of a binary file (rare).",
+      "new": "A base64 stdout payload is an encoded representation, not a raw binary file. Use the download destination/receipt when the next step needs an ordinary local file. `--format text` is for valid UTF-8 content.",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "references/sandbox/pitfalls.md",
+      "old": "| 2 | `files read` of a binary is safe only in **bytes** mode | Reading a binary (`.pt`, `.tar`, `.gz`, `.bin`, ...) as text decodes+re-encodes the bytes → wrong file size, `torch.load`/unzip fails with \"invalid header or archive is corrupted\" | `--format` defaults to **auto**, which detects binary by extension and reads bytes (with a stderr warning). For an unrecognized binary extension pass `--format bytes`. See [`files.md`](./files.md). |",
+      "new": "| 2 | `files read` defaults to auto format on stdout | Redirecting base64 stdout to a model/archive filename does not produce the original binary; text rejects invalid UTF-8 | Download with `--destination` to preserve original bytes. For encoded stdout use `--format bytes`; inspect `content_base64` / `byte_count` in JSON. See [`files.md`](./files.md). |",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "references/sandbox/terminal.md",
+      "old": "- `terminal send` writes bytes **as-is** — there is no implicit newline. Append\n  `\\n` to make a shell run the line; send raw control bytes (e.g. `$'\\x03'` for\n  Ctrl-C) to interrupt a running foreground command.",
+      "new": "- `terminal send` converts literal `\\n`, `\\r` and `\\t` into newline, carriage return and tab after joining its arguments. There is no implicit trailing newline and no raw/disable-escape flag. Shell single quotes do not disable this CLI conversion: `'echo hi\\n'` sends a newline and can execute the line. Raw control bytes such as `$'\\x03'` still send Ctrl-C. When literal backslash text must survive unchanged, use a file transfer or an appropriate `exec` workflow instead of treating PTY send as a byte-preserving channel.",
+      "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "references/sandbox/exec.md",
+      "old": "## Environment files and safe summaries\n\n",
+      "new": "## Environment files and safe summaries\n\nWith the npm launcher on Node 24, Node also scans `--env-file` and loads the file locally before the Go CLI starts, including for `--help`. Node's dotenv rules are separate from the Go parsing rules below. Use the native `bohr` binary when the file must affect only the requested remote process rather than the local launcher environment.\n\n",
+      "reason": "Record the Node 24 npm-launcher env-file preloading observed by published-binary help checks; native Go parsing remains separate."
     }
   ]
 }

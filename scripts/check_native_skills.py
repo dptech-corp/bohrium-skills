@@ -8,7 +8,7 @@ import re
 import shlex
 import subprocess
 import tempfile
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 FENCES = re.compile(r"```[^\n]*\n.*?```", re.S)
 LINKS = re.compile(r"\]\(([^)]+)\)")
@@ -80,13 +80,128 @@ def agent_fields(text):
     return result
 
 
+def bash_help_arguments(text):
+    """Yield help-only argv for concrete bohr examples, never shell commands."""
+    for block in re.finditer(r"```(?:bash|sh|shell)\n(.*?)```", text, re.S):
+        body = re.sub(r"\\\n[ \t]*", " ", block.group(1))
+        pending = ""
+        for line in body.splitlines():
+            if pending:
+                pending += "\n" + line
+            else:
+                line = line.strip().removeprefix("$ ")
+                if not line.startswith("bohr "):
+                    continue
+                pending = line
+            # Routing notation is not an executable command example.
+            if re.match(r"bohr(?: [a-z][a-z0-9-]*)* <(?:subcommand|command)>", pending):
+                pending = ""
+                continue
+            line = re.sub(r"<[^>\n]+>", "1", pending)
+            line = re.sub(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*", "1", line)
+            lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|<>")
+            lexer.whitespace_split = True
+            try:
+                tokens = list(lexer)
+            except ValueError as error:
+                if str(error) == "No closing quotation":
+                    continue
+                raise
+            pending = ""
+            arguments = []
+            for token in tokens:
+                if token == "--" or (token and all(c in ";&|<>" for c in token)):
+                    break
+                if token.split("=", 1)[0] in ("--help", "-h"):
+                    continue
+                arguments.append(token)
+            require(arguments and arguments[0] == "bohr", "invalid bohr example")
+            # These pinned native commands use Cobra's interspersed flag
+            # parsing. Put help after the intact command path, after removing
+            # its overrides and the remote delimiter/argv. A missing string
+            # flag value may consume one help token, so force a second one.
+            yield (*arguments[1:], "--help", "--help")
+        require(not pending, "unterminated quoted bohr example")
+
+
+def check_documented_commands(repo, cli):
+    # A CLI that ignores tokens after --help would make this check vacuous.
+    require("Usage:" in cli.text("image", "list", "--page", "1", "--help"), "published CLI did not resolve the positive help control")
+    missing_value = next(bash_help_arguments("```bash\nbohr image list --type\n```\n"))
+    require("Usage:" in cli.text(*missing_value), "missing flag value consumed the help guard")
+    for invalid in (("image", "not-a-bohr-command", "--help"), ("image", "list", "--not-a-bohr-flag", "--help")):
+        try:
+            cli.text(*invalid)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError("published CLI help did not reject invalid command/flag tokens")
+    examples = {}
+    count = 0
+    files = sorted((repo / "en").rglob("*.md")) + sorted((repo / "zh").rglob("*.md"))
+    files += [repo / "README.md", repo / "README_EN.md", repo / "docs/cli.md"]
+    for file in files:
+        for arguments in bash_help_arguments(file.read_text()):
+            examples.setdefault(arguments, str(file.relative_to(repo)))
+            count += 1
+    require(examples, "no documented Bash commands were checked")
+    failures = []
+    with tempfile.TemporaryDirectory(prefix="bohr-example-help-") as directory:
+        # Node 24's npm launcher reads --env-file even before CLI help. Supply
+        # the example prerequisite in an isolated cwd without setting values.
+        Path(directory, "process.env").write_text("# Controlled CLI example fixture\n")
+        help_cli = CLI(cli.binary, cli.env, Path(directory))
+        for arguments, file in examples.items():
+            try:
+                help_text = help_cli.text(*arguments)
+            except AssertionError as error:
+                failures.append(f"{file}: {error}")
+                continue
+            if "Usage:" not in help_text:
+                failures.append(f"{file}: expected help only for {arguments}")
+    require(not failures, f"{len(failures)} documented command checks failed:\n" + "\n\n".join(failures[:12]))
+    print(f"Verified {count} documented Bash examples ({len(examples)} distinct help-only invocations) against {cli.text('--version').strip()}.")
+
+
+def check_corrected_contracts(cli):
+    def preview(*args):
+        data = cli.data(*args, "--dry-run", "-o", "json")
+        require(data.get("dry_run") is True, "command contract check unexpectedly executed")
+        return data["operations"]
+
+    listing = preview("image", "list")[0]
+    require(listing["params"]["page"] == "1" and listing["params"]["pageSize"] == "100", "image list defaults changed")
+    listing = preview("image", "list", "--page", "2", "--size", "50")[0]
+    require(listing["params"]["page"] == "2" and listing["params"]["pageSize"] == "50", "image list dropped pagination")
+    for args, mode in ((("image", "search", "lammps cuda"), "capability"), (("image", "search", "DeePMD", "--by-name"), "name"), (("image", "search", "--framework", "tensorflow"), "capability")):
+        query = parse_qs(urlsplit(preview(*args)[0]["path"]).query)
+        require(query["search"] == [mode], "image search mode changed")
+    require(preview("image", "packages", "123")[0]["path"] == "/openapi/v4/images/123/packages", "image package ID route changed")
+    ref = "registry.example.com/research:v1"
+    require(parse_qs(urlsplit(preview("image", "packages", "--image", ref)[0]["path"]).query)["image"] == [ref], "image package reference route changed")
+    first = preview("file", "list", "share/experiment", "--project-id", "1234", "--limit", "50")[0]["body"]
+    second = preview("file", "list", "share/experiment", "--project-id", "1234", "--limit", "50", "--next-token", "cursor-check")[0]["body"]
+    require(second.pop("nextToken") == "cursor-check" and first == second and first["maxObjects"] == 50 and first["projectId"] == 1234, "file cursor changed the listing scope")
+    require(preview("dataset", "permission", "123")[0]["path"] == "/openapi/v4/ds/123/permission", "dataset permission read route changed")
+    for action in ("share", "unshare"):
+        operations = preview("dataset", action, "123", "--user", "456", "--project", "789")
+        require([item["method"] for item in operations] == ["GET", "GET", "POST", "GET", "PUT", "GET"], "dataset access no longer reads/merges/verifies permissions")
+    whole = preview("wiki", "tools", "search", "molecular dynamics")[0]["body"]["keywords"]
+    split = preview("wiki", "tools", "search", "molecular", "dynamics")[0]["body"]["keywords"]
+    require(whole == {"molecular dynamics": 1} and split == {"molecular": 1, "dynamics": 1}, "tools argv-to-keyword weights changed")
+    with tempfile.TemporaryDirectory(prefix="bohr-ti-preview-") as directory:
+        operations = preview("sandbox", "files", "write", "--ti", "--session-id", "audit-session", "--source", directory, "default--preview-abc12", "/bohr-workspace/input")
+        require([item["method"] for item in operations] == ["GET", "UPLOAD"], "TI upload dry-run support changed")
+    print("Verified corrected image, cursor, dataset access, tool-weight and TI-upload contracts with offline previews; no business request was made.")
+
+
 class CLI:
     def __init__(self, binary, env, repo):
         self.binary, self.env, self.repo = binary, env, repo
 
     def text(self, *args):
         result = subprocess.run([self.binary, *args], cwd=self.repo, env=self.env, text=True, capture_output=True, timeout=30)
-        require(result.returncode == 0, f"bohr {' '.join(args)} exited {result.returncode}: {result.stderr}")
+        require(result.returncode == 0, f"bohr {' '.join(args)} exited {result.returncode}: {result.stderr}\n{result.stdout[:4000]}")
         return result.stdout
 
     def data(self, *args):
@@ -241,19 +356,30 @@ def check_packages(repo, lock, cli):
     delete_help = cli.text("sandbox", "delete", "--help")
     require("--commit" in delete_help and "--discard" in delete_help, "published CLI lacks documented settlement flags")
     check_workflow_previews(repo, cli)
+    check_documented_commands(repo, cli)
+    check_corrected_contracts(cli)
     print(f"Verified {len(lock['skills'])} native Skills, {total} source files per language, local links, localized examples, metadata, command help, and complete isolated installs.")
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cli", required=True)
+    parser.add_argument("--compat-cli")
+    parser.add_argument("--compat-version")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
     lock = json.loads((repo / "cli-skills.lock.json").read_text())
+    require(bool(args.compat_cli) == bool(args.compat_version), "compatibility binary and version must be supplied together")
     with tempfile.TemporaryDirectory(prefix="bohr-native-config-") as config:
         env = os.environ.copy()
         env.update({"HOME": config, "BOHR_CONFIG_DIR": config, "BOHR_ACCESS_KEY": ""})
         check_packages(repo, lock, CLI(str(Path(args.cli).absolute()), env, repo))
+        if args.compat_cli:
+            compat = CLI(str(Path(args.compat_cli).absolute()), env, repo)
+            require(compat.text("--version").strip() == "bohr version " + args.compat_version, "unexpected compatibility CLI version")
+            check_documented_commands(repo, compat)
+            check_corrected_contracts(compat)
+            check_workflow_previews(repo, compat)
 
 
 if __name__ == "__main__":

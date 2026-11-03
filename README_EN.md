@@ -19,20 +19,22 @@ Supports macOS, Linux, and Windows on x64 / arm64. Installing a Skill and instal
 
 The CLI guides the user through browser authorization. On servers or in non-interactive environments, check `bohr auth login --help` for supported sign-in methods. Provide credentials through the environment's established CLI configuration; keep secrets out of Skills, the repository, and conversations.
 
-## 2. Install these Skills
+## 2. Install a Skill
 
-### Claude Code
+`bohr skill install` is included in the Bohrium CLI. No separate Skill installer is needed. Choose one method:
 
-The existing marketplace and plugin names are preserved. This installs the English Skills:
+### Claude Code plugin
+
+Install the English Skills:
 
 ```text
 /plugin marketplace add dptech-corp/bohrium-skills
 /plugin install bohrium-skills@bohrium
 ```
 
-### Codex, Claude Code, or DSH: install one Skill
+### Codex, Claude Code, or DSH
 
-Get the current GitHub content and select a directory under `zh/` or `en/`. For example, install English paper search:
+Clone this repository and install the Skill you need, such as English paper search:
 
 ```bash
 git clone https://github.com/dptech-corp/bohrium-skills.git
@@ -40,46 +42,13 @@ cd bohrium-skills
 bohr skill install ./en/bohrium-paper-search --target codex --scope user
 ```
 
-Supported `--target` values are `codex`, `claude`, and `dsh`. Choose one language per Skill. Other clients can use the selected directory in their supported Skill location. See `bohr skill install --help` for installation options and conflict handling.
+Supported `--target` values are `codex`, `claude`, and `dsh`; replace `en/` with `zh/` for Chinese. Choose one language per Skill and follow the receipt's instructions to reload your agent. Embedded CLI guidance is available directly through `bohr guide`; external agents still need the installation above to discover these Skills.
 
-### Install all 17 Skills
+Then describe your task directly to the agent, for example:
 
-With Go 1.23+, use the existing installer source from the cloned repository:
+> Find papers published since 2020 on SEI in lithium-metal batteries and organize their titles, years, DOIs, and abstracts. Show me the estimated cost before any paid searches.
 
-```bash
-go run ./cmd/bohrium-skills-cli install --lang en
-# For Chinese, use --lang zh
-```
-
-This syncs to `~/.agents/skills` (shared by Codex and DSH) and `~/.claude/skills`, backing up replaced Skills. Same-named official copies from the old installer's `~/.codex/skills` location are backed up completely and retired after canonical installation, preventing duplicate Codex discovery. Other custom Skills are preserved. Shared-root aliases that cannot be migrated safely are preserved and reported as conflicts. See the [full-set installer guide](docs/cli.md).
-
-**Published `bohrium-skills-cli` npm packages and Release binaries embed the Skill snapshot from their release.** Updating GitHub does not change old packages. Get the current CLI-backed content through the GitHub plugin, `bohr skill install`, or this repository's installer source. This migration does not publish a new installer release.
-
-## 3. Use the complete Skill package
-
-For example, an installed paper-search package contains:
-
-```text
-bohrium-paper-search/
-├── SKILL.md                 # Complete workflow and command examples
-├── references/commands.md   # Locally packaged detailed reference
-└── agents/openai.yaml       # Source-provided agent interface metadata
-```
-
-The agent reads `SKILL.md` and follows local references as needed. It does not need to fetch the entire workflow again through `bohr guide`. Chinese packages translate the main document and source-provided UI metadata; reference documents retain the CLI's original English text, with local links and section anchors preserved. Sandbox has no `agents/openai.yaml` in the source release and retains that inventory.
-
-The CLI remains the runtime dependency. When the installed version differs from this snapshot or cross-module guidance is needed, inspect the installed CLI:
-
-```bash
-bohr --version
-bohr guide list -o json
-bohr guide read bohr-paper-search -o json
-bohr paper --help
-```
-
-For `guide read`, the JSON instructions are in `data.content`; `data.name`, `data.version`, and `data.path` identify the source. Check `ok=true` first. Use command help and current pricing for business operations.
-
-`bohr guide` reads local embedded guidance; `bohr agents skills` manages the cloud Skill Hub; `bohr skill install` installs a complete local Skill package.
+See the [detailed guide](docs/cli.md) for package structure, full-set installation, and the older installer.
 
 ## Skill catalog
 

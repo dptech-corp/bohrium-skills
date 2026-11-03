@@ -19,20 +19,22 @@ bohr doctor
 
 登录由 CLI 引导用户完成浏览器授权。服务端或无交互环境先运行 `bohr auth login --help` 查看当前登录方式；按环境既有方式向 CLI 提供凭据，不把密钥写进 Skill、仓库或对话。
 
-## 2. 安装本仓库的 Skills
+## 2. 安装 Skill
 
-### Claude Code
+`bohr skill install` 已包含在 Bohrium CLI 中，无需另装 Skill 安装器。选择下面一种方式：
 
-现有 marketplace 和插件名称保持不变，安装英文版 Skills：
+### Claude Code 插件
+
+安装英文版 Skills：
 
 ```text
 /plugin marketplace add dptech-corp/bohrium-skills
 /plugin install bohrium-skills@bohrium
 ```
 
-### Codex、Claude Code 或 DSH：安装单个 Skill
+### Codex、Claude Code 或 DSH
 
-从 GitHub 获取当前内容，并选择 `zh/` 或 `en/` 中的目录。例如安装中文版论文检索：
+获取本仓库，安装需要的 Skill，例如中文版论文检索：
 
 ```bash
 git clone https://github.com/dptech-corp/bohrium-skills.git
@@ -40,46 +42,13 @@ cd bohrium-skills
 bohr skill install ./zh/bohrium-paper-search --target codex --scope user
 ```
 
-`--target` 可选 `codex`、`claude` 或 `dsh`。同一个 Skill 选择一种语言；其他客户端可将对应目录放到其支持的 Skill 目录。具体安装选项和同名冲突处理见 `bohr skill install --help`。
+`--target` 可选 `codex`、`claude` 或 `dsh`；英文版将 `zh/` 改为 `en/`。同一个 Skill 选择一种语言，安装后按回执提示重新加载 Agent。`bohr` 内置的指引可直接通过 `bohr guide` 读取；让外部 Agent 发现本仓库的 Skills，仍需完成上面的安装。
 
-### 一次安装全部 17 个 Skill
+安装后直接向 Agent 描述任务，例如：
 
-具备 Go 1.23+ 时，可以在上面的仓库目录使用现有安装器源码：
+> 帮我检索 2020 年以来锂金属电池 SEI 相关论文，整理标题、年份、DOI 和摘要；付费检索前先告诉我预计费用。
 
-```bash
-go run ./cmd/bohrium-skills-cli install --lang zh
-# 英文版改为 --lang en
-```
-
-这会同步到 `~/.agents/skills`（Codex、DSH 共用）和 `~/.claude/skills`，替换前自动备份。旧安装器写入 `~/.codex/skills` 的同名官方副本会先完整备份、再迁移到规范目录，避免 Codex 重复加载；其他自定义 Skill 保留；跨消费者的共享根别名若无法安全迁移，会保留原树并明确报冲突。详见 [整套安装指南](docs/cli.md)。
-
-**已发布的 `bohrium-skills-cli` npm 包和 Release 二进制内嵌发布时的 Skill 快照。** GitHub 内容更新不会改写旧发布物；当前 CLI 版内容请通过 GitHub 插件、`bohr skill install` 或本仓库源码安装。本次迁移不发布新的安装器版本。
-
-## 3. 使用完整 Skill 包
-
-以论文检索为例，安装的目录包含：
-
-```text
-bohrium-paper-search/
-├── SKILL.md                 # 完整任务流程与命令示例
-├── references/commands.md   # 随包提供的详细参考
-└── agents/openai.yaml       # CLI 已有的 Agent 界面元数据
-```
-
-Agent 先读取 `SKILL.md`，再按任务需要读取本地参考文件，不需要通过 `bohr guide` 再取回整套步骤。中文包完整翻译主文档与已有界面元数据；详细参考沿用 CLI 英文原文，保留本地链接及章节锚点。Sandbox 的源包没有 `agents/openai.yaml`，保持源包结构。
-
-CLI 仍是执行依赖。所用二进制与本地快照不同或需要跨模块指引时，可核对已安装版本：
-
-```bash
-bohr --version
-bohr guide list -o json
-bohr guide read bohr-paper-search -o json
-bohr paper --help
-```
-
-`guide read` 的 JSON 正文在 `data.content`，`data.name`、`data.version` 和 `data.path` 标识来源；先检查 `ok=true`。业务调用按具体命令帮助和实时价目执行。
-
-`bohr guide` 读取本机内嵌指引；`bohr agents skills` 管理云端 Skill Hub；`bohr skill install` 安装本地完整 Skill 包。
+包结构、整套安装及旧安装器说明见[详细指南](docs/cli.md)。
 
 ## Skill 清单
 

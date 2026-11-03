@@ -32,6 +32,19 @@ Install the English Skills:
 /plugin install bohrium-skills@bohrium
 ```
 
+### Agent Plugins / Codex marketplace
+
+This repo is also an [Agent Plugins 1.0](https://agent-plugins.org/) package (`plugin.json` + `skills/` → English skills). For Codex, add the repo marketplace then install:
+
+```bash
+codex plugin marketplace add dptech-corp/bohrium-skills
+codex plugin add bohrium-skills@bohrium
+```
+
+Or clone locally and point Codex at the repo root (contains `.agents/plugins/marketplace.json`).
+
+After install, run the **bohrium-setup** skill (Codex/ChatGPT onboarding skill) so the agent installs `bohr`, signs in, and runs `bohr doctor` before other Bohrium skills.
+
 ### Codex, Claude Code, or DSH
 
 Clone this repository and install the Skill you need, such as English paper search:
@@ -56,6 +69,7 @@ Public Skill names remain `bohrium-*`; embedded CLI guides use `bohr-*`.
 
 | Skill | Command entry point | Embedded guide | Purpose |
 |-------|---------------------|----------------|---------|
+| [bohrium-setup](skills/bohrium-setup/SKILL.md) | `bohr` install / `auth` / `doctor` | — | Install CLI, sign in, verify, then hand off |
 | [bohrium-job](en/bohrium-job/SKILL.md) | `bohr job` | `bohr-job` | Compute jobs, logs, and results |
 | [bohrium-node](en/bohrium-node/SKILL.md) | `bohr node` | `bohr-node` | Interactive development nodes |
 | [bohrium-dataset](en/bohrium-dataset/SKILL.md) | `bohr dataset` | `bohr-dataset` | Dataset uploads, version lookup, and resumable downloads |

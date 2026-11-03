@@ -23,6 +23,14 @@ bohr doctor
 
 `bohr skill install` 已包含在 Bohrium CLI 中，无需另装 Skill 安装器。选择下面一种方式：
 
+### Gemini CLI 扩展
+
+```bash
+gemini extensions install https://github.com/dptech-corp/bohrium-skills
+```
+
+扩展提供英文版 Skills 和 `bohrium-setup`。使用前仍需单独安装 `bohr` 并登录，见上方步骤。
+
 ### Claude Code 插件
 
 安装英文版 Skills：

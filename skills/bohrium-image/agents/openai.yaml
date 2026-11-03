@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Image"
+  short_description: "Discover, pull, push, build, and manage Bohrium images"
+  default_prompt: "Use $bohrium-image to inspect or manage a Bohrium image safely through the CLI."

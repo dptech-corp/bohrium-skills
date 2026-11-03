@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium PDF Parse"
+  short_description: "Extract text, tables, formulas, and layouts from PDFs"
+  default_prompt: "Use $bohrium-pdf-parser to extract structured content from a PDF through the Bohrium CLI."

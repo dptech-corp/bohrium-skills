@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium LKM"
+  short_description: "Search, trace, and extract scientific knowledge with LKM"
+  default_prompt: "Use $bohrium-lkm to search or trace scientific knowledge through the Bohrium CLI."

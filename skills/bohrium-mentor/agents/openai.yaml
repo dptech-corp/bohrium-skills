@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Mentor"
+  short_description: "Ask a literature-grounded AI mentor scientific questions"
+  default_prompt: "Use $bohrium-mentor to explain or compare a scientific topic through the Bohrium CLI."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Dataset"
+  short_description: "Manage and transfer versioned Bohrium datasets"
+  default_prompt: "Use $bohrium-dataset to inspect or manage a Bohrium dataset safely through the CLI."

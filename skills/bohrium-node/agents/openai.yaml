@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Node"
+  short_description: "Create and manage interactive Bohrium compute nodes"
+  default_prompt: "Use $bohrium-node to inspect or manage a Bohrium development node safely."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Job"
+  short_description: "Submit and manage Bohrium scientific compute jobs"
+  default_prompt: "Use $bohrium-job to submit or manage a Bohrium compute job safely through the CLI."

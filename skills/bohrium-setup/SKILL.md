@@ -3,18 +3,18 @@ name: bohrium-setup
 description: >-
   Install and sign in to the Bohrium CLI (`bohr`), verify with `bohr doctor`,
   then list available guides. Use when onboarding after installing the Bohrium
-  plugin or skills, when `bohr` is missing or outdated, when auth fails, or
-  before the first paid/read-write Bohrium command.
-compatibility: "Installs or upgrades npm package @dptech-corp/bohr-cli; verified baseline 2.9.19. Sign-in needs network and a browser or device-code flow."
+  plugin or skills, when `bohr` is missing, when auth fails, or before the
+  first paid/read-write Bohrium command.
+compatibility: "Installs or upgrades npm package @dptech-corp/bohr-cli. Sign-in needs network and a browser or device-code flow."
 ---
 
 # Bohrium Setup
 
-Run this skill after installing the Bohrium plugin/skills, or whenever `bohr` is missing, outdated, or not signed in. Other Bohrium skills assume a working CLI.
+Run this skill after installing the Bohrium plugin/skills, or whenever `bohr` is missing or not signed in. Other Bohrium skills assume a working CLI. If the user installed the plugin mid-task, finish setup and continue that task; do not make them hunt for a Setup button.
 
 ## Goal
 
-1. Confirm `bohr` is on `PATH` at a supported version.
+1. Confirm `bohr` is on `PATH`.
 2. Sign the user in.
 3. Pass `bohr doctor`.
 4. Point the next task at the right skill / `bohr guide`.
@@ -24,11 +24,12 @@ Run this skill after installing the Bohrium plugin/skills, or whenever `bohr` is
 ### 1. Check the CLI
 
 ```bash
+command -v bohr
 bohr --version
 ```
 
-- If the command is found and the version is **≥ 2.9.19**, skip to step 3 unless the user asked to reinstall.
-- If the command is missing, or the version is older than 2.9.19, install or upgrade (step 2).
+- If `bohr` is found, skip to step 3 unless the user asked to reinstall or upgrade.
+- If it is missing, install (step 2).
 - Never invent a version string; only trust command output.
 
 ### 2. Install or upgrade
@@ -87,4 +88,4 @@ Then map the user’s task to a Bohrium skill (for example `bohrium-job`, `bohri
 | `bohr: command not found` | Re-run npm global install; ensure npm’s global bin dir is on `PATH` |
 | Auth loop / not logged in | `bohr auth login` again; for headless, device-code + `--resume` |
 | Doctor network errors | Check proxy/VPN; company networks may need HTTP(S)_PROXY |
-| Old CLI, new skill flags | Upgrade with `npm install -g @dptech-corp/bohr-cli@latest` |
+| Skill flags look unknown | Upgrade with `npm install -g @dptech-corp/bohr-cli@latest` |

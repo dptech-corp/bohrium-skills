@@ -143,14 +143,19 @@ def check_documented_commands(repo, cli):
             count += 1
     require(examples, "no documented Bash commands were checked")
     failures = []
-    for arguments, file in examples.items():
-        try:
-            help_text = cli.text(*arguments)
-        except AssertionError as error:
-            failures.append(f"{file}: {error}")
-            continue
-        if "Usage:" not in help_text:
-            failures.append(f"{file}: expected help only for {arguments}")
+    with tempfile.TemporaryDirectory(prefix="bohr-example-help-") as directory:
+        # Node 24's npm launcher reads --env-file even before CLI help. Supply
+        # the example prerequisite in an isolated cwd without setting values.
+        Path(directory, "process.env").write_text("# Controlled CLI example fixture\n")
+        help_cli = CLI(cli.binary, cli.env, Path(directory))
+        for arguments, file in examples.items():
+            try:
+                help_text = help_cli.text(*arguments)
+            except AssertionError as error:
+                failures.append(f"{file}: {error}")
+                continue
+            if "Usage:" not in help_text:
+                failures.append(f"{file}: expected help only for {arguments}")
     require(not failures, f"{len(failures)} documented command checks failed:\n" + "\n\n".join(failures[:12]))
     print(f"Verified {count} documented Bash examples ({len(examples)} distinct help-only invocations) against {cli.text('--version').strip()}.")
 

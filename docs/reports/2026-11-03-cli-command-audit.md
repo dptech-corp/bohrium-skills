@@ -30,3 +30,7 @@ Changes cover both languages and any repeated description in main/reference/pitf
 ## Verification boundary
 
 The two-axis review covers command syntax and workflow semantics. Help validates registered entry/flag parsing; dry-run validates selected request shapes, defaults and scope without business calls. PTY escape processing, binary transfer branch behavior and queued-stop confirmation are verified against source; this audit does not claim a live PTY, upload, permission change or paid compute acceptance. CI results are recorded after the corrected commit is checked.
+
+## Launcher behavior found during executable checks
+
+The npm launcher on Node 24 reads `--env-file` before the Go CLI starts, even when the intended operation is help. The help checker supplies a comment-only `process.env` in an isolated temporary cwd and retains the original flag; it does not write an environment file into the repository. The sandbox execution reference now distinguishes this local launcher behavior from Go's literal remote-environment parsing and points to the native binary when local preloading is inappropriate. Node's [argument scan](https://github.com/nodejs/node/blob/v24.11.0/src/node_dotenv.cc#L18-L59) and [startup path](https://github.com/nodejs/node/blob/v24.11.0/src/node.cc#L821-L844) explain the observed exit 9 for a missing example file.

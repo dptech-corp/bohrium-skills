@@ -540,6 +540,13 @@
       "old": "- `terminal send` writes bytes **as-is** — there is no implicit newline. Append\n  `\\n` to make a shell run the line; send raw control bytes (e.g. `$'\\x03'` for\n  Ctrl-C) to interrupt a running foreground command.",
       "new": "- `terminal send` converts literal `\\n`, `\\r` and `\\t` into newline, carriage return and tab after joining its arguments. There is no implicit trailing newline and no raw/disable-escape flag. Shell single quotes do not disable this CLI conversion: `'echo hi\\n'` sends a newline and can execute the line. Raw control bytes such as `$'\\x03'` still send Ctrl-C. When literal backslash text must survive unchanged, use a file transfer or an appropriate `exec` workflow instead of treating PTY send as a byte-preserving channel.",
       "reason": "Correct the published command contract after implementation audit."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "references/sandbox/exec.md",
+      "old": "## Environment files and safe summaries\n\n",
+      "new": "## Environment files and safe summaries\n\nWith the npm launcher on Node 24, Node also scans `--env-file` and loads the file locally before the Go CLI starts, including for `--help`. Node's dotenv rules are separate from the Go parsing rules below. Use the native `bohr` binary when the file must affect only the requested remote process rather than the local launcher environment.\n\n",
+      "reason": "Record the Node 24 npm-launcher env-file preloading observed by published-binary help checks; native Go parsing remains separate."
     }
   ]
 }

@@ -23,6 +23,14 @@ The CLI guides the user through browser authorization. On servers or in non-inte
 
 `bohr skill install` is included in the Bohrium CLI. No separate Skill installer is needed. Choose one method:
 
+### Gemini CLI extension
+
+```bash
+gemini extensions install https://github.com/dptech-corp/bohrium-skills
+```
+
+The extension provides the English Skills and `bohrium-setup`. Install and sign in to `bohr` separately as described above.
+
 ### Claude Code plugin
 
 Install the English Skills:

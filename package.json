@@ -1,6 +1,6 @@
 {
   "name": "bohrium-skills-cli",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "CLI installer and updater for the bundled Bohrium skills set.",
   "license": "MIT",
   "bin": {

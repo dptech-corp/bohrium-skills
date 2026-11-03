@@ -1,7 +1,7 @@
 ---
 name: bohrium-dataset
 compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
-description: "通过 bohr dataset 管理数据集，发现数据集和版本标识，创建并上传本地目录、断点续传、下载或删除数据集。"
+description: "通过 bohr dataset 管理数据集，发现数据集和版本标识，创建并上传本地目录、断点续传、下载、删除及管理共享授权。"
 ---
 
 <a id="bohrium-dataset"></a>
@@ -58,6 +58,21 @@ bohr dataset download <dataset_id> --version-id <version_id> --dest ./dataset.zi
 
 数据集操作当前免费，但 create 会上传用户数据，delete 属于破坏性操作。执行 `bohr dataset delete <dataset_id> --yes` 前核对具体 ID 和删除意图。免费不等于获得修改授权。
 
-当前 CLI 能列出已有版本，不能通过 dataset 子命令创建新版本、编辑元数据、管理权限或查询配额。
+当前 CLI 能列出已有版本并管理数据集授权；不能通过 dataset 子命令创建新版本、编辑元数据或查询配额。
+
+## 查询和变更数据集授权
+
+先确定数据集及目标用户或项目 ID，再读取当前授权名单。授予或修改角色需要数据集管理权限及明确写入意图；撤销权限属于破坏性操作，非交互环境需要 `--yes`。
+
+```bash
+bohr dataset permission <dataset_id> -o json
+bohr dataset share <dataset_id> --user <user_id> --role member -o json
+bohr dataset share <dataset_id> --project <project_id> --role manager -o json
+bohr dataset unshare <dataset_id> --user <user_id> --yes -o json
+```
+
+`--user` 和 `--project` 可重复，也可同时使用。`--role` 为默认 `member` 或 `manager`，后者还可管理授权。保留 `data.items[]` 中主体类型与 ID 的对应关系，用户 ID 不是项目 ID。创建者和数据集归属项目的权限受保护。
+
+CLI 会读取、合并、写回并重新读取整份授权名单，保留其他已有条目，但没有并发锁。遇到 `RESOURCE_CONFLICT` 时，查看返回的实际名单并再次执行 `permission`，再决定是否重新写入。实际名单符合预期授予或撤销结果才算完成，不能仅凭受理判断成功。
 
 完整命令、参数、续传不变量、本地文件影响和删除边界见 [命令参考](references/commands.md)。

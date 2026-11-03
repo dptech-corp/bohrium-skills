@@ -48,6 +48,14 @@ bohr file stat personal/results/run.log -o json
 bohr file list share/project-data --project-id <project_id> -o json
 ```
 
+`list` reads one page. For a complete listing, keep the same path, project and limit, and pass `data.pagination.next_token` to `--next-token` while `has_more=true`:
+
+```bash
+bohr file list personal/ --limit 50 --next-token "<next_token>" -o json
+```
+
+Stop when `has_more=false` or the requested item bound is met. Missing/repeated cursors with `has_more=true` mean incomplete coverage, not a reason to repeat the first page.
+
 Canonical write and transfer commands are:
 
 ```bash

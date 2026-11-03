@@ -89,7 +89,13 @@ bohr job describe --id <bohr_id> -o json
 
 存在归一化的 `phase` 和 `terminal` 字段时优先使用。停止请求已受理或任务仍处于非终态，均不代表操作完成。
 
-运行中的任务使用 `bohr job terminate`；排队中的任务使用 `bohr job kill`。CLI 默认在 `--confirm-timeout` 限制内确认终态。`--no-wait` 在受理后返回，必须将结果报告为“尚未确认”。
+运行中的任务使用 `bohr job terminate`；排队中的任务使用 `bohr job kill`。运行中停止默认在 `--confirm-timeout` 限制内确认终态；排队取消默认在受理后返回，`confirmed=false`、`terminal=false`。要确认排队取消，显式添加 `--wait`，例如：
+
+```bash
+bohr job kill <bohr_id> --wait --confirm-timeout 2m --yes -o json
+```
+
+`--no-wait` 对任何阶段都跳过确认。只受理取消或确认超时的结果均须报告为尚未确认，并保留原 Bohr ID。
 
 `kill` 和 `delete` 属于破坏性操作，需要具体目标授权及 `--yes`。`terminate` 是非破坏性停止请求，仍需明确的用户意图。日志和结果会写入本地文件，下载前确认 `--out`。
 

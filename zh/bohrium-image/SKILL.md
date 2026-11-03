@@ -35,12 +35,18 @@ bohr image build --mode local --dockerfile ./Dockerfile --context .   --name res
 创建镜像前先发现已有镜像：
 
 ```bash
-bohr image list --limit 50 -o json
-bohr image search "DeePMD" -o json
+bohr image list --page 1 --size 50 -o json
+bohr image search "lammps cuda" -o json
+bohr image search "DeePMD" --by-name -o json
 bohr image get <image_id> -o json
+bohr image packages <image_id> -o json
 ```
 
-`--limit` 范围为 `1-512`，默认 `512`；只需有限目录样本时使用更小的值。
+`list` 使用默认 `1` 的 `--page` 和默认 `100` 的 `--size`（接受 `1-512`）。服务端可能将每页限制为 100，按返回的 `data.pagination.page_size` 和 `has_more` 判断覆盖范围，不能假设请求数量已全部返回。`--limit` 是隐藏兼容写法，默认值相同。
+
+搜索默认按已安装软件能力做 AND 交集。明确软件要求时用可重复的 `--capability` 或 `--framework`；按仓库名称或标签找镜像时，用位置关键词加 `--by-name`，该模式不能与两种能力过滤混用。搜索翻页参数为 `--page` 和 `--page-size`。
+
+`packages` 读取按类别分组的已提取软件事实，查看返回的 `data.packages` 映射。传入目录镜像 ID 或 `--image <full_registry_reference>` 之一，不能同时使用。扫描事实可用于选型，但不能证明目标工作负载已运行成功。
 
 pull 将 Bohrium 镜像复制到本地 Docker daemon。先确认 Docker 已安装并运行，且镜像地址属于 Bohrium registry：
 

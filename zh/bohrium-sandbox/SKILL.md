@@ -44,7 +44,7 @@ bohr sandbox files read <sandbox_id> /tmp/result.json --destination ./result.jso
 
 > **代理开关。** 沙箱默认关闭出站 HTTP 代理。访问 PyPI `pypi.org`、GitHub、HuggingFace 等海外来源时，可按 [网络参考](references/sandbox/network.md) 配置当前环境批准的代理，完成后关闭。公开文档中的 `proxy.example.com` 是占位符，不能原样执行。镜像内的国内 Aliyun 源不受影响。
 
-> **默认行为陷阱：ML 或长期任务先读。** 根盘基础容量是 **30Gi**，额外容量在创建模板时申请，SKU 没有磁盘字段；每用户 running-sandbox quota 统计 Running+Hibernating，创建前先用 `bohr sandbox quota -o json`，达到上限时先释放名额。`exec` 没有执行截止时间，但网络故障和沙箱有效期仍会影响任务；二进制 `files read` 只有字节模式安全；`delete` 不可逆，已停止沙箱的文件不能读取；代理默认关闭；模板拒绝可变的 `:latest` 标签。操作前阅读 [陷阱与训练检查表](references/sandbox/pitfalls.md)。
+> **默认行为陷阱：ML 或长期任务先读。** 根盘基础容量是 **30Gi**，额外容量在创建模板时申请，SKU 没有磁盘字段；每用户 running-sandbox quota 统计 Running+Hibernating，创建前先用 `bohr sandbox quota -o json`，达到上限时先释放名额。`exec` 没有执行截止时间，但网络故障和沙箱有效期仍会影响任务；二进制下载使用 `files read --destination` 保留原始字节，stdout 字节模式输出 base64；`delete` 不可逆，已停止沙箱的文件不能读取；代理默认关闭；模板拒绝可变的 `:latest` 标签。操作前阅读 [陷阱与训练检查表](references/sandbox/pitfalls.md)。
 
 <a id="agent-rules"></a>
 
@@ -164,12 +164,6 @@ bohr sandbox create sdbxagent \
 | `terminal send <id> <pid> <input>` | 向 PTY 发送输入 |
 | `terminal kill <id> <pid>` | 终止 PTY |
 | `machine list`（`machine ls`） | 列出机器 SKU |
-| `image commit` | 沙箱快照；`--wait` 等待终态 |
-| `image build` | Dockerfile 构建；`--wait` 等待终态 |
-| `image build-log <id>` | 读取或跟随构建日志 |
-| `image dockerfile <id>` | 输出保存的 Dockerfile 原文，`-o json` 保留原始 base64 |
-| `image get <id>` | `bohr image get` 的兼容入口 |
-| `image list`（`image ls`） | `bohr image list` 的兼容入口 |
 | `template create` | 创建模板，`--visibility 1` 公开、`2` 私有，默认私有 |
 | `template list`（`template ls`） | 列出模板 |
 | `template update` | 更新模板镜像 |
@@ -183,6 +177,19 @@ bohr sandbox create sdbxagent \
 `process kill` 在 List 预查和延迟确认后发送 SIGKILL。`signal_accepted` 仅表示 SendSignal 已受理，`termination_confirmed` 始终为 false。发送信号后的传输失败属于结果未知，不能盲重试。List 和操作之间可能发生 PID 复用，数据面凭据能作用于该沙箱中任何可见 PID。使用 `ps --pid` 再次核对；PTY 使用 `terminal attach` 或 `terminal kill`，需要优雅退出的任务使用手工 TERM 流程。
 
 <a id="discovering-commands"></a>
+
+## 镜像命令
+
+旧 `bohr sandbox image` 入口已移除，使用独立镜像领域的完整路径：
+
+| 命令 | 用途 |
+|---|---|
+| `bohr image commit` | 为运行中沙箱制作快照，先做根盘检查 |
+| `bohr image build` | 从 Dockerfile 构建，选择本地或远端模式 |
+| `bohr image build-log <id>` | 读取或跟随构建日志 |
+| `bohr image dockerfile <id>` | 读取保存的 Dockerfile 原文 |
+| `bohr image get <id>` | 读取镜像目录记录 |
+| `bohr image list` | 读取一页镜像目录 |
 
 ## 发现命令
 

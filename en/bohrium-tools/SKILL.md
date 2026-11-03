@@ -60,8 +60,7 @@ spending is authorized.
 Runtime notices may show quota remaining or a billing channel while the actual
 charged amount may be absent. Do not infer a monetary charge from quota usage.
 
-Search may auto-generate weighted keywords from the query. Supply `--keywords`
-only as a JSON object when the user needs explicit weights. Treat ranking as
+Without `--keywords`, the CLI maps each positional argument to weight `1.0`; a quoted multi-word query is one keyword phrase. It does not ask the service to derive keyword weights. Supply `--keywords` as a JSON object for explicit weights. Treat ranking as
 retrieval order, not a quality or compatibility guarantee. Verify repository,
 license, installation, and platform requirements from returned sources before
 recommending execution.

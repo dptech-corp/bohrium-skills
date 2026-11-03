@@ -40,13 +40,18 @@ root filesystem on the server; do not assume mounted volumes are included.
 Discover an existing image before creating one:
 
 ```bash
-bohr image list --limit 50 -o json
-bohr image search "DeePMD" -o json
+bohr image list --page 1 --size 50 -o json
+bohr image search "lammps cuda" -o json
+bohr image search "DeePMD" --by-name -o json
 bohr image get <image_id> -o json
+bohr image packages <image_id> -o json
 ```
 
-`--limit` accepts `1-512` and defaults to `512`; use a smaller value when only
-a bounded catalog sample is needed.
+`list` uses `--page` (default `1`) and `--size` (default `100`, accepted `1-512`). The service can cap a page at 100; follow the returned `data.pagination.page_size` and `has_more` rather than assuming the requested size was honored. `--limit` is a hidden compatibility spelling with the same default.
+
+Search defaults to an AND intersection of installed software capabilities. Use repeatable `--capability`/`--framework` filters for explicit software requirements, or `--by-name` with a positional keyword for repository/tag name search; name mode cannot combine with those filters. Search pagination uses `--page` and `--page-size`.
+
+`packages` reads extracted software facts grouped in the returned `data.packages` map. Supply either a catalog image ID or `--image <full_registry_reference>`, never both. Scanner facts are evidence for selection, not proof that the workload has run successfully.
 
 Pull copies a Bohrium image into the local Docker daemon. Confirm Docker is
 installed/running and the address belongs to the Bohrium registry:

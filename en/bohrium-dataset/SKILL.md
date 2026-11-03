@@ -4,7 +4,7 @@ compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9
 description: >-
   Create, list, inspect, version, download, resume, or delete Bohrium datasets
   with `bohr dataset`. Use for 数据集, dataset uploads, dataset IDs/version IDs,
-  project-owned data, resumable transfers, or dataset archives. Use `bohr file`
+  project-owned data, dataset sharing/permissions, resumable transfers, or archives. Use `bohr file`
   for personal/share disk objects that are not dataset versions.
 ---
 
@@ -68,7 +68,22 @@ is destructive. Before `bohr dataset delete <dataset_id> --yes`, verify the
 exact dataset ID and destructive intent. Free does not imply mutation consent.
 
 The current CLI can list existing versions but cannot create a new version,
-edit metadata, manage permissions, or query quota through dataset subcommands.
+edit metadata, or query quota through dataset subcommands.
+
+## Inspect and change dataset access
+
+Resolve the dataset and intended user/project IDs, then read its current access list. Granting or changing roles requires dataset management rights and clear write intent; revoking access is destructive and requires `--yes` outside a terminal.
+
+```bash
+bohr dataset permission <dataset_id> -o json
+bohr dataset share <dataset_id> --user <user_id> --role member -o json
+bohr dataset share <dataset_id> --project <project_id> --role manager -o json
+bohr dataset unshare <dataset_id> --user <user_id> --yes -o json
+```
+
+`--user` and `--project` are repeatable and may be combined. `--role` is `member` (default) or `manager`; manager also controls access. Keep principal kind and ID together in `data.items[]`; a user ID is not a project ID. Creator access and the owning project's access are protected.
+
+The CLI reads, merges, writes and re-reads the whole permission list, preserving other entries; it has no concurrency lock. On `RESOURCE_CONFLICT`, inspect the returned actual list and run `permission` again before deciding on another write. Complete only after the actual list matches the intended grants/revocations; do not treat request acceptance as proof.
 
 Read [`references/commands.md`](references/commands.md) for every command,
 flag, resume invariant, local-file effect, and deletion boundary.

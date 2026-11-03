@@ -5,6 +5,9 @@
 | `bohr dataset list` | `--number/-n` default `50`, `--project-id`, `--title/-t` | Read catalog |
 | `bohr dataset get <id>` | dataset ID | Read dataset detail |
 | `bohr dataset versions <id>` | dataset ID | Read existing versions |
+| `bohr dataset permission <id>` | dataset ID | Read typed principals and roles |
+| `bohr dataset share <id>` | repeatable `--user` / `--project`; `--role` = `member` or `manager` (default `member`) | Grant/change access; management rights required |
+| `bohr dataset unshare <id>` | repeatable `--user` / `--project`; `--yes` | Destructive access revocation; dataset/version data remains |
 | `bohr dataset create` | see below | Create and upload |
 | `bohr dataset download <dataset-id>` | `--version-id`, `--dest`, `--force` | Write local ZIP/partial |
 | `bohr dataset delete <datasetId>...` | positional IDs or repeatable `--dataset-id` | Destructive remote delete |

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 科学数据库"
+  short_description: "检索领域记录、读取私有表结构与数据"
+  default_prompt: "请使用 $bohrium-database 通过 Bohrium CLI 完成相关任务。"

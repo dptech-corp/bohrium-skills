@@ -1,0 +1,58 @@
+name: check
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  cli-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install the published Bohrium CLI
+        run: |
+          version="$(node -p 'require("./cli-skills.lock.json").version')"
+          npm install --prefix "$RUNNER_TEMP/bohr-cli" --no-audit --no-fund "@dptech-corp/bohr-cli@$version"
+          echo "BOHR_SKILLS_TEST_BIN=$RUNNER_TEMP/bohr-cli/node_modules/.bin/bohr" >> "$GITHUB_ENV"
+      - name: Check CLI content, guides, and isolated installation
+        run: |
+          "$BOHR_SKILLS_TEST_BIN" --version
+          go test ./... -count=1
+          node --test scripts/check_release_version.test.mjs
+          python3 -m unittest discover -s scripts -p '*_test.py'
+          python3 scripts/check_native_skills.py --cli "$BOHR_SKILLS_TEST_BIN"
+      - name: Check real downstream consumer discovery
+        if: always()
+        run: |
+          npm install --prefix "$RUNNER_TEMP/skill-consumers" --no-audit --no-fund @openai/codex@0.164.0 @anthropic-ai/claude-code@2.1.309 @deepseek-ai/dsh-skill-filesystem@0.1.5-rc.2
+          go build -o "$RUNNER_TEMP/bohrium-skills-installer" ./cmd/bohrium-skills-cli
+          python3 scripts/check_skill_consumers.py --installer "$RUNNER_TEMP/bohrium-skills-installer" --tools-prefix "$RUNNER_TEMP/skill-consumers"
+      - name: Inspect installer npm package contents
+        run: |
+          npm pack --dry-run --ignore-scripts --json > "$RUNNER_TEMP/skills-pack.json"
+          python3 - "$RUNNER_TEMP/skills-pack.json" <<'PY'
+          import json, sys
+          files = {item['path'] for item in json.load(open(sys.argv[1]))[0]['files']}
+          assert 'scripts/postinstall.js' in files
+          assert not any(path.startswith('scripts/') and path != 'scripts/postinstall.js' for path in files), files
+          PY
+      - name: Vet
+        run: go vet ./...
+      - name: Check Go formatting
+        run: |
+          files="$(git ls-files -z '*.go' | xargs -0 gofmt -l)"
+          if [ -n "$files" ]; then
+            echo "$files"
+            exit 1
+          fi

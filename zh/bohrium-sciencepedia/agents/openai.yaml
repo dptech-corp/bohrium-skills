@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 科学百科"
+  short_description: "检索词条、课程和科学概念图谱"
+  default_prompt: "请使用 $bohrium-sciencepedia 通过 Bohrium CLI 完成相关任务。"

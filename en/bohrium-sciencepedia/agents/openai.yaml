@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium SciencePedia"
+  short_description: "Search and explain scientific concepts with SciencePedia"
+  default_prompt: "Use $bohrium-sciencepedia to find and explain a scientific concept through the Bohrium CLI."

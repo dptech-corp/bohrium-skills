@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 网页搜索"
+  short_description: "检索公开网页并保留可核查来源"
+  default_prompt: "请使用 $bohrium-web-search 通过 Bohrium CLI 完成相关任务。"

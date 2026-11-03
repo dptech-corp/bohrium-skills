@@ -64,6 +64,7 @@ type Result struct {
 	BackupCount    int      `json:"backup_count"`
 	TargetDirs     []string `json:"target_dirs"`
 	StatePath      string   `json:"state_path"`
+	MigratedLegacy []string `json:"migrated_legacy,omitempty"`
 }
 
 type sourceSkill struct {
@@ -130,8 +131,14 @@ func Sync(opts SyncOptions) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(opts.Targets) == 0 {
+	defaultTargets := len(opts.Targets) == 0
+	if defaultTargets {
 		opts.Targets = DefaultTargets(home)
+	}
+	if defaultTargets {
+		if err := checkLegacyRootAlias(home, filepath.Join(home, ".codex", "skills"), opts.Targets); err != nil {
+			return nil, err
+		}
 	}
 	configDir := opts.ConfigDir
 	if configDir == "" {
@@ -153,7 +160,12 @@ func Sync(opts SyncOptions) (*Result, error) {
 	if err != nil {
 		readable = false
 	}
-	localSkills := listLocalSkills(opts.Targets)
+	discoveryTargets := append([]string{}, opts.Targets...)
+	legacyCodexRoot := filepath.Join(home, ".codex", "skills")
+	if defaultTargets {
+		discoveryTargets = append(discoveryTargets, legacyCodexRoot)
+	}
+	localSkills := listLocalSkills(discoveryTargets)
 	plan := PlanSync(PlanInput{
 		Version:        opts.Version,
 		OfficialSkills: official,
@@ -176,15 +188,56 @@ func Sync(opts SyncOptions) (*Result, error) {
 	}
 
 	stamp := opts.Now().UTC().Format("20060102T150405Z")
+	backupRoot := filepath.Join(configDir, "backups")
+	if err := os.MkdirAll(backupRoot, 0o700); err != nil {
+		return result, err
+	}
+	backupDir, err := os.MkdirTemp(backupRoot, stamp+"-")
+	if err != nil {
+		return result, err
+	}
+	// Remove only an empty reservation. Existing recovery data is retained.
+	defer os.Remove(backupDir)
 	for targetIndex, target := range opts.Targets {
 		for _, skillName := range plan.ToUpdate {
 			source := sourceByName[skillName]
-			backedUp, err := syncOneSkill(opts.SourceFS, source, target, configDir, stamp, targetIndex)
+			backedUp, err := syncOneSkill(opts.SourceFS, source, target, backupDir, targetIndex)
+			if backedUp {
+				result.BackupCount++
+			}
 			if err != nil {
 				return result, err
 			}
+		}
+	}
+
+	if defaultTargets {
+		if err := checkLegacyRootAlias(home, legacyCodexRoot, opts.Targets); err != nil {
+			return result, err
+		}
+	}
+	legacyInfo, legacyRootErr := os.Stat(legacyCodexRoot)
+	if defaultTargets && legacyRootErr != nil && !errors.Is(legacyRootErr, os.ErrNotExist) {
+		return result, legacyRootErr
+	}
+	if defaultTargets && legacyRootErr == nil && legacyInfo.IsDir() {
+		for _, name := range plan.ToUpdate {
+			legacy := filepath.Join(legacyCodexRoot, name)
+			canonical := filepath.Join(home, ".agents", "skills", name)
+			legacyInfo, legacyErr := os.Stat(legacy)
+			canonicalInfo, canonicalErr := os.Stat(canonical)
+			if legacyErr == nil && canonicalErr == nil && os.SameFile(legacyInfo, canonicalInfo) {
+				continue // A user-managed alias already points at the canonical tree.
+			}
+			backedUp, retired, err := retireLegacySkill(filepath.Join(legacyCodexRoot, name), filepath.Join(backupDir, "legacy-codex", name))
 			if backedUp {
 				result.BackupCount++
+			}
+			if retired {
+				result.MigratedLegacy = append(result.MigratedLegacy, name)
+			}
+			if err != nil {
+				return result, err
 			}
 		}
 	}
@@ -209,7 +262,6 @@ func DefaultTargets(home string) []string {
 	return []string{
 		filepath.Join(home, ".agents", "skills"),
 		filepath.Join(home, ".claude", "skills"),
-		filepath.Join(home, ".codex", "skills"),
 	}
 }
 
@@ -287,7 +339,7 @@ func listSourceSkills(sourceFS fs.FS, lang string) ([]sourceSkill, error) {
 	return out, nil
 }
 
-func syncOneSkill(sourceFS fs.FS, source sourceSkill, targetRoot, configDir, stamp string, targetIndex int) (bool, error) {
+func syncOneSkill(sourceFS fs.FS, source sourceSkill, targetRoot, backupDir string, targetIndex int) (bool, error) {
 	if source.Name == "" || source.Path == "" {
 		return false, errors.New("empty source skill")
 	}
@@ -310,7 +362,7 @@ func syncOneSkill(sourceFS fs.FS, source sourceSkill, targetRoot, configDir, sta
 	}
 
 	backupMade := false
-	backupPath := filepath.Join(configDir, "backups", stamp, fmt.Sprintf("target-%d", targetIndex), source.Name)
+	backupPath := filepath.Join(backupDir, fmt.Sprintf("target-%d", targetIndex), source.Name)
 	if _, err := os.Stat(dest); err == nil {
 		if err := copyDir(dest, backupPath); err != nil {
 			return false, err
@@ -320,17 +372,109 @@ func syncOneSkill(sourceFS fs.FS, source sourceSkill, targetRoot, configDir, sta
 		return false, err
 	}
 
-	if err := os.RemoveAll(dest); err != nil {
-		return backupMade, err
-	}
-	if err := os.Rename(tmp, dest); err != nil {
-		if backupMade {
-			_ = copyDir(backupPath, dest)
-		}
+	if err := publishSkillDirectory(tmp, dest, os.Rename); err != nil {
 		return backupMade, err
 	}
 	tmpActive = false
 	return backupMade, nil
+}
+
+// A root alias may be a user's shared source tree, not a disposable old copy.
+// Only an alias of the canonical agents root is automatically safe to retain.
+func checkLegacyRootAlias(home, legacy string, targets []string) error {
+	info, err := os.Stat(legacy)
+	if errors.Is(err, os.ErrNotExist) {
+		if link, linkErr := os.Lstat(legacy); linkErr == nil && link.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("legacy Codex root %s is an unresolved user alias; preserve it and resolve the configured roots before retrying", legacy)
+		}
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return nil
+	}
+	canonical := filepath.Join(home, ".agents", "skills")
+	if canonicalInfo, err := os.Stat(canonical); err == nil && os.SameFile(info, canonicalInfo) {
+		return nil
+	}
+	for _, target := range targets {
+		if targetInfo, err := os.Stat(target); err == nil && os.SameFile(info, targetInfo) {
+			return fmt.Errorf("legacy Codex root %s aliases active target %s; preserved without retirement; unify the configured roots before retrying", legacy, target)
+		}
+	}
+	resolvedHome, err := filepath.EvalSymlinks(home)
+	if err != nil {
+		return err
+	}
+	resolvedLegacy, err := filepath.EvalSymlinks(legacy)
+	if err != nil {
+		return err
+	}
+	if resolvedLegacy != filepath.Join(resolvedHome, ".codex", "skills") {
+		return fmt.Errorf("legacy Codex root %s aliases a separate shared tree; preserved without retirement; resolve the configured roots before retrying", legacy)
+	}
+	return nil
+}
+
+// retireLegacySkill removes only selected official names after their complete
+// canonical copies were installed. The copied backup retains user additions.
+func retireLegacySkill(dest, backupPath string) (backedUp, retired bool, err error) {
+	info, err := os.Stat(dest)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, false, nil
+	} else if err != nil {
+		return false, false, err
+	}
+	if !info.IsDir() {
+		return false, false, nil // Not a legacy directory bundle; preserve it.
+	}
+	if err := copyDir(dest, backupPath); err != nil {
+		return false, false, err
+	}
+	holder, err := os.MkdirTemp(filepath.Dir(dest), "."+filepath.Base(dest)+".retired-")
+	if err != nil {
+		return true, false, err
+	}
+	defer os.Remove(holder)
+	previous := filepath.Join(holder, "previous")
+	if err := os.Rename(dest, previous); err != nil {
+		return true, false, fmt.Errorf("retire duplicate legacy Codex Skill %s (backup at %s): %w", dest, backupPath, err)
+	}
+	if err := os.RemoveAll(holder); err != nil {
+		return true, true, fmt.Errorf("legacy Codex Skill retired and backed up at %s; cleanup failed at %s: %w", backupPath, previous, err)
+	}
+	return true, true, nil
+}
+
+// publishSkillDirectory never recursively deletes the active installation.
+// The rename seam allows filesystem fault tests without changing Sync's API.
+func publishSkillDirectory(staged, dest string, rename func(string, string) error) error {
+	if _, err := os.Lstat(dest); errors.Is(err, os.ErrNotExist) {
+		return rename(staged, dest)
+	} else if err != nil {
+		return err
+	}
+	holder, err := os.MkdirTemp(filepath.Dir(dest), "."+filepath.Base(dest)+".previous-")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(holder) // Only removes an empty holder, never recovery files.
+	previous := filepath.Join(holder, "previous")
+	if err := rename(dest, previous); err != nil {
+		return fmt.Errorf("preserve previous skill %s: %w", dest, err)
+	}
+	if publishErr := rename(staged, dest); publishErr != nil {
+		if rollbackErr := rename(previous, dest); rollbackErr != nil {
+			return fmt.Errorf("skill publication and rollback failed; previous installation retained at %s: %w", previous, errors.Join(publishErr, rollbackErr))
+		}
+		return fmt.Errorf("skill publication failed; previous installation restored: %w", publishErr)
+	}
+	if err := os.RemoveAll(holder); err != nil {
+		return fmt.Errorf("new skill is active at %s; previous-copy cleanup failed at %s: %w", dest, previous, err)
+	}
+	return nil
 }
 
 func copySkillFromFS(sourceFS fs.FS, sourcePath, destRoot string) error {
@@ -369,6 +513,18 @@ func copySkillFromFS(sourceFS fs.FS, sourcePath, destRoot string) error {
 }
 
 func copyDir(src, dest string) error {
+	resolved, err := filepath.EvalSymlinks(src)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("backup source %s is not a directory", src)
+	}
+	src = resolved
 	if err := os.RemoveAll(dest); err != nil {
 		return err
 	}
@@ -410,7 +566,12 @@ func listLocalSkills(targets []string) []string {
 			continue
 		}
 		for _, entry := range entries {
-			if entry.IsDir() {
+			isDir := entry.IsDir()
+			if entry.Type()&os.ModeSymlink != 0 {
+				info, err := os.Stat(filepath.Join(target, entry.Name()))
+				isDir = err == nil && info.IsDir()
+			}
+			if isDir {
 				seen[entry.Name()] = true
 			}
 		}

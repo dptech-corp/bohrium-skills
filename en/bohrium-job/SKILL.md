@@ -1,388 +1,123 @@
 ---
 name: bohrium-job
-description: "Manage Bohrium compute jobs via bohr CLI or open.bohrium.com API. Use when: user asks about submitting/listing/killing/deleting compute jobs on Bohrium, checking job logs, or monitoring job status. NOT for: node management, image management, or project management."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Submit, list, inspect, stop, delete, download, or group Bohrium compute jobs
+  with `bohr job` and `bohr job-group`. Use for BOHR_ID, machine/image selection,
+  scientific batch computation, job status, logs/results, queued cancellation,
+  running termination, or job-group lifecycle.
 ---
 
-# SKILL: Bohrium Job Management
+# Bohrium Job
 
-## Overview
+## Choose the task
 
-Manage compute jobs on the Bohrium platform. **Prefer `bohr` CLI**; fall back to the API only for advanced operations not supported by the CLI.
+| Goal | Ordered route |
+|---|---|
+| Run a batch calculation | Resolve resources/cost → submit → track Bohr ID → verify terminal outcome → download |
+| Recover an existing calculation | Describe/log the original Bohr ID; a new submit starts another job |
+| Stop work | Resolve phase → terminate running / kill queued → confirm terminal state |
 
-## Authentication
+## Workflow: submit a calculation and retrieve its outputs
 
-BOHR_ACCESS_KEY and PROJECT_ID are read from the OpenClaw config `~/.openclaw/openclaw.json`:
-
-```json
-"bohrium-job": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": {
-    "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY",
-    "PROJECT_ID": "YOUR_PROJECT_ID"
-  }
-}
-```
-
-OpenClaw automatically injects `env` variables into the runtime. The skill only requires `BOHR_ACCESS_KEY`; helper scripts handle any legacy CLI compatibility internally.
-
-When calling the `bohr` CLI directly, map `BOHR_ACCESS_KEY` to the legacy variable that the CLI reads:
-
-```bash
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
-```
-
-## Prerequisites: Install bohr CLI
-
-```bash
-# macOS
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_mac_curl.sh)"
-
-# Linux
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_linux_curl.sh)"
-
-# Verify
-source ~/.bashrc  # or source ~/.zshrc
-export PATH="$HOME/.bohrium:$PATH"
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
-bohr version
-```
-
-> The installer auto-configures `OPENAPI_HOST` and `TIEFBLUE_HOST`. If they don't take effect, set manually:
-> ```bash
-> export OPENAPI_HOST=https://open.bohrium.com
-> export TIEFBLUE_HOST=https://tiefblue.dp.tech
-> ```
-
----
-
-## Submit Jobs
-
-### Method 1: CLI Arguments (Recommended)
-
-```bash
-bohr job submit \
-  -m "registry.dp.tech/dptech/deepmd-kit:3.1.1" \
-  -t "c4_m15_1 * NVIDIA T4" \
-  -c "python train.py" \
-  -p ./input_dir/ \
-  --project_id YOUR_PROJECT_ID \
-  -n "my-job-name"
-```
-
-**Parameters:**
-
-| Parameter | Short | Required | Description |
-|-----------|-------|----------|-------------|
-| `--image_address` | `-m` | Yes | Full image URL (e.g. `registry.dp.tech/dptech/xxx:tag`) |
-| `--machine_type` | `-t` | Yes | Machine spec |
-| `--command` | `-c` | Yes | Command to execute |
-| `--input_directory` | `-p` | No | Input file directory (default `./`) |
-| `--project_id` | | Yes | Project ID |
-| `--job_name` | `-n` | No | Job name |
-| `--log_file` | `-l` | No | Log file path |
-| `--result_path` | `-r` | No | Auto-download results path (only `/data`, `/personal`, `/share`) |
-| `--job_group_id` | `-g` | No | Job group ID (create with `bohr job_group create`) |
-| `--max_run_time` | | No | Max run time (minutes); auto-terminates on timeout |
-| `--max_reschedule_times` | | No | Auto-retry count after abnormal interruption |
-| `--nnode` | | No | Parallel compute node count (default 1) |
-
-### Method 2: Config File (For Complex Scenarios)
-
-```bash
-bohr job submit -i job.json -p ./input_dir/
-```
-
-**Full job.json example:**
+1. Resolve the project, image, machine and authorized resource budget using the preflight below. Confirm input and result paths before submit.
+2. For an output-producing run, put the collection contract in `job.json` (these are config keys, not public flags):
 
 ```json
 {
-  "job_name": "my-training-job",
-  "command": "python train.py --epochs 10",
-  "log_file": "train.log",
-  "backward_files": ["model.pt", "results/"],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c4_m15_1 * NVIDIA T4",
-  "image_address": "registry.dp.tech/dptech/deepmd-kit:3.1.1",
-  "job_type": "container",
-  "disk_size": 50,
-  "dataset_path": ["/bohr/my-dataset/v1"],
-  "result_path": "/personal",
-  "max_reschedule_times": 2,
-  "max_run_time": 120,
-  "nnode": 1
+  "out_files": ["result.csv"],
+  "log_files": ["run.log"]
 }
 ```
 
-**job.json field reference:**
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `job_name` | Job name | `"DeePMD-kit test"` |
-| `command` | Command; use **relative paths** | `"cd se_e2_a && dp train input.json"` |
-| `log_file` | Log viewable in real-time | `"train.log"` |
-| `backward_files` | Files to download; empty = keep all | `["model.pt", "results/"]` |
-| `project_id` | Project ID | `YOUR_PROJECT_ID` |
-| `machine_type` | Machine spec | `"c4_m15_1 * NVIDIA T4"` |
-| `image_address` | Full image URL (not just name) | `"registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6"` |
-| `job_type` | Must be `"container"` | `"container"` |
-| `dataset_path` | Mounted dataset paths | `["/bohr/my-dataset/v1"]` |
-| `result_path` | Auto-collect results to data disk | `"/personal"` |
-| `max_run_time` | Max run time (minutes) | `120` |
-| `max_reschedule_times` | Retry count on interruption | `2` |
-| `disk_size` | Disk size (GB) | `50` |
-
-### Important Notes
-
-| Topic | Details |
-|-------|---------|
-| **Working directory** | Bohrium auto-`cd`s into the extracted input dir; use **relative paths** |
-| **Do NOT** `cd /root/input` | Actual path is `/home/input_lbg-{userId}-{jobId}/`, unpredictable |
-| **image_address format** | Must be full URL `registry.dp.tech/dptech/xxx:tag` |
-| **machine_type format** | CPU: `c2_m4_cpu`; GPU: `c4_m15_1 * NVIDIA T4` |
-| **WAF blocking** | If command triggers Alibaba Cloud WAF (405), write to script, use `bash run.sh` |
-| **Large files in -p** | No output? Check for large hidden files causing slow compression |
-| **Auto-retry** | `max_reschedule_times` retries on interruption (full re-run) |
-| **job_type** | Must be `"container"`; VM jobs deprecated since 2023 |
-
----
-
-## View Jobs
+The selected image must provide Python; `./input/run.py` must write `result.csv` in the job working directory. Submit once after filling the resolved resource values:
 
 ```bash
-bohr job list -n 10              # Recent 10
-bohr job list -n 5 --json        # JSON output
-bohr job list -r                 # Running only
-bohr job list -f                 # Failed only
-bohr job list -i                 # Finished only
-bohr job list -p                 # Pending only
-bohr job list -j YOUR_JOB_GROUP_ID        # Jobs in a specific group
+bohr job submit -i ./job.json --project-id <project_id> --job_name analysis \
+  --image_address <image> --machine_type <machine> \
+  --command "python run.py > run.log 2>&1" --input_directory ./input \
+  --result_path /personal/results --yes -o json
 ```
 
-### Job Details
+`--result_path` is remote storage; download's `--out` is local. Capture identifiers from the actual successful response:
+
+| Returned value | Next consumer |
+|---|---|
+| `data.bohrJobId` | `job describe --id`, `job log`, `job download`, lifecycle commands |
+| `data.bohrJobGroupId` | Later `job submit --job_group_id` |
+| `data.jobGroupId` | Immediate job-group lifecycle operations |
+| `data.jobId` | Internal platform ID; retain as evidence rather than substituting it for Bohr ID |
 
 ```bash
-bohr job describe -j YOUR_JOB_ID --json
-bohr job describe -j YOUR_JOB_ID -l        # Full details
+bohr job describe --id <bohr_job_id> -o json
+bohr job download <bohr_job_id> --out ./results -o json
 ```
 
-### View/Download Logs
+3. Replace `<bohr_job_id>` with `data.bohrJobId` from submission (or the selected public Bohr ID from listing). For a single describe, inspect `data.phase`, `data.terminal`, and `data.exitCode`. Download the requested results after `phase=completed` and exit code `0`; a queued/running or accepted response is not completion.
+4. For a failed terminal job, inspect `errorInfo` and logs for that same Bohr ID before deciding whether new input/compute is needed. Preserve failed-run diagnostics; another submit is another resource action.
+5. Complete with the terminal outcome and actual local artifacts from download's `data.files[].path`/`bytes`. A completed job with failed or missing download is compute success with an unfinished delivery. `JOB_FILES_EMPTY` means no downloadable artifacts were found; check the collection paths and preserve the run evidence. A monitoring timeout retains the Bohr ID for resumption; it does not stop the job.
+
+## Resolve resources and cost before submission
+
+Job compute is balance-only and priced by machine type and actual usage. Inspect
+the catalog and available machines before authorizing a submission:
 
 ```bash
-bohr job log -j YOUR_JOB_ID                # View
-bohr job log -j YOUR_JOB_ID -o ./logs/     # Download
+bohr billing pricing --resource job -o json
+bohr machine list --scene job --choose-type all -o json
 ```
 
-### Download Results
+Confirm the project, machine, image, command, node count, runtime limits, local
+input directory, remote result path, and spending authorization. Then submit:
 
 ```bash
-bohr job download -j YOUR_JOB_ID -o ./results/
-bohr job_group download -j YOUR_JOB_GROUP_ID -o ./results/
+bohr job submit --project-id <project_id> --job_name <name> \
+  --image_address <image> --machine_type <machine> --command <command> \
+  --input_directory ./input --result_path /personal/results --yes -o json
 ```
 
----
+Omit `--input_directory` for empty input. A config file can supply complex
+settings, but explicit flags and file values must not conflict.
 
-## Manage Jobs
+## Track jobs by Bohr ID
+
+The `BOHR_ID` column from `bohr job list` is the public job identifier for
+describe, terminate, kill, delete, download, and log. The CLI resolves the
+internal platform job ID automatically:
 
 ```bash
-bohr job terminate YOUR_JOB_ID             # Terminate (keep results -> completed)
-bohr job kill YOUR_JOB_ID                  # Force stop (discard results, keep record)
-bohr job delete YOUR_JOB_ID                # Delete (remove everything)
-bohr job terminate YOUR_JOB_ID YOUR_JOB_ID_2    # Batch terminate
-bohr job delete YOUR_JOB_ID YOUR_JOB_ID_2       # Batch delete
+bohr job list --running -o json
+bohr job describe --id <bohr_id> -o json
 ```
 
-**terminate vs kill vs delete:**
+Use normalized `phase` and `terminal` fields when present. An accepted stop
+request or a non-terminal status is not completion.
 
-| Action | Result files | Record | Status |
-|--------|-------------|--------|--------|
-| `terminate` | Kept | Kept | -> completed |
-| `kill` | Discarded | Kept | -> failed |
-| `delete` | Removed | Removed | Disappears |
+Running jobs use `bohr job terminate`; queued jobs use `bohr job kill`. By
+default the CLI confirms a terminal phase, bounded by `--confirm-timeout`.
+`--no-wait` returns after acceptance and must be reported as unconfirmed.
 
----
+`kill` and `delete` are destructive and require exact-target authorization and
+`--yes`. `terminate` is a non-destructive stop request but still requires clear
+user intent. Logs and results write local files; confirm `--out` before download.
 
-## Job Group Management
+## Job groups
 
-```bash
-bohr job_group list -n 10 --json
-bohr job_group list -s 2026-01-01 -e 2026-03-14     # Date range
-bohr job_group create -n "experiment-v1" -p YOUR_PROJECT_ID
-bohr job_group terminate YOUR_JOB_GROUP_ID
-bohr job_group delete YOUR_JOB_GROUP_ID
-bohr job_group download -j YOUR_JOB_GROUP_ID -o ./results/
-```
+`bohr job submit` can return both `jobGroupId` and `bohrJobGroupId`:
 
-> **Note**: `job_group_id` from `bohr job_group create` is for CLI only (`bohr job submit -g <id>`). It differs from the web UI job group ID.
+- `--job_group_id` on a later submit consumes `bohrJobGroupId`.
+- Group terminate/delete should prefer `jobGroupId` immediately after submit;
+  `bohrJobGroupId` becomes resolvable only after jobs are indexed.
 
----
+Use canonical `bohr job-group` commands for group create/list/terminate/delete
+and result download. Group termination and deletion are destructive.
 
-## Scientific Software Examples
+Read [`references/commands.md`](references/commands.md) for every current
+command, flag, ID type, pricing boundary, status, and stopping rule.
 
-### DeePMD-kit Training
+## Resource payment boundary
 
-```json
-{
-  "job_name": "DeePMD-kit test",
-  "command": "cd se_e2_a && dp train input.json > tmp_log 2>&1 && dp freeze -o graph.pb",
-  "log_file": "se_e2_a/tmp_log",
-  "backward_files": ["se_e2_a/lcurve.out", "se_e2_a/graph.pb"],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c4_m15_1 * NVIDIA T4",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6"
-}
-```
-
-### LAMMPS Molecular Dynamics
-
-```json
-{
-  "job_name": "lammps_tutorial",
-  "command": "mpirun -n 32 lmp_mpi -i in.shear > log",
-  "log_file": "log",
-  "backward_files": [],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c32_m64_cpu",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/lammps:29Sep2021"
-}
-```
-
-### ABACUS First-Principles
-
-```json
-{
-  "job_name": "ABACUS test",
-  "command": "OMP_NUM_THREADS=1 mpirun -np 8 abacus > log",
-  "log_file": "log",
-  "backward_files": [],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c16_m32_cpu",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/abacus:3.0.0"
-}
-```
-
-### GROMACS Molecular Simulation
-
-```json
-{
-  "job_name": "bohrium-gmx-example",
-  "command": "bash rungmx.sh > log",
-  "log_file": "log",
-  "backward_files": [],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c16_m62_1 * NVIDIA T4",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/gromacs:2022.2"
-}
-```
-
-### CP2K Quantum Chemistry
-
-```json
-{
-  "job_name": "CP2K_Si_opt",
-  "command": "source /cp2k-7.1/tools/toolchain/install/setup && mpirun -n 16 --allow-run-as-root --oversubscribe cp2k.popt -i input.inp -o output.log",
-  "log_file": "output.log",
-  "backward_files": ["output.log"],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c16_m32_cpu",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/cp2k:7.1"
-}
-```
-
----
-
-## Container / VM Image Mapping
-
-| Software | VM Image | Container Image |
-|----------|----------|----------------|
-| DeePMD-kit | LBG_DeePMD-kit_2.1.4_v1 | `registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6` |
-| DPGEN | LBG_DP-GEN_0.10.6_v3 | `registry.dp.tech/dptech/dpgen:0.10.6` |
-| LAMMPS | LBG_LAMMPS_stable_23Jun2022_v1 | `registry.dp.tech/dptech/lammps:29Sep2021` |
-| GROMACS | gromacs-dp:2020.2 | `registry.dp.tech/dptech/gromacs:2022.2` |
-| Quantum-Espresso | LBG_Quantum-Espresso_7.1 | `registry.dp.tech/dptech/quantum-espresso:7.1` |
-| CP2K | - | `registry.dp.tech/dptech/cp2k:7.1` |
-| ABACUS | - | `registry.dp.tech/dptech/abacus:3.0.0` |
-| Base (CPU) | LBG_Common_v1/v2 | `registry.dp.tech/dptech/ubuntu:20.04-py3.10` |
-| Base (GPU) | LBG_base_image_ubun20.04 | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-cuda11.6` |
-| Intel OneAPI | LBG_oneapi_2021_v1 | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022-cuda11.6` |
-
----
-
-## API Supplement (CLI Unsupported Operations)
-
-```python
-import os, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-BASE = "https://open.bohrium.com/openapi/v1"
-HEADERS = {"Authorization": f"Bearer {AK}"}
-
-# Filter by status (0=pending, 1=running, 2=finished, 3=scheduling, -1=failed)
-r = requests.get(f"{BASE}/job/list", headers=HEADERS,
-    params={"page": 1, "pageSize": 10, "status": 1})
-
-# Job config (includes file access token)
-r = requests.get(f"{BASE}/job/view/conf/{job_id}", headers=HEADERS)
-# Returns: {state, baseDir, tempDir, token, host, expires}
-
-# View snapshot
-r = requests.get(f"{BASE}/job/{job_id}/snapshot", headers=HEADERS)
-
-# Rename job
-requests.post(f"{BASE}/job/{job_id}/modify",
-    headers={**HEADERS, "Content-Type": "application/json"},
-    json={"name": "new-name"})
-
-# Rename job group
-requests.post(f"{BASE}/job_group/{job_group_id}/modify",
-    headers={**HEADERS, "Content-Type": "application/json"},
-    json={"name": "new-group-name"})
-```
-
----
-
-## Job Status Codes
-
-| status | Meaning | CLI Display |
-|--------|---------|-------------|
-| 0 | Pending | Pending |
-| 1 | Running | Running |
-| 2 | Finished | Finished |
-| 3 | Scheduling | Scheduling |
-| -1 | Failed | Failed |
-
-## Common Machine Types
-
-| machine_type | Description |
-|--------------|-------------|
-| `c2_m4_cpu` | 2 cores, 4G RAM |
-| `c4_m8_cpu` | 4 cores, 8G RAM |
-| `c8_m32_cpu` | 8 cores, 32G RAM |
-| `c16_m32_cpu` | 16 cores, 32G RAM |
-| `c32_m64_cpu` | 32 cores, 64G RAM |
-| `c4_m15_1 * NVIDIA T4` | 4 cores, 15G + 1x T4 |
-| `c16_m62_1 * NVIDIA T4` | 16 cores, 62G + 1x T4 |
-| `c8_m32_1 * NVIDIA V100` | 8 cores, 32G + 1x V100 |
-| `c32_m128_4 * NVIDIA V100` | 32 cores, 128G + 4x V100 |
-
-## Troubleshooting
-
-| Problem | Cause | Solution |
-|---------|-------|----------|
-| `cd /root/input: No such file` | Absolute path in command | Use **relative paths** |
-| `unsupported protocol scheme ""` | Missing env vars | Set `OPENAPI_HOST` and `TIEFBLUE_HOST` |
-| `(200, '/account/login', None)` | Old pip lbg | Use Go CLI (`~/.bohrium/bohr`) |
-| `AccessKey Invalid` | Direct `bohr` calls are missing the legacy variable name | Run `export ACCESS_KEY="$BOHR_ACCESS_KEY"` and retry |
-| WAF 405 | Shell keywords in command | Write to script, use `bash run.sh` |
-| `Permission error` | Wrong user | Verify BOHR_ACCESS_KEY |
-| `jobId` vs `jobGroupId` | Different concepts | CLI uses `jobId` for kill/terminate/delete |
-| No output after submit | Large hidden files in `-p` dir | Check dir size |
-| Variable performance | ~30% algorithm variance | Normal |
-| Long scheduling | Image caching or resource shortage | Wait or contact support |
-| System disk full | Output to system disk | Write to working directory |
-| Abnormal interruption | Machine reclaim (rare) | Set `max_reschedule_times` |
+Resource actions marked balance-only keep their existing balance billing. The
+global `--payment-source` option does not enable photon billing for these
+resources; explicitly selecting `photon` on a balance-only action is rejected
+before execution. Use the existing resource pricing/authorization workflow.

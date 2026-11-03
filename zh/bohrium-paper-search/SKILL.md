@@ -1,232 +1,74 @@
 ---
 name: bohrium-paper-search
-description: "Search academic papers and patents via open.bohrium.com RAG engine. Use when: user asks about searching/finding academic papers, literature review, patent search, or technical survey using keywords or natural language questions. NOT for: knowledge base management, file management, or dataset operations."
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr paper search 和 bohr paper patent 检索论文或专利。用于文献发现、参考文献整理、专利检索、日期/JCR/数据库筛选和技术调研；人物画像使用 Scholar，论断与推理溯源使用 LKM。"
 ---
 
-# SKILL: Bohrium 论文与专利搜索
+<a id="bohrium-paper-and-patent-search"></a>
 
-## 概述
+# Bohrium 论文与专利检索
 
-通过 Bohrium RAG 搜索引擎进行学术论文和专利检索。基于关键词匹配 + 语义理解，支持自然语言问题描述、时间范围限定、JCR 分区/数据库筛选和 AI 重排序。
+## 按任务选择路径
 
-**支持的搜索类型：**
+| 目标 | 路径 |
+|---|---|
+| 整理限定范围的文献表 | 论文搜索 → 筛选记录类型 → 去重 → 证据表 |
+| 找专利证据 | 专利搜索 → 查看实际返回的公开信息、申请人和法律元数据 |
+| 读取版面或科学推理 | 选中文件或 PDF URL → PDF Parser；受支持的论文标识 → LKM |
 
-| 类型 | 端点 | 语料库 |
-|------|------|--------|
-| 英文文献 | `/openapi/v2/paper/rag/pass/keyword` | 英文学术论文（题目、摘要、语料、图片） |
-| 专利 | `/openapi/v2/paper/rag/pass/patent` | 全球专利（含分类号、专利权人筛选） |
+## 工作流：检索、筛选，再交接证据
 
-**适用场景：** 文献综述、技术调研、方法对比、趋势分析。
-
-**无 CLI 支持** — 全部通过 HTTP API 操作。
-
-## 认证配置
-
-BOHR_ACCESS_KEY 从 OpenClaw 配置文件 `~/.openclaw/openclaw.json` 中读取：
-
-```json
-"bohrium-paper-search": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": {
-    "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY"
-  }
-}
-```
-
-OpenClaw 会自动将 `env.BOHR_ACCESS_KEY` 注入到运行环境。
-
-## 通用代码模板
-
-```python
-import os, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-BASE = "https://open.bohrium.com"
-PAPER_BASE = f"{BASE}/openapi/v2/paper"
-HEADERS_JSON = {"Authorization": f"Bearer {AK}", "Content-Type": "application/json"}
-```
-
----
-
-## 英文文献搜索
-
-### 基本搜索
-
-```python
-r = requests.post(f"{PAPER_BASE}/rag/pass/keyword", headers=HEADERS_JSON, json={
-    "words": ["deep learning", "molecular dynamics"],
-    "question": "How to use deep learning for molecular dynamics simulation?",
-    "startTime": "",
-    "endTime": "",
-    "pageSize": 10
-})
-data = r.json()
-print(f"Found {len(data['data'])} papers")
-for p in data["data"]:
-    print(f"  [{p['doi']}] {p['enName']}")
-    print(f"    Journal: {p.get('publicationEnName', '')}, IF: {p.get('impactFactor', 0)}")
-    print(f"    Date: {p['coverDateStart']}, Citations: {p['citationNums']}")
-```
-
-### 高级搜索（时间范围 + JCR 分区 + 数据库 + type）
-
-```python
-r = requests.post(f"{PAPER_BASE}/rag/pass/keyword", headers=HEADERS_JSON, json={
-    "words": ["deep learning", "protein structure"],
-    "question": "deep learning protein structure prediction",
-    "type": 1,                          # 搜索版本：0=普通, 1=加强版
-    "startTime": "2024-01-01",          # 起始日期 YYYY-MM-DD
-    "endTime": "2025-01-01",            # 截止日期
-    "jcrZones": ["Q1", "Q2"],           # JCR 分区筛选
-    "includeDbs": ["SCI"],              # 数据库筛选
-    "areaIds": [],                      # 领域 ID（可选）
-    "publicationIds": [],               # 期刊 ID（可选）
-    "pageSize": 20
-})
-```
-
-### 请求参数
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `words` | string[] | 是 | 关键词列表，建议 3-8 个英文术语 |
-| `question` | string | 是 | 研究问题的自然语言描述 |
-| `type` | integer | 否 | keyword 接口搜索版本，仅支持 0=普通、1=加强版 |
-| `startTime` | string | 否 | 起始日期 `YYYY-MM-DD`，空字符串表示不限 |
-| `endTime` | string | 否 | 截止日期 `YYYY-MM-DD` |
-| `jcrZones` | string[] | 否 | JCR 分区筛选，如 `["Q1","Q2"]` |
-| `includeDbs` | string[] | 否 | 数据库筛选，如 `["SCI","SSCI"]` |
-| `areaIds` | string[] | 否 | 领域 ID |
-| `publicationIds` | number[] | 否 | 期刊 ID |
-| `subjectIds` | number[] | 否 | 主题 ID |
-| `pageSize` | integer | 是 | 返回数量，1-100，默认 50 |
-
-### 返回字段
-
-| 字段 | 说明 |
-|------|------|
-| `code` | 0=成功 |
-| `message` | 状态消息 |
-| `data[]` | 论文列表 |
-| `data[].doi` | DOI |
-| `data[].paperId` | 论文 ID |
-| `data[].enName` | 英文标题 |
-| `data[].zhName` | 中文标题 |
-| `data[].enAbstract` | 英文摘要 |
-| `data[].zhAbstract` | 中文摘要 |
-| `data[].authors` | 作者列表 |
-| `data[].coverDateStart` | 发表日期 |
-| `data[].publicationEnName` | 期刊英文名 |
-| `data[].publicationCover` | 期刊封面 URL |
-| `data[].impactFactor` | 影响因子 |
-| `data[].citationNums` | 被引次数 |
-| `data[].popularity` | 热度 |
-| `data[].pieces` | 相关语料片段 |
-| `data[].figures[]` | 相关图片（含 `figureId`, `imageUrl`, `enExplain`） |
-| `data[].languageType` | 0=英文 |
-
----
-
-## 专利搜索
-
-```python
-r = requests.post(f"{PAPER_BASE}/rag/pass/patent", headers=HEADERS_JSON, json={
-    "type": 1,
-    "words": ["neural network"],
-    "question": "neural network",
-    "pageSize": 5
-})
-data = r.json()
-for p in data["data"]:
-    print(f"  Patent: {p}")
-```
-
-**注意**: keyword 搜索的 `type` 仅支持 0（普通）、1（加强版）；patent 搜索的 `type` 支持 0、1、2。
-
-### 专利请求参数
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `type` | integer | 否 | 专利搜索版本，仅支持 0、1、2 |
-| `words` | string[] | 是 | 关键词列表 |
-| `question` | string | 是 | 检索问题或关键词描述 |
-| `pageSize` | integer | 是 | 每页数量 |
-
-### 专利返回字段
-
-返回结构是 dict；专利结果列表在 `data[]`，顶层通常包含 `code`、`data`、`message`、`trace_id` 等字段。
-
----
-
-## 搜索技巧
-
-### 关键词选择
-
-```python
-# GOOD: 3-8 个专业术语
-words = ["molecular dynamics", "force field", "deep potential", "neural network"]
-
-# BAD: 太笼统
-words = ["science", "research"]
-```
-
-### 结合 question 提升相关性
-
-`words` 用于精确关键词匹配，`question` 用于语义理解。两者结合效果最佳，英文文献 keyword 搜索和专利搜索都适用：
-
-```python
-{
-    "words": ["GNN", "molecular property", "prediction"],
-    "question": "How do graph neural networks predict molecular properties?",
-    "pageSize": 20
-}
-```
-
-### 限定高质量期刊
-
-```python
-{
-    "words": ["..."],
-    "question": "...",
-    "jcrZones": ["Q1"],          # 只看 Q1 期刊
-    "includeDbs": ["SCI"],       # 只看 SCI 收录
-    "startTime": "2023-01-01",   # 近两年
-    "endTime": "2025-12-31"
-}
-```
-
----
-
-## curl 示例
+1. 明确问题、纳入条件、年份、记录数量，以及获授权的付费调用次数和档位。执行前遵循下方价格和支付规则。
+2. 显式限制范围，先检索一次：
 
 ```bash
-AK="$BOHR_ACCESS_KEY"
-BASE="https://open.bohrium.com"
-PAPER_BASE="$BASE/openapi/v2/paper"
-
-# 英文文献搜索
-curl -s -X POST "$PAPER_BASE/rag/pass/keyword" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $AK" \
-  -d '{"words":["deep learning","protein"],"question":"deep learning protein structure prediction","type":1,"startTime":"2024-01-01","endTime":"2025-01-01","jcrZones":["Q1"],"pageSize":5}'
-
-# 专利搜索
-curl -s -X POST "$PAPER_BASE/rag/pass/patent" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $AK" \
-  -d '{"type":1,"words":["neural network"],"question":"neural network","pageSize":5}'
+bohr paper search "solid electrolyte interphase lithium metal"   --year-from 2020 --year-to 2026 --page 1 --size 10 --type 0 --yes -o json
 ```
 
----
+3. 先查看实际记录，不假定固定结果数组。保留已有的标题、作者、年份、来源、DOI 或出版标识、摘要、记录类型和 URL。优先按 DOI 或标识去重；回退到标题和年份时标明不确定性。
+4. 筛选相关性和来源类型，说明排除项和缺失证据。交付带出处的表格及检索条件。这是限定范围的检索，不代表穷尽覆盖；适用下方正式版本的翻页限制。
+5. 提取全文前，先确定可访问的实际 PDF 文件或直接 PDF URL，再交给 PDF Parser。需要 LKM 推理时，按其参考使用 DOI、标题或已确认的数字论文 ID。搜索记录 ID 和落地页 URL 不会自动变成解析 token 或 LKM ID。
+6. 无结果时只在预算内调整查询。付费调用被拒绝或结果未知时，先查看错误和计费证据；换档位、支付来源或重复调用都属于新的支出决策。
 
-## 常见问题
+先选择记录类型：
 
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| `code` 非 0 | 请求参数错误 | 检查 `message` 字段获取错误详情 |
-| 401 Unauthorized | 鉴权无效 | 确认 BOHR_ACCESS_KEY 正确 |
-| 结果不相关 | 关键词太泛或 question 不够具体 | 使用 3-8 个专业术语 + 清晰的 question |
-| 返回为空 | 时间范围太窄或筛选条件过严 | 放宽 startTime/endTime 或去掉 jcrZones 限制 |
-| 响应含多行 JSON | 正常行为（streaming） | 取第一行解析即可，或用 `json.loads(response.text.split('\n')[0])` |
-| 专利 pieces 为空 | 部分专利无语料索引 | 正常现象，可通过 `abstracts` 获取摘要内容 |
+- `bohr paper search <query>` 返回学术论文记录。
+- `bohr paper patent <query>` 返回专利记录。
+
+两者都是固定单次价格的操作。付费前核对具体档位：
+
+```bash
+bohr billing pricing --resource paper -o json
+bohr billing pricing --resource patent -o json
+```
+
+论文普通版（`--type 0`）每次 **0.05 CNY**，加强版（`--type 1`）每次 **0.10 CNY**。专利普通版、加强版、专业版分别为 **0.10 CNY**、**0.30 CNY**、**0.50 CNY**，对应 `--type 0/1/2`。非交互调用只有在费用已获授权后才能添加 `--yes`。
+
+使用明确的专业检索词，从满足任务所需的最低合适档位开始：
+
+```bash
+bohr paper search "solid electrolyte interphase lithium metal" \
+  --year-from 2020 --year-to 2026 --jcr "Q1,Q2" --type 0 --yes -o json
+
+bohr paper patent "solid-state battery dendrite suppression" \
+  --type 0 --yes -o json
+```
+
+已发布的 bohr 2.9.19 虽然接受 `--page`，但论文和专利请求都不下发页码。递增页码只是使用相同查询参数再次检索，不是读取下一页，每次调用仍可能收费。保持 `--page 1`，用 `--size` 限定所需证据量；只能在已授权预算内调整检索词或筛选条件，并明确报告该版本不支持翻页，不能声称扩大了页码覆盖。
+
+题名、作者、DOI/出版标识、日期、期刊、摘要和专利字段均以返回记录为准。论文检索可能混合多种出版类型，需检查每条记录的类型和元数据，不能把每个结果都当作期刊论文。检索排序不等于证据质量。
+
+学者画像使用 `bohr scholar search`；论断链和论文图谱使用 `bohr lkm`；综合解答使用 Mentor 或文献综述工作流。
+
+计费 notice 可能只提供渠道或额度信息，而没有实际扣费金额。只报告响应明确给出的金额。
+
+<a id="choose-the-payment-source"></a>
+
+## 选择支付来源
+
+不指定 `--payment-source` 时，CLI 不发送支付渠道偏好：网关优先使用光子，仅在明确光子不足时回退余额。获取费用授权时向用户说明此策略。限定单一来源时，使用 `--payment-source photon` 或 `--payment-source balance`。显式选择 photon 时，光子不足即停止；显式选择 balance 时直接使用余额。现有免费额度和豁免仍然适用。
+
+显式指定的渠道返回 `BILLING_INSUFFICIENT` 且 `retryable: false` 时，报告拒绝结果，等待用户为该渠道充值，或授权原命令使用另一渠道。显式选择余额但余额不足时，也会停止而不扣光子；只有获准后才能改用 `--payment-source photon`。`--yes` 确认执行，不代表授权切换支付来源。只有余额渠道已获授权时才使用 `--payment-source balance`。多步流程的后续计费调用应保持已选渠道；上次 CLI 调用的参数不会保存。`bohr api` 遵循同一规则。
+
+
+全部过滤条件、档位、价格、结果量限制和不支持翻页的边界见 [命令参考](references/commands.md)。

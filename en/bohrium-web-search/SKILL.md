@@ -1,99 +1,63 @@
 ---
 name: bohrium-web-search
-description: "Web search via Bohrium's open-platform proxy (backed by searchapi.io). Use when: user needs to search the open web for research papers, documentation, tutorials, news, or general information. NOT for: academic database search (use bohrium-paper-search / bohrium-scholar-search), Bohrium knowledge base search."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Search the open web with `bohr search` for documentation, tutorials, news,
+  websites, and general research information. Use for Bohrium web search or
+  网页搜索. Use `bohr paper search`, `bohr scholar search`, or `bohr kb search`
+  when the requested records belong to those structured Bohrium collections.
 ---
 
-# SKILL: Bohrium Web Search
+# Bohrium Web Search
 
-## Overview
+## Choose the task
 
-Proxy to searchapi.io via `open.bohrium.com`'s `/v2/search/web` endpoint. Issues keyword queries against the **open internet** and returns a list of hits with title, URL, and snippet.
+| Goal | Route |
+|---|---|
+| Find a website, official manual, or recent public information | Narrow web query → select primary sources → verify their pages |
+| Find papers, people, or private documents | Route to Paper, Scholar, or Knowledge Base before searching |
+| Answer a factual question | Use returned links as leads; verify the evidence before writing the answer |
 
-**Use when**: locating a software's homepage, a blog post, a quick fact check, a news article.
+## Workflow: find documentation and deliver a sourced answer
 
-**Don't use for**:
-
-- Academic paper search → use `bohrium-paper-search` or `bohrium-scholar-search`
-- Bohrium knowledge-base search → use `bohrium-knowledge-base`
-
-**No CLI support** — HTTP API only. The `bohr` CLI ships a built-in `BohrWebSearch` tool that calls this endpoint automatically.
-
-## Auth configuration
-
-BOHR_ACCESS_KEY comes from the OpenClaw config file `~/.openclaw/openclaw.json`:
-
-```json
-"bohrium-web-search": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": {
-    "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY"
-  }
-}
-```
-
-OpenClaw injects `env.BOHR_ACCESS_KEY` into the runtime.
-
-## API
-
-```
-GET https://open.bohrium.com/openapi/v2/search/web?q=QUERY&num=N
-Header: Authorization: Bearer $BOHR_ACCESS_KEY
-```
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `q` | string | required | Search query |
-| `num` | int | `3` | Number of results, range `1-10` |
-
-## Python example
-
-```python
-import os, requests
-
-AK = os.environ["BOHR_ACCESS_KEY"]
-BASE = "https://open.bohrium.com/openapi/v2/search/web"
-
-r = requests.get(BASE,
-    headers={"Authorization": f"Bearer {AK}"},
-    params={"q": "graphene synthesis CVD", "num": 5})
-data = r.json()
-
-for i, hit in enumerate(data.get("organic_results", []), 1):
-    print(f"[{i}] {hit['title']}")
-    print(f"    {hit['link']}")
-    print(f"    {hit.get('snippet', '')[:200]}")
-    print()
-```
-
-**Response fields:**
-
-| Field | Description |
-|-------|-------------|
-| `organic_results` | Array of main results |
-| `organic_results[].title` | Page title |
-| `organic_results[].link` | Page URL |
-| `organic_results[].snippet` | Excerpt |
-| `organic_results[].position` | Result rank |
-
-## curl example
+1. Identify the product/topic, version if relevant, and what fact the user needs. Include those terms in the query; `--limit` bounds returned leads, not verification depth.
+2. Run a small discovery query:
 
 ```bash
-AK="$BOHR_ACCESS_KEY"
-curl -s "https://open.bohrium.com/openapi/v2/search/web?q=deepmd-kit&num=5" \
-  -H "Authorization: Bearer $AK" | jq '.organic_results[] | {title, link, snippet}'
+bohr search "official VASP documentation PAW method" --limit 5 -o json
 ```
 
-## Troubleshooting
+3. Inspect the actual returned container/URL fields (for example `data.organic_results[].link` or `data.results[].url`); carry each selected title, URL and snippet together. Open the selected official page using an available page reader/browser. This Skill's command searches; it does not fetch full pages.
+4. Verify that the page supports the requested claim and matches the version/date. Deliver the supported answer with its source URL. If only snippets are available, label the finding as a search lead and state the missing verification.
+5. An empty result calls for one more precise query when useful; an authentication/network error calls for fixing that error. Neither supports a claim that the subject does not exist. Stop when the requested fact is supported, rather than accumulating unrelated hits.
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| `No organic_results` | No matches for the query | Rephrase; English queries generally return more hits than Chinese |
-| `401` | Bad BOHR_ACCESS_KEY | Use `Authorization: Bearer $BOHR_ACCESS_KEY` |
-| `num` ignored | Out of range | Must be `1-10`; values outside the range may be clamped or ignored |
+Use the free, read-only web-search command for general public web information:
 
-## Pairs well with
+```bash
+bohr search "official VASP documentation PAW method" --limit 5 -o json
+bohr search "official VASP documentation PAW method" --limit 5 -o json -q '.data.organic_results'
+```
 
-- **web-search** to find a software's homepage → then **bohrium-job** to submit a job using it
-- **web-search** to sanity-check a method name → then **bohrium-paper-search** to locate the original paper
-- **web-search** for recent arxiv preprint URLs → hand off to **bohrium-pdf-parser**
+The query is one positional string. `--limit` accepts `1-10` and defaults to
+`5`. Prefer a narrow query containing the subject and desired source type.
+
+Route structured academic or private content elsewhere:
+
+- `bohr paper search` for paper records and bibliographic filters.
+- `bohr scholar search` for researchers and profiles.
+- `bohr kb search <kb_id> <query>` for content already stored in one of the
+  user's Bohrium knowledge bases.
+
+Search results are discovery leads, not automatically authoritative facts.
+Preserve titles, URLs, snippets, and source names from the response; open or
+verify primary sources when accuracy matters. The current CLI exposes no
+recency, site/domain, locale, or provider-specific filter.
+
+Raw provider data may include base64 favicons, internal search URLs, related
+queries, and other extras. JSON is forwarded without normalizing result containers:
+inspect the actual response first (`organic_results[].link` and `results[].url`
+are supported upstream shapes). The shown `-q '.data.organic_results'` projection
+applies only when that field exists; an empty projection is not proof of no hits.
+
+Read [`references/commands.md`](references/commands.md) for the exact command,
+limit validation, output guidance, and routing boundary.

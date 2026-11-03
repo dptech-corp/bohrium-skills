@@ -19,7 +19,7 @@ bin/bohrium-skills-cli.exe
 .npm-cache/
 
 # Local reference checkout used for implementation notes
-references/
+/references/
 
 # Skill demo/orchestration output (timestamped generated files)
 academic_promo_*.md

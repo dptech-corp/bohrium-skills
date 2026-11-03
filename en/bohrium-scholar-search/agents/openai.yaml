@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Scholar Search"
+  short_description: "Find researchers and inspect Bohrium scholar profiles"
+  default_prompt: "Use $bohrium-scholar-search to find and verify a scholar through the Bohrium CLI."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 知识库"
+  short_description: "知识库检索、文档上传和文献管理"
+  default_prompt: "请使用 $bohrium-knowledge-base 通过 Bohrium CLI 完成相关任务。"

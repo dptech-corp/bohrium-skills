@@ -1,244 +1,74 @@
 ---
 name: bohrium-dataset
-description: "Manage Bohrium datasets via bohr CLI or open.bohrium.com API. Use when: user asks about creating/listing/deleting datasets on Bohrium, uploading data, or managing dataset versions. NOT for: file management, job submission, or node management."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Create, list, inspect, version, download, resume, or delete Bohrium datasets
+  with `bohr dataset`. Use for 数据集, dataset uploads, dataset IDs/version IDs,
+  project-owned data, resumable transfers, or dataset archives. Use `bohr file`
+  for personal/share disk objects that are not dataset versions.
 ---
 
-# SKILL: Bohrium Dataset Management
+# Bohrium Dataset
 
-## Overview
+## Choose the task
 
-Manage datasets on the Bohrium platform. **Prefer `bohr` CLI**; fall back to the API for version management, quota checks, etc.
+| Goal | Route |
+|---|---|
+| Publish local data | Confirm owner/source → create/upload → inspect dataset and version |
+| Obtain reproducible input | Resolve dataset ID → select a ready version → download and verify ZIP |
+| Recover interrupted transfer | Same upload identity + `--resume`, or same download version/destination |
 
-`bohr dataset create` advantages over web upload: **no size limit** and **resumable upload**.
+## Workflow: publish and retrieve an exact dataset version
 
-Datasets solve common pain points:
-- Repeated file upload on every job submission -> mount datasets to avoid re-upload
-- Large input files with slow upload -> datasets support resumable upload
-- Need to share data with collaborators -> datasets support project-level sharing
-
-## Authentication
-
-```json
-"bohrium-dataset": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": { "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY" }
-}
-```
-
-Only configure `BOHR_ACCESS_KEY` for this skill. Helper scripts handle any legacy CLI compatibility internally.
-
-When calling the `bohr` CLI directly, map `BOHR_ACCESS_KEY` to the legacy variable that the CLI reads:
+1. Confirm project, local tree and intended dataset identity, then use the create command below. Preserve `data.dataset_id`; retain `data.version_id` when returned. Do not confuse dataset ID with version ID.
+2. Inspect the dataset and its existing versions:
 
 ```bash
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
+bohr dataset get <dataset_id> -o json
+bohr dataset versions <dataset_id> -o json
+bohr dataset download <dataset_id> --version-id <version_id> --dest ./dataset.zip -o json
 ```
 
-## Prerequisites: Install bohr CLI
+3. Select `<version_id>` from the chosen `data.items[].id` in `versions`. The downloadable version must be `status=committed`, `packStatus=completed`, with a usable `downloadUri`. An accepted upload or a version still packaging is not a ready input archive; recheck that version within the waiting budget.
+4. Download that exact version, and complete only when the receipt has `data.verified=true`; report its `path`/`bytes` and the dataset/version binding. Preserve the ZIP as an archive until the downstream task explicitly needs extraction.
+5. On interrupted upload, retain all four identity inputs and add `--resume` as described below. On download interruption, retain the version and destination so `.part` recovery remains bound to the same data. `--force` discards recovery state and needs overwrite intent; changing version is not a safe continuation of the original partial download.
+
+Use read commands to resolve stable IDs before transferring or deleting data:
 
 ```bash
-# macOS
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_mac_curl.sh)"
-# Linux
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_linux_curl.sh)"
-source ~/.bashrc && export PATH="$HOME/.bohrium:$PATH"
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
-export OPENAPI_HOST=https://open.bohrium.com
+bohr dataset list --number 50 --title "training" -o json
+bohr dataset get <dataset_id> -o json
+bohr dataset versions <dataset_id> -o json
 ```
 
----
-
-## List Datasets
+Creating a dataset uploads the selected local path to Bohrium. Confirm the
+exact path, dataset identity, and owning project before the write:
 
 ```bash
-bohr dataset list                       # Default: recent 50
-bohr dataset list -n 10 --json          # JSON, top 10
-bohr dataset list -p YOUR_PROJECT_ID                # Filter by project ID
-bohr dataset list -t "my-dataset"       # Search by title
+bohr dataset create --name training-set --path training-set \
+  --pid <project_id> --lp ./data --upload-concurrency 5 -o json
 ```
 
-**JSON fields:** `id`, `title`, `path` (mount path like `/bohr/my-dataset/v1`), `projectName`, `creatorName`, `updateTime`, `desc`
+Interrupted uploads can resume only when `--name`, `--path`, `--pid`, and
+`--lp` remain unchanged. Add `--resume` to reuse compatible cached state.
+`--upload-concurrency` is globally bounded to `1-16`; higher values increase
+simultaneous HTTP requests, not the number of dataset versions.
 
----
-
-## Create Dataset (Upload Data)
+Downloads automatically use a stable `.part` file for resume:
 
 ```bash
-bohr dataset create \
-  -n "my-dataset" \
-  -p "my-dataset" \
-  -i YOUR_PROJECT_ID \
-  -l "/path/to/local/data"
+bohr dataset download <dataset_id> --version-id <version_id> --dest ./dataset.zip
 ```
 
-| Parameter | Short | Required | Description |
-|-----------|-------|----------|-------------|
-| `--name` | `-n` | Yes | Dataset name |
-| `--path` | `-p` | Yes | Dataset path identifier (alphanumeric) |
-| `--pid` | `-i` | Yes | Project ID |
-| `--lp` | `-l` | Yes | Local data directory path |
-| `--comment` | `-m` | No | Description |
+Use `--force` only when the user wants to discard an existing destination and
+partial artifact and start over.
 
-> **Resumable upload**: If interrupted (network issues, etc.), re-run the same command and enter `y` to resume from breakpoint.
+Dataset operations are currently free, but create uploads user data and delete
+is destructive. Before `bohr dataset delete <dataset_id> --yes`, verify the
+exact dataset ID and destructive intent. Free does not imply mutation consent.
 
----
+The current CLI can list existing versions but cannot create a new version,
+edit metadata, manage permissions, or query quota through dataset subcommands.
 
-## Using Datasets
-
-### Mount in Compute Jobs
-
-Add `dataset_path` to `job.json`:
-
-```json
-{
-  "job_name": "DeePMD-kit test",
-  "command": "cd se_e2_a && dp train input.json",
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c4_m15_1 * NVIDIA T4",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6",
-  "dataset_path": ["/bohr/my-dataset/v1", "/bohr/another-dataset/v2"]
-}
-```
-
-> `dataset_path` and `-p` (input directory) can be used simultaneously.
-
-### Mount on Dev Nodes
-
-Select datasets when creating a container node; access via path (e.g. `/bohr/my-dataset/v1`).
-
-- Adds 2-4s boot delay (regardless of count)
-- Use `df -a | grep bohr` to view mount points
-
-### Use in Notebooks
-
-1. Expand side panel in Notebook editor -> Select existing datasets
-2. Hover dataset name -> click copy to get path
-3. Use in code: `cd /bohr/testdataset-6xwt/v1/`
-
-> Datasets must be added **before** connecting to the node. Adding afterward requires a node restart.
-
----
-
-## Version Management
-
-Datasets support multi-version management. Files within a version are immutable once created.
-
-### Create New Version
-
-Via Web UI: Dataset details -> "New Version" -> system imports latest version files -> add/remove files -> Create.
-
-Via API:
-```python
-requests.post(f"{BASE}/{dataset_id}/version", headers=HEADERS_JSON,
-    json={"versionDesc": "v2 update"})
-```
-
-Preparation time depends on file size and count.
-
----
-
-## Delete Datasets
-
-```bash
-bohr dataset delete YOUR_DATASET_ID              # Single
-bohr dataset delete YOUR_DATASET_ID YOUR_DATASET_ID_2       # Batch
-```
-
-> Deleted versions cannot be recovered.
-
----
-
-## Permission Model
-
-| Permission | Description | Default holders |
-|-----------|-------------|-----------------|
-| Manageable | Edit, delete, create versions | Dataset creator, project creator/admin |
-| Usable | View and use | All project members |
-
-> "Usable" permission can be granted to other projects or users via editing.
-
----
-
-## API Supplement (CLI Unsupported)
-
-```python
-import os, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-BASE = "https://open.bohrium.com/openapi/v2/ds"
-HEADERS = {"Authorization": f"Bearer {AK}"}
-HEADERS_JSON = {**HEADERS, "Content-Type": "application/json"}
-
-# Dataset details
-r = requests.get(f"{BASE}/{dataset_id}", headers=HEADERS)
-
-# Version list
-r = requests.get(f"{BASE}/{dataset_id}/version", headers=HEADERS)
-# Returns: [{version, totalCount, totalSize, downloadUri, datasetPath, ...}]
-
-# Specific version
-r = requests.get(f"{BASE}/{dataset_id}/version/{version_id}", headers=HEADERS)
-
-# Create via API
-r = requests.post(f"{BASE}/", headers=HEADERS_JSON, json={
-    "title": "my-dataset", "projectId": YOUR_PROJECT_ID,
-    "identifier": "my-dataset",  # Required, unique ID
-})
-# Returns: {datasetId, tiefbluePath, requestId}
-# Then upload files via tiefblue, then call commit
-
-# Commit
-requests.put(f"{BASE}/commit", headers=HEADERS_JSON,
-    json={"datasetId": dataset_id})
-
-# New version
-requests.post(f"{BASE}/{dataset_id}/version", headers=HEADERS_JSON,
-    json={"versionDesc": "v2 update"})
-
-# Update info
-requests.put(f"{BASE}/{dataset_id}", headers=HEADERS_JSON,
-    json={"title": "new-title"})
-
-# Delete version
-requests.delete(f"{BASE}/{dataset_id}/version/{version_id}", headers=HEADERS)
-
-# Check quota
-r = requests.get(f"{BASE}/quota/check", headers=HEADERS,
-    params={"projectId": YOUR_PROJECT_ID})
-# Returns: {result: true, limit: 30, used: 5}
-
-# Upload token (for tiefblue)
-r = requests.get(f"{BASE}/input/token", headers=HEADERS,
-    params={"projectId": YOUR_PROJECT_ID, "path": "/bohr/my-dataset"})
-
-# Permissions
-r = requests.get(f"{BASE}/{dataset_id}/permission", headers=HEADERS)
-
-# Associated projects
-r = requests.get(f"{BASE}/project", headers=HEADERS)
-```
-
-**Important**: The dataset list API path is `GET /v2/ds/` (**with trailing slash**), not `/v2/ds/list` (`/list` gets caught by the `/:id` route).
-
----
-
-## Status Codes
-
-| status | Meaning |
-|--------|---------|
-| 1 | Creating / uncommitted |
-| 2 | Committed / available |
-
-## Troubleshooting
-
-| Problem | Cause | Solution |
-|---------|-------|----------|
-| `AccessKey Invalid` | Direct `bohr` calls are missing the legacy variable name | Run `export ACCESS_KEY="$BOHR_ACCESS_KEY"` and retry |
-| Upload interrupted | Network instability | Re-run same command, enter `y` to resume |
-| Dataset path not found | Wrong mount path | Check `path` with `bohr dataset list --json` |
-| Job can't access dataset | Not in job.json | Add `"dataset_path": ["/bohr/xxx/v1"]` |
-| `/ds/list` returns error | Route caught by `/:id` | Use `GET /ds/` (root path) |
-| Missing `identifier` error | Required field | Add `identifier` (alphanumeric) |
-| Version preparing (~5 min) | Files being copied | Large files take time; contact support on failure |
-| Dataset unavailable in Notebook | Added after node connection | Restart node to take effect |
+Read [`references/commands.md`](references/commands.md) for every command,
+flag, resume invariant, local-file effect, and deletion boundary.

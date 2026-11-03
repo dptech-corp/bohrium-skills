@@ -1,213 +1,90 @@
 ---
 name: bohrium-file
-description: "Manage Bohrium personal/share disk files via open.bohrium.com OpenAPI. Use when: user asks to list, inspect, download, upload, create directories, move, copy, delete, decompress, or search files in Bohrium personal disk or project share disk. NOT for: dataset management, compute jobs, dev nodes, images, knowledge bases, or appJob workspace browsing unless an appJob id is explicitly provided."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Manage files and directories on Bohrium personal or project-share disks with
+  `bohr file`: list, stat, download, upload, mkdir, copy, move, or delete. Use
+  for personal/, share/, 云盘文件, project shared storage, recursive prefixes,
+  and local/remote file transfer. Use Dataset commands for versioned datasets.
 ---
 
-# SKILL: Bohrium File Management
+# Bohrium File
 
-## Overview
+## Choose the task
 
-Manage Bohrium files through the new `open-platform` gateway:
+| Goal | Route |
+|---|---|
+| Send/receive one disk object | Resolve space/project/path → transfer → stat/receipt verification |
+| Copy or download a directory tree | List the narrow prefix → explicit recursive operation → inspect per-file outcomes |
+| Recover an upload | Preserve local file and remote target → inspect uncertain outcome → resume compatible session |
 
-```text
-https://open.bohrium.com/openapi
-```
+## Workflow: transfer a project input and verify the round trip
 
-Normal file disks:
-
-| Disk | Path prefix | Required IDs |
-|---|---|---|
-| Personal disk | `personal/` | `userId`; `projectId=0` usually works for the current user's personal disk |
-| Project share disk | `share/` | Real `projectId` + `userId`; requires project permission |
-
-Use **v1 file APIs** for normal personal/share file management. Do not use `/v2/file/iterate` or `/v2/file/download` for personal/share disks.
-
-## Authentication
-
-Read the AccessKey from `BOHR_ACCESS_KEY`. Never print or hardcode it:
+1. Confirm the local source and destination, project ownership and intended remote key. A share disk path requires the same positive project ID on every call.
 
 ```bash
-AK="${BOHR_ACCESS_KEY:?missing BOHR_ACCESS_KEY}"
-BASE="${BOHR_OPENAPI_BASE:-https://open.bohrium.com/openapi}"
+bohr file upload ./input.dat share/experiment/input.dat --project-id <project_id> -o json
+bohr file stat share/experiment/input.dat --project-id <project_id> -o json
+bohr file download share/experiment/input.dat --project-id <project_id> --dest ./retrieved-input.dat -o json
 ```
 
-Use the same Bearer style as the other Bohrium skills in this repository:
+2. Upload success returns `data.remote_path`, `space`, `project_id` and `size`. Carry the returned full `remote_path` and project scope into stat/download; a basename alone loses the storage route. Check remote metadata against the intended object and expected size.
+3. Download success reports `data.dest_path`/`size`. Complete with the verified remote target and actual local destination; for critical content, compare bytes/checksum locally when that verification is available. Size equality alone is not content integrity.
+4. For recursive downloads, inspect `downloaded`, `skipped` and `failed`; `files` is not the count newly transferred. Report partial delivery and failed paths rather than treating a populated directory as complete.
+5. On `UPLOAD_NOT_CONFIRMED`, inspect the same remote object and the returned recovery hint before another write. Apply the multipart resume rules below for compatible interrupted uploads. A failed download preserves the previous complete destination; retrying is a read plus an authorized local-file write.
+
+Use canonical path prefixes:
+
+- `personal/<path>` addresses the current user's personal disk and requires
+  `--project-id 0` (the default).
+- `share/<path>` addresses a project share disk and requires a positive
+  `--project-id` for the owning project.
+
+Resolve a target before changing it:
 
 ```bash
--H "Authorization: Bearer $AK"
+bohr file list personal/ --limit 50 -o json
+bohr file stat personal/results/run.log -o json
+bohr file list share/project-data --project-id <project_id> -o json
 ```
 
-The `accessKey: $AK` header is also compatible, but new examples should use `Authorization: Bearer $BOHR_ACCESS_KEY`. Do not send `BOHR_ACCESS_KEY: $AK` as an HTTP header to the public gateway; although open-platform supports that alias in code, the production ingress may filter headers containing underscores. Use `BOHR_ACCESS_KEY` only as the local environment variable name.
-
-Resolve the current identity first:
+Canonical write and transfer commands are:
 
 ```bash
-curl -sS "$BASE/v1/ak/get" -H "Authorization: Bearer $AK"
+bohr file upload ./input.dat personal/jobs/input.dat -o json
+bohr file upload ./large.tar personal/jobs/large.tar --upload-concurrency 8 -o json
+bohr file upload ./large.tar personal/jobs/large.tar --upload-concurrency 8 --resume -o json
+bohr file download personal/jobs/output.dat --dest ./output.dat
+bohr file download personal/jobs/results/ --recursive --dest ./results
+bohr file mkdir share/new-run --project-id <project_id> -o json
+bohr file copy personal/a personal/b -o json
+bohr file move share/old share/new --project-id <project_id> -o json
 ```
 
-Use `data.user_id` as `userId` in later calls.
+Confirm the exact local source/destination and remote path before uploads or
+downloads. Copy and move affect a single object unless `--recursive` is
+explicitly selected for a prefix.
 
-## Route Selection
+Uploads at or above 50 MiB use 25 MiB multipart chunks. Set a bounded global
+request limit with `--upload-concurrency` (1–16, default 5). After an
+interruption, keep the same local file and remote path and add `--resume`; the
+CLI reuses completed chunks. Progress goes to stderr, so machine stdout remains
+one result envelope. The File append contract keeps one object's chunks ordered,
+so its observed peak is 1 even when the configured upper bound is higher.
+Smaller binary uploads restart from byte zero.
 
-| Task | Route | Notes |
-|---|---|---|
-| Current user | `GET /v1/ak/get` | Returns `user_id` and `orgId` |
-| List directory | `POST /v1/file/iterate` | Uses `prefix`, not `path` |
-| Stat file/dir | `GET /v1/file/stat/{path}` | Query `projectId`, `userId` |
-| Metadata | `GET /v1/file/meta/{path}` | Query `projectId`, `userId` |
-| Download | `GET /v1/file/download/{path}` | May redirect; use `curl -L` |
-| Make directory | `POST /v1/file/mkdir` | Body: `path`, `projectId`, `userId` |
-| Move/rename | `POST /v1/file/move` / `/mover` | Body: `sourcePath`, `destinationPath` |
-| Copy | `POST /v1/file/copy` / `/copyr` | Body: `sourcePath`, `destinationPath` |
-| Delete | `DELETE /v1/file/delete/{path}` / `/deleter/{path}` | Query `projectId`, `userId` |
-| Decompress | `POST /v1/file/decompress` | Body: `filePath`, `dirName` |
-| Upload credential | `GET /v2/file/upload/binary` | Recommended; returns storage host + upload credential |
-| Direct upload | `POST /v1/file/upload/binary` | Legacy one-call flow; returns 307, so curl must use `-L` |
-
-`/v2/file/iterate` and `/v2/file/download` are appJob-workspace APIs only:
-
-```json
-{"pathType": "appJob", "pathKey": 12345}
-```
-
-Here `pathKey` is the appJob id. The current upstream does not support `pathType: "personal"` or `"share"` and returns `path type not found`.
-
-## List Files
-
-List the personal disk:
+Delete is destructive. List/stat the exact target and use recursive deletion
+only for an intentionally selected prefix:
 
 ```bash
-curl -sS -X POST "$BASE/v1/file/iterate" \
-  -H "Authorization: Bearer $AK" \
-  -H "Content-Type: application/json" \
-  -d '{"prefix":"personal/","projectId":0,"userId":27071,"dirSpace":"personal","maxObjects":100,"nextToken":""}'
+bohr file delete share/obsolete --project-id <project_id> --recursive --yes -o json
 ```
 
-List a project share disk:
+All current File commands are free, but writes, local overwrites, moves, and
+deletion still require user intent. The disk space comes only from the
+`personal/` or `share/` path prefix.
 
-```bash
-curl -sS -X POST "$BASE/v1/file/iterate" \
-  -H "Authorization: Bearer $AK" \
-  -H "Content-Type: application/json" \
-  -d '{"prefix":"share/","projectId":154,"userId":27071,"dirSpace":"share","maxObjects":100,"nextToken":""}'
-```
-
-When `data.hasNext=true`, repeat the same request with `nextToken` set to `data.nextToken`.
-
-## Read Operations
-
-Check whether a path exists:
-
-```bash
-curl -sS "$BASE/v1/file/stat/personal/input.txt?projectId=0&userId=27071" \
-  -H "Authorization: Bearer $AK"
-```
-
-Fetch metadata:
-
-```bash
-curl -sS "$BASE/v1/file/meta/personal/input.txt?projectId=0&userId=27071" \
-  -H "Authorization: Bearer $AK"
-```
-
-Download a file:
-
-```bash
-curl -L "$BASE/v1/file/download/personal/input.txt?projectId=0&userId=27071" \
-  -H "Authorization: Bearer $AK" \
-  -o input.txt
-```
-
-Percent-encode URL paths that contain spaces or special characters.
-
-## Write Operations
-
-Create a directory:
-
-```bash
-curl -sS -X POST "$BASE/v1/file/mkdir" \
-  -H "Authorization: Bearer $AK" \
-  -H "Content-Type: application/json" \
-  -d '{"path":"personal/new-folder","projectId":0,"userId":27071}'
-```
-
-Move or rename:
-
-```bash
-curl -sS -X POST "$BASE/v1/file/move" \
-  -H "Authorization: Bearer $AK" \
-  -H "Content-Type: application/json" \
-  -d '{"sourcePath":"personal/old.txt","destinationPath":"personal/new.txt","projectId":0,"userId":27071}'
-```
-
-Copy:
-
-```bash
-curl -sS -X POST "$BASE/v1/file/copy" \
-  -H "Authorization: Bearer $AK" \
-  -H "Content-Type: application/json" \
-  -d '{"sourcePath":"personal/source.txt","destinationPath":"personal/copy.txt","projectId":0,"userId":27071}'
-```
-
-Delete:
-
-```bash
-curl -sS -X DELETE "$BASE/v1/file/delete/personal/old.txt?projectId=0&userId=27071" \
-  -H "Authorization: Bearer $AK"
-```
-
-Use `/mover`, `/copyr`, and `/deleter` for recursive directory operations.
-
-## Upload
-
-Prefer the v2 two-step upload flow. First ask open-platform for a storage gateway credential. The `path` decides whether the file lands in personal or share disk:
-
-```bash
-curl -sS "$BASE/v2/file/upload/binary?projectId=0&userId=27071&path=/personal/new.txt" \
-  -H "Authorization: Bearer $AK"
-```
-
-Example response:
-
-```json
-{
-  "code": 0,
-  "data": {
-    "host": "https://tiefblue-nas.dp.tech",
-    "Authorization": "Bearer ...",
-    "X-Storage-Param": "..."
-  }
-}
-```
-
-This is not a raw OSS upload URL. It is a Bohrium storage/NAS gateway credential. The server resolves `path=/personal/new.txt` or `path=/share/new.txt` to the real storage path and encodes that target inside `X-Storage-Param`; the second upload step writes to the file disk selected by `path`.
-
-Then upload the bytes to the returned `host`:
-
-```bash
-curl -sS -X POST "$HOST/api/upload/binary" \
-  -H "Authorization: $UPLOAD_AUTHORIZATION" \
-  -H "X-Storage-Param: $X_STORAGE_PARAM" \
-  --data-binary @local-file.txt
-```
-
-Treat `Authorization` and `X-Storage-Param` as secrets. Do not print them in final answers.
-
-The v1 direct upload endpoint also exists:
-
-```bash
-curl -L -sS -X POST "$BASE/v1/file/upload/binary?projectId=0&userId=27071&path=personal/new.txt" \
-  -H "Authorization: Bearer $AK" \
-  --data-binary @local-file.txt
-```
-
-Keep `-L`: v1 returns `307 Location: https://tiefblue-nas.dp.tech/api/upload/binary?...`. Without following the redirect, the file is not uploaded.
-
-## Common Pitfalls
-
-- `v1/file/iterate` uses `prefix`, not `path`.
-- Move/copy fields are `sourcePath` and `destinationPath`, not `src` / `dst`.
-- Do not use `/v2/file/iterate` or `/v2/file/download` for normal personal/share list or download operations.
-- Share disk operations require a real `projectId`; `projectId=0` is only suitable for the current user's personal disk.
-- The v2 upload endpoint only issues storage/NAS upload credentials; the final destination is determined by the first-step `path`.
-- Use `stat` or `meta` before destructive delete, move, or copy operations.
+The current CLI does not expose decompression or server-side filename/content
+search. Read [`references/commands.md`](references/commands.md) for every
+canonical command, flag, upload result field, recovery warning, path invariant,
+and confirmation boundary.

@@ -1,293 +1,159 @@
 ---
 name: bohrium-pdf-parser
-description: "Use when extracting text, tables, charts, formulas, or molecules from PDF files through Bohrium OpenAPI, including URL submission, file upload, asynchronous polling, or per-page results."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Parse a PDF with the `bohr pdf parse` and `bohr pdf result` CLI workflow to
+  extract text, tables, equations, charts, figures, molecules, or page layout.
+  Use for Bohrium Uni-Parser, PDF 解析, PDF 文本提取, or structured PDF content.
+  Use `bohr lkm extract` for research questions, conclusions, and reasoning
+  rather than document layout.
 ---
 
-# SKILL: Bohrium PDF Parser
+# Bohrium PDF Parse
 
-## Overview
+## Choose the task
 
-Parse PDF documents using the `open.bohrium.com` PDF parsing service. Extract text, tables, charts, formulas, and molecular structures from PDFs. Two submission methods:
+| Goal | Route |
+|---|---|
+| Extract a local PDF | Validate file → submit `--file` → retain token → retrieve requested blocks |
+| Extract a directly reachable PDF | Validate URL → submit `--url` → use the same result workflow |
+| Recover an interrupted wait | Continue `result` with the original token; submission creates another parse |
+| Extract claims or research reasoning | Route to LKM extract instead of layout parsing |
 
-- **URL submission** — provide a PDF download link (e.g. arXiv link)
-- **File upload** — upload a local PDF file
+## Workflow: turn one PDF into a usable artifact
 
-**No CLI support** — all operations use the HTTP API.
-
-## Authentication
-
-BOHR_ACCESS_KEY is read from the OpenClaw config `~/.openclaw/openclaw.json`:
-
-```json
-"bohrium-pdf-parser": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": {
-    "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY"
-  }
-}
-```
-
-OpenClaw automatically injects `env.BOHR_ACCESS_KEY` into the runtime.
-
-## Common Code Template
-
-```python
-import os, time, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-BASE = "https://open.bohrium.com/openapi/v2/parse"
-HEADERS = {"Authorization": f"Bearer {AK}"}
-HEADERS_JSON = {**HEADERS, "Content-Type": "application/json"}
-```
-
----
-
-## Parsing Workflow
-
-```
-1. Submit PDF (URL or file upload) → get token
-2. Poll result with token → complete when status == "success"
-```
-
-Synchronous mode (`sync=true`) blocks until parsing completes but does not include content in the response — you still need `get-result` to retrieve it. Asynchronous mode (`sync=false`, default) requires polling `get-result` until status is `success`.
-
----
-
-## URL Submission
-
-```python
-r = requests.post(f"{BASE}/trigger-url-async", headers=HEADERS_JSON, json={
-    "url": "https://arxiv.org/pdf/2107.06922",
-    "sync": False,
-    "textual": True,
-    "table": True,
-    "molecule": True,
-    "chart": True,
-    "figure": False,
-    "expression": True,
-    "equation": True,
-    "pages": [0],           # 0-indexed, omit to parse all pages
-    "timeout": 1800
-})
-data = r.json()
-token = data["token"]
-print(f"Token: {token}, PDF pages: {data.get('page_count')}")
-```
-
-**Response Fields:**
-
-| Field | Description |
-|-------|-------------|
-| `token` | Task identifier for querying results |
-| `page_count` | Total pages in the source PDF |
-| `model_version` | Parser model version selected for the task |
-| `model_version_source` | Source of the model-version selection |
-
-An asynchronous submission response does not guarantee `status`, `created_time`, or `time_dict`. Read task status from the subsequent `/get-result` response.
-
----
-
-## File Upload
-
-```python
-from pathlib import Path
-
-pdf_path = Path("./paper.pdf")
-with open(pdf_path, "rb") as f:
-    r = requests.post(f"{BASE}/trigger-file-async",
-        headers=HEADERS,       # No Content-Type; requests handles multipart automatically
-        files={"file": (pdf_path.name, f, "application/pdf")},
-        data={
-            "sync": "false",
-            "textual": "true",
-            "table": "true",
-            "molecule": "true",
-            "chart": "true",
-            "figure": "false",
-            "expression": "true",
-            "equation": "true",
-            "pages": 0,         # multipart only accepts a single integer
-            "timeout": 1800
-        })
-token = r.json()["token"]
-```
-
-> **Important**: `pages` in multipart/form-data only accepts a **single integer** (e.g. `0`), not a JSON array `[0]`, or you'll get an `int_parsing` error. In JSON request bodies, arrays like `[0, 1, 2]` are supported.
-
----
-
-## Query Parse Result
-
-```python
-r = requests.post(f"{BASE}/get-result", headers=HEADERS_JSON, json={
-    "token": token,
-    "content": True,        # Return extracted text
-    "objects": False,        # Return extracted objects (tables, figures, etc.)
-    "pages_dict": True       # Return per-page results
-})
-data = r.json()
-print(f"Status: {data['status']}, Content length: {len(data.get('content', ''))}")
-```
-
-**Response Fields:**
-
-| Field | Description |
-|-------|-------------|
-| `status` | `success` / `undefined` (processing) / `failed` |
-| `token` | Task identifier |
-| `content` | Extracted text (LaTeX markup format) |
-| `pages_dict` | Result list, not a dictionary; even with `pages=[0]`, its length may equal the source PDF's total pages, so do not infer processed pages from its length or guess the meaning of uninspected elements |
-| `result_schema_version` | Upstream result schema version; preserve it when processing or forwarding structured results |
-| `lang` | Detected language (`en` / `zh` etc.) |
-| `proc_page` / `total_page` | Processed / total pages |
-| `proc_textual` / `total_textual` | Processed / total text blocks |
-| `proc_table` / `total_table` | Processed / total tables |
-| `proc_mol` / `total_mol` | Processed / total molecules |
-| `proc_equa` / `total_equa` | Processed / total equations |
-| `time_dict` | Per-stage timing details |
-| `cost` | Cost |
-
----
-
-## Full Async Polling Example
-
-```python
-import os, time, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-BASE = "https://open.bohrium.com/openapi/v2/parse"
-HEADERS = {"Authorization": f"Bearer {AK}"}
-HEADERS_JSON = {**HEADERS, "Content-Type": "application/json"}
-
-# 1. Submit
-r = requests.post(f"{BASE}/trigger-url-async", headers=HEADERS_JSON, json={
-    "url": "https://arxiv.org/pdf/2107.06922",
-    "sync": False,
-    "textual": True, "table": True, "molecule": False,
-    "chart": False, "figure": False,
-    "expression": True, "equation": True,
-    "pages": [0],
-    "timeout": 1800
-})
-submit = r.json()
-if submit.get("code"):
-    print(f"Submit failed: {submit.get('message')}")
-    exit(1)
-
-token = submit["token"]
-print(f"Submitted, token={token}")
-
-# 2. Poll for result
-for attempt in range(30):
-    time.sleep(2)
-    r = requests.post(f"{BASE}/get-result", headers=HEADERS_JSON, json={
-        "token": token,
-        "content": True,
-        "objects": False,
-        "pages_dict": False
-    })
-    result = r.json()
-    status = result.get("status", "")
-    print(f"  [{attempt+1}] status={status}")
-
-    if status == "success":
-        print(f"Done! Content length: {len(result.get('content', ''))}")
-        print(f"Language: {result.get('lang')}, Cost: {result.get('cost')}")
-        print(f"Preview: {result.get('content', '')[:200]}")
-        break
-    elif status == "failed":
-        print(f"Failed: {result.get('description', 'unknown error')}")
-        break
-else:
-    print("Timeout: task did not complete within 60 seconds")
-```
-
----
-
-## Synchronous Mode Example
-
-Synchronous mode (`sync=true`) blocks until parsing completes, so no polling is needed. However, the **response does not include the `content` field** — you still need to call `get-result` to retrieve the parsed content:
-
-```python
-# 1. Synchronous submit — blocks until parsing completes
-r = requests.post(f"{BASE}/trigger-url-async", headers=HEADERS_JSON, json={
-    "url": "https://arxiv.org/pdf/2107.06922",
-    "sync": True,           # Wait for completion
-    "textual": True, "table": True,
-    "molecule": False, "chart": False, "figure": False,
-    "expression": True, "equation": True,
-    "pages": [0],
-    "timeout": 1800
-})
-submit = r.json()
-token = submit["token"]
-# submit["status"] == "success", but no content field
-
-# 2. Retrieve content
-r = requests.post(f"{BASE}/get-result", headers=HEADERS_JSON, json={
-    "token": token,
-    "content": True, "objects": False, "pages_dict": False
-})
-result = r.json()
-print(f"Content: {result['content'][:200]}")
-```
-
----
-
-## Parse Options Reference
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `sync` | bool | `false` | `true` blocks until complete (still need `get-result` for content), `false` requires polling |
-| `textual` | bool | - | Extract text content |
-| `table` | bool | - | Extract tables |
-| `molecule` | bool | - | Extract molecular structures |
-| `chart` | bool | - | Extract charts |
-| `figure` | bool | - | Extract figures/images |
-| `expression` | bool | - | Extract math expressions |
-| `equation` | bool | - | Extract equations |
-| `pages` | list[int] | all | Pages to parse (0-indexed) |
-| `timeout` | int | - | Timeout in seconds |
-
----
-
-## curl Examples
+1. Confirm input, requested semantic modes and spending using the sections below. Record the original source alongside the task token.
+2. Submit once, then replace `<token>` with the returned `data.token`. JSON is forwarded from upstream: if the token is absent, preserve the full response and report the missing handoff; do not substitute another task ID or resubmit in human mode to obtain it:
 
 ```bash
-AK="$BOHR_ACCESS_KEY"
-BASE="https://open.bohrium.com/openapi/v2/parse"
-
-# URL submission
-curl -s -X POST "$BASE/trigger-url-async" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $AK" \
-  -d '{"url":"https://arxiv.org/pdf/2107.06922","sync":false,"textual":true,"table":true,"molecule":false,"chart":false,"figure":false,"expression":true,"equation":true,"pages":[0],"timeout":1800}'
-
-# File upload
-curl -s -X POST "$BASE/trigger-file-async" \
-  -H "Authorization: Bearer $AK" \
-  -F "file=@paper.pdf" \
-  -F "sync=false" -F "textual=true" -F "table=true" \
-  -F "pages=0"
-
-# Query result
-curl -s -X POST "$BASE/get-result" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $AK" \
-  -d '{"token":"YOUR_TOKEN","content":true,"objects":false,"pages_dict":true}'
+bohr pdf parse --file ./paper.pdf --table 2 --equation 2 --yes -o json
+bohr pdf result <token> --formatted markdown -o json
 ```
 
----
+3. Inspect the returned status before using content. Continue the same token through `undefined`/`processing` at a bounded interval. `success` completes parsing; `PARSE_FAILED` ends it unsuccessfully. A timeout stops this wait and retains the token for later retrieval.
+4. On success, inspect the requested text/objects and `proc_page`/`total_page`; record missing or partial pages. Deliver the requested content with page provenance and the source/token needed to trace it. Non-empty `--return-half` output remains partial until terminal success.
+5. When result retrieval fails transiently, retry that free read with the same token. A failed or uncertain submission needs its returned diagnostic/token examined before resubmission; a new parse may incur another charge. Critical table/equation values require comparison with the source page before use.
 
-## Troubleshooting
+Use Bohrium Uni-Parser through the version-matched CLI to extract document
+layout and content from one PDF. Choose exactly one input route:
 
-| Problem | Cause | Solution |
-|---------|-------|----------|
-| `AccessKey is required` | Missing or incorrect auth | Use `Authorization: Bearer $BOHR_ACCESS_KEY` |
-| `int_parsing` error | `pages` sent as JSON array in file upload | Use a single integer for `pages` in multipart form |
-| `status: undefined` | Async task not yet complete | Poll `get-result` again; recommended interval: 2 seconds |
-| Connection timeout | Domain/network issue | Use `open.bohrium.com`; test connectivity via `curl -I https://open.bohrium.com/openapi` |
-| Content has LaTeX markup | Normal behavior | Results use `\begin{title}` etc. to mark structure; post-process to extract plain text |
-| Large file parses slowly | Many pages or complex content | Use `pages` parameter to limit scope |
-| `pages_dict` is longer than requested pages | List length does not necessarily equal processed pages | Use `proc_page` / `total_page` for progress and inspect the required elements themselves; do not rely on list length |
+- `bohr pdf parse --file <path>` uploads a local PDF.
+- `bohr pdf parse --url <url>` asks the service to download a PDF URL.
+
+Confirm the exact local file or URL before submission. A local file leaves the
+current machine, and a URL must be directly reachable by the parsing service.
+
+This workflow extracts layout, text, tables, equations, charts, figures, or molecules.
+Use `bohr lkm extract` when the requested output is scientific claims,
+research questions, conclusions, reasoning steps, or an LKM variable graph.
+
+## Authenticate and authorize parsing
+
+Check the current identity and price contract:
+
+```bash
+bohr auth whoami -o json
+bohr billing pricing --resource pdf -o json
+```
+
+PDF parsing is **0.05 CNY per page** under the embedded catalog. The final cost
+depends on the successfully parsed page count, so do not invent a total before
+the service reports the document size or billing result. In non-interactive
+use, add `--yes` only after spending is authorized; result retrieval is free
+and does not need spending confirmation.
+
+Use `--dry-run` to check the selected input without submitting or uploading it.
+
+## Submit the PDF
+
+The defaults enable fast text and table extraction. Enable only the additional
+semantic modes needed by the task:
+
+```bash
+bohr pdf parse --file ./paper.pdf \
+  --textual 2 \
+  --table 2 \
+  --equation 2 \
+  --chart 1 \
+  --figure 0 \
+  --molecule 0 \
+  --yes \
+  -o json
+```
+
+For a remote source:
+
+```bash
+bohr pdf parse --url "https://example.org/paper.pdf" --yes -o json
+```
+
+Capture `data.token` from the successful submission. The token, not a task ID
+from another parser, is the input to `bohr pdf result`.
+
+## Retrieve to a terminal state
+
+Parsing is asynchronous by default:
+
+```bash
+bohr pdf result <token> -o json
+```
+
+`undefined` and `processing` are non-terminal states. Poll at a moderate,
+bounded interval such as 3–5 seconds. Stop when the returned status is
+`success`, when the command returns `PARSE_FAILED`, or when the user's waiting
+budget expires. A local waiting deadline only stops polling; it does not cancel
+the remote parse.
+
+`--sync` makes submission wait for parsing, but the returned token is still the
+stable handoff to `bohr pdf result` for requested content and structured data.
+
+Use `--return-half` only when partial completed portions are useful. Non-empty
+partial content is not evidence that parsing reached a terminal state.
+
+## Select the result shape
+
+The default result request enables `--content` and `--objects`. For narrower or
+hierarchical output, choose explicitly:
+
+```bash
+bohr pdf result <token> --content --objects -o json
+bohr pdf result <token> --content=false --objects=false --pages-dict -o json
+bohr pdf result <token> --content=false --objects=false --pages-tree -o json
+bohr pdf result <token> --formatted markdown -o json
+bohr pdf result <token> --molecule-source -o json
+```
+
+At least one of `--content`, `--objects`, `--pages-dict`, or `--pages-tree`
+must remain enabled. `pages_dict` and `pages_tree` are arrays despite their
+names; use `proc_page` and `total_page` for progress instead of array length.
+
+Structured blocks preserve upstream fields such as class/type, coordinates,
+confidence, hierarchy, and future vendor fields. Treat chart and table
+recognition as extracted evidence, not verified numeric truth; compare critical
+values against the source PDF before calculation or data entry.
+
+## Choose the payment source
+
+Without `--payment-source`, the CLI sends no channel preference: the gateway
+uses photons first and falls back to balance only on definite photon
+insufficiency. Tell the user this policy when obtaining spending authorization.
+To restrict spending to one source, use `--payment-source photon` or
+`--payment-source balance`. Explicit photon stops when photons are insufficient;
+explicit balance charges balance directly. Existing free quotas and exemptions
+still apply.
+
+When an explicitly selected channel returns `BILLING_INSUFFICIENT` with
+`retryable: false`, report the refusal and wait
+for the user to recharge the selected source or authorize the other source for
+the original command. Explicit balance insufficiency also stops without charging
+photons; use `--payment-source photon` only after that source is authorized.
+`--yes` confirms execution; it does not authorize changing the payment source.
+Use `--payment-source balance` only when that source is authorized. Keep the
+selected source on subsequent billable calls in a multi-step workflow; options
+from a previous CLI invocation are not saved. `bohr api` follows the same rule.
+
+## Detailed reference
+
+Read [`references/commands.md`](references/commands.md) for exact flag defaults,
+format choices, result fields, polling states, error handling, and the embedded
+version contract.

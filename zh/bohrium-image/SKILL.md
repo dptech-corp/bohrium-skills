@@ -1,302 +1,111 @@
 ---
 name: bohrium-image
-description: "Manage Bohrium container images via bohr CLI or open.bohrium.com API. Use when: user asks about listing/pulling/creating/deleting Docker images on Bohrium, or finding available public images. NOT for: node management, job submission, or project management."
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr image 发现、查看、拉取、推送、构建或删除容器镜像。用于本地 Docker 上下文、远程 Dockerfile 构建、沙箱快照、构建日志、镜像状态与生命周期。"
 ---
 
-# SKILL: Bohrium 镜像 (Image) 管理
+<a id="bohrium-image"></a>
 
-## 概述
+# Bohrium 容器镜像
 
-管理 Bohrium 平台的容器镜像。**优先使用 `bohr` CLI**，仅在 CLI 不支持的操作（如从 Dockerfile 构建、搜索公共镜像版本）时回退到 API。
+## 按任务选择路径
 
-自 2023 年起，Bohrium 不再支持提交虚拟机任务，必须使用容器镜像。
+| 目标 | 路径 |
+|---|---|
+| 复用已有镜像 | 列出或搜索 → get → 保存规范仓库地址 |
+| 使用本地源码构建 | 本地构建 → 返回的 `pushCommand` → 核实推送回执 |
+| 远程构建 Dockerfile 文本 | 远程构建 → 镜像终态 → 检查最终镜像 |
+| 保存沙盒根文件系统 | 下方存储门禁 → commit → 终态；挂载数据单独处理 |
 
-## 认证配置
+## 工作流：本地构建、发布，再交给计算资源
 
-BOHR_ACCESS_KEY 从 OpenClaw 配置文件 `~/.openclaw/openclaw.json` 中读取：
-
-```json
-"bohrium-image": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": {
-    "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY"
-  }
-}
-```
-
-OpenClaw 会自动将 `env.BOHR_ACCESS_KEY` 注入到运行环境。Skill 只需要配置 `BOHR_ACCESS_KEY`；兼容旧 CLI 所需的映射由辅助脚本内部处理。
-
-直接调用 `bohr` CLI 时，先把 `BOHR_ACCESS_KEY` 映射给旧 CLI 读取的 `ACCESS_KEY`：
+1. 确认 Docker 上下文和 daemon、Dockerfile 与构建目录、唯一短名称、项目及写入意图。本地模式会预留远端记录和配额，但不会推送。
 
 ```bash
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
+bohr image build --mode local --dockerfile ./Dockerfile --context .   --name research-env:v1 --project-id <project_id> -o json
 ```
 
-## 前置条件：安装 bohr CLI
+2. 保留本地构建结果的 `data.localImage`、`imageUrl`、`id` 和 `pushCommand`。`uploaded=false` 表示只完成本地构建。使用同一 Docker daemon、Bohrium 身份或 profile 及项目，执行实际返回的 `pushCommand`，不能自行拼接仓库路径。
+3. 成功推送会校验最终 `data.id`、`imageUrl`、`status=1`、`digest` 和 `sizeBytes`。将最终 `imageUrl` 交给 Job 的 `--image_address` 或 Node 的 `--image_path`；镜像记录 ID 和本地标签都不是仓库地址。
+4. 本地 prepare 记录不是远端构建任务，不能用 `status` 或 `build-log` 轮询。远程构建或 commit 使用下方独立的 `0/1 → 2/3/4` 生命周期；其成功状态 `2` 不能套用于本地推送回执。
+5. 交付已发布地址、digest 及选定消费者需要的条件。构建或推送中断、prepare 结果未知时，先按参考核对同一名称和记录，再预留新记录。只有本地构建镜像还未完成发布。
+
+有本地上下文的 Docker 构建使用 `build --mode local`，之后单独执行返回的推送命令。默认 `build --mode remote` 只把 Dockerfile 文本发给远程构建器。`commit` 在服务端保存运行中沙箱容器的根文件系统快照，不能假设挂载卷会包含在内。
+
+创建镜像前先发现已有镜像：
 
 ```bash
-# macOS
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_mac_curl.sh)"
-
-# Linux
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_linux_curl.sh)"
-
-source ~/.bashrc  # 或 source ~/.zshrc
-export PATH="$HOME/.bohrium:$PATH"
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
+bohr image list --limit 50 -o json
+bohr image search "DeePMD" -o json
+bohr image get <image_id> -o json
 ```
 
----
+`--limit` 范围为 `1-512`，默认 `512`；只需有限目录样本时使用更小的值。
 
-## 列出镜像
+pull 将 Bohrium 镜像复制到本地 Docker daemon。先确认 Docker 已安装并运行，且镜像地址属于 Bohrium registry：
 
 ```bash
-# 列出自定义镜像（默认）
-bohr image list                 # 表格格式
-bohr image list --json          # JSON 格式
-
-# 列出公共镜像（按类型）
-bohr image list -t "Basic Image"
-bohr image list -t "DeePMD-kit"
-bohr image list -t "LAMMPS"
-bohr image list -t "ABACUS"
-bohr image list -t "CP2K"
-bohr image list -t "GROMACS"
-bohr image list -t "Uni-Mol"
+bohr image pull <bohrium_image_address> --timeout 30m -o json
 ```
 
-**JSON 输出字段：**
-
-| 字段 | 说明 |
-|------|------|
-| `imageId` | 镜像 ID |
-| `name` | 镜像名称 |
-| `url` | 完整镜像地址（`registry.dp.tech/...`） |
-| `status` | 状态（available / building） |
-| `creatorName` | 创建者 |
-
----
-
-## 常用公共镜像速查
-
-### 基础镜像
-
-| 场景 | 镜像地址 |
-|------|---------|
-| CPU 基础 | `registry.dp.tech/dptech/ubuntu:20.04-py3.10` |
-| CPU + Intel MPI | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022` |
-| GPU 基础 | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-cuda11.6` |
-| GPU + Intel MPI | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022-cuda11.6` |
-
-### 科学计算软件镜像
-
-| 软件 | 容器镜像地址 |
-|------|-------------|
-| DeePMD-kit | `registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6` |
-| DPGEN | `registry.dp.tech/dptech/dpgen:0.10.6` |
-| LAMMPS | `registry.dp.tech/dptech/lammps:29Sep2021` |
-| GROMACS | `registry.dp.tech/dptech/gromacs:2022.2` |
-| Quantum-Espresso | `registry.dp.tech/dptech/quantum-espresso:7.1` |
-| CP2K | `registry.dp.tech/dptech/cp2k:7.1` |
-| ABACUS | `registry.dp.tech/dptech/abacus:3.0.0` |
-
-### 所有 Bohrium 公共镜像预装软件
-
-| 类别 | 预装软件 |
-|------|---------|
-| Python | python3.10, pip, Anaconda, Jupyter Lab |
-| 文件管理 | wget, curl, unzip, rsync, tree, git |
-| 编辑器 | emacs, vim |
-| 编译工具 | cmake, build-essential (GNU) |
-| 系统监控 | htop, ncdu, net-tools |
-| DP 系列 | Bohrium CLI, DP-Dispatcher, dpdata |
-
----
-
-## 容器镜像与虚拟机镜像映射
-
-如果从虚拟机镜像迁移到容器镜像，可查阅此映射表：
-
-| 虚拟机镜像 | 容器镜像地址 |
-|-----------|-------------|
-| `LBG_DeePMD-kit_2.1.4_v1` | `registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6` |
-| `LBG_DP-GEN_0.10.6_v3` | `registry.dp.tech/dptech/dpgen:0.10.6` |
-| `LBG_LAMMPS_stable_23Jun2022_v1` | `registry.dp.tech/dptech/lammps:29Sep2021` |
-| `gromacs-dp:2020.2` | `registry.dp.tech/dptech/gromacs:2022.2` |
-| `LBG_Quantum-Espresso_7.1` | `registry.dp.tech/dptech/quantum-espresso:7.1` |
-| `LBG_Common_v1/v2` | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-cuda11.6` |
-| `LBG_oneapi_2021_v1` | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022-cuda11.6` |
-
----
-
-## 拉取镜像到本地
+使用本地上下文构建，再在相同 Docker context/daemon、Bohrium profile 和身份、项目及短名称下执行返回的 `pushCommand`：
 
 ```bash
-bohr image pull registry.dp.tech/dptech/deepmd-kit:3.0.0b3-cuda12.1
+bohr image build --mode local --dockerfile ./Dockerfile --context . \
+  --name my-image:v1 --project-id 1234 -o json
 ```
 
-> **前提**：本地需要先启动 Docker。仅支持公共镜像和自己的自定义镜像。
+该流程会通过 prepare 预留远程镜像记录和配额，并非离线操作。本地构建不提交远程计算、不要求 `--yes`，也不会自动推送。本地成功后执行 `pushCommand`；不要用 prepare 记录 ID 轮询 `image status` 或 `build-log`。使用唯一名称，不要并发执行同名操作。明确的构建失败会尝试 abort；prepare 未返回可靠结果时，先检查状态，错误也可能留下记录，不能假设记录不存在或已被清理。
 
-### 手动 Docker Pull（替代方案）
-
-需要将域名改为 `registry.bohrium.dp.tech`（不能用 `registry.dp.tech`）：
+也可使用 AccessKey 推送 Docker daemon 中已有镜像。此命令调用 `PATH` 上的 Docker CLI，不会构建镜像，也不会上传 Dockerfile 或上下文。先自行使用 `docker build`、`docker load` 或 `docker pull` 准备镜像。第二个参数是与 build/commit 相同风格的短镜像名；项目 ID 来自 `--project-id` 或 `BOHR_PROJECT_ID`：
 
 ```bash
-# 1. 登录（使用 Bohrium 账号密码）
-docker login registry.bohrium.dp.tech
-
-# 2. 拉取
-docker pull registry.bohrium.dp.tech/dptech/ubuntu:22.04-py3.10-intel2022
-
-# 注意：不支持 push 操作
+docker build -t my-image:v1 .
+bohr image push my-image:v1 my-image:v1 --project-id 1234 --timeout 30m -o json
 ```
 
----
+registry 目标只使用 prepare 响应中的规范 `imageUrl`，不能自行拼接项目/用户路径。生命周期和失败恢复见 [命令参考](references/commands.md)。
 
-## 删除自定义镜像
+<a id="rootfs-gate-before-a-sandbox-snapshot-commit"></a>
+
+## 沙箱快照 commit 前的 rootfs 检查
+
+每次 `bohr image commit` 提交前，立即执行 `bohr sandbox storage inspect <sandbox_id> -o json`。不能等 commit 开始后再依靠 80% 阈值扩容：commit apply 消耗临时 rootfs 的速度可能快于扩容进入 Ready。按 [命令参考](references/commands.md) 的失败数据公式估算容量，必要时先扩容，只有 `status=ready` 后才继续。预期未压缩快照增量未知时，不能当作零或声称容量安全。rootfs 只能扩容，不能缩容。
+
+这是 Agent 的前置流程，并非 CLI 自动执行的行为，也不适用于 `bohr image build --dockerfile`。
+
+远程 build 和 commit 按 Sandbox 价目从余额收取资源费用。先查看价格结构并获得费用授权：
 
 ```bash
-bohr image delete YOUR_IMAGE_ID                # 删除单个
-bohr image delete YOUR_IMAGE_ID YOUR_IMAGE_ID_2         # 批量删除
+bohr billing pricing --resource sandbox -o json
+bohr image build --mode remote --dockerfile ./Dockerfile --name project/image:v1 \
+  --project-id <project_id> --wait --yes -o json
+bohr image commit --sandbox-id <sandbox_id> --name project/snapshot:v1 \
+  --project-id <project_id> --wait --yes -o json
 ```
 
----
+使用不可变名称，不要使用可变的 `latest` 标签。远程 build 只发送所选 Dockerfile 文本，不发送本地构建上下文；commit 保存所选运行中沙箱的容器根文件系统快照。两者都不使用本地 Docker 镜像。确认具体本地文件、沙箱、所属项目、名称和费用授权。
 
-## 镜像缓存机制
+没有 `--wait` 的远程构建或快照提交，应保留返回的镜像 ID，再查询：
 
-| 场景 | 说明 |
-|------|------|
-| 公共镜像 | 有持久化缓存，启动无需额外拉取 |
-| 新建自定义镜像 | 构建后 10-30 分钟缓存生成，建议等待后再使用 |
-| 30 天未使用的自定义镜像 | 缓存过期，下次使用需重新拉取（10-30分钟） |
-| 缓存命中时的启动时间 | CPU ~20秒，GPU ~40秒 |
-| 无缓存时的启动时间 | 需额外 10-30 分钟拉取镜像 |
-
----
-
-## API 补充（CLI 不支持的操作）
-
-### 搜索公共镜像版本
-
-```python
-import os, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-HEADERS = {"Authorization": f"Bearer {AK}"}
-
-# 搜索公共镜像版本（关键词）
-r = requests.get("https://open.bohrium.com/openapi/v2/image/public/version/search",
-    headers=HEADERS,
-    params={"keyword": "deepmd", "page": 1, "pageSize": 5})
-# 返回: {items: [{version, resourceType, size, url, imageName}, ...]}
+```bash
+bohr image build-log <image_id> --follow
+bohr image status <image_id> -o json
+bohr image dockerfile <image_id>
 ```
 
-### 公共镜像浏览
+Creating（`0`）和 pending（`1`）是非终态；`2` 表示成功，`3` 表示失败，`4` 表示取消。`--wait` 在 `2/3/4` 停止，用 `--wait-timeout` 限定等待。本地超时不能证明远程构建已停止。
 
-```python
-# 公共镜像分类列表
-r = requests.get("https://open.bohrium.com/openapi/v2/image/public",
-    headers=HEADERS, params={"page": 1, "pageSize": 10})
+delete 是破坏性操作：
 
-# 公共镜像版本列表
-r = requests.get(f"https://open.bohrium.com/openapi/v2/image/public/{image_id}/version",
-    headers=HEADERS, params={"page": 1, "pageSize": 10})
+```bash
+bohr image delete <image_id> --yes -o json
 ```
 
-### 从 Dockerfile 构建镜像
+当前 CLI 没有 share/unshare 或元数据更新命令。完整命令、参数、本地/远程影响、计费和生命周期完成条件见 [命令参考](references/commands.md)。
 
-```python
-HEADERS_JSON = {**HEADERS, "Content-Type": "application/json"}
+<a id="resource-payment-boundary"></a>
 
-# 创建私有镜像（Dockerfile 构建）
-# 注意：dockerfile 字段必须是 base64 编码的字符串
-import base64
-dockerfile_content = "FROM ubuntu:22.04\nRUN apt-get update && apt-get install -y python3"
-dockerfile_b64 = base64.b64encode(dockerfile_content.encode()).decode()
+## 资源支付边界
 
-r = requests.post("https://open.bohrium.com/openapi/v2/image/private",
-    headers=HEADERS_JSON, json={
-        "name": "my-image",
-        "projectId": YOUR_PROJECT_ID,
-        "device": "container",
-        "desc": "Custom training image",
-        "buildType": 1,
-        "dockerfile": dockerfile_b64,
-    })
-
-# 修改镜像描述
-requests.put(f"https://open.bohrium.com/openapi/v2/image/private/{image_id}",
-    headers=HEADERS_JSON, json={"desc": "updated"})
-
-# 检查 Dockerfile 合法性（同样需要 base64 编码）
-check_b64 = base64.b64encode(b"FROM ubuntu:22.04\nRUN apt-get update").decode()
-requests.post("https://open.bohrium.com/openapi/v2/image/dockerfile/check",
-    headers=HEADERS_JSON, json={"dockerfile": check_b64})
-
-# 获取上次使用的镜像
-r = requests.get("https://open.bohrium.com/openapi/v2/image/last_used",
-    headers=HEADERS, params={"type": "public"})
-```
-
-### 私有镜像管理
-
-```python
-# 私有镜像列表（必须传 device 和 type 参数）
-r = requests.get("https://open.bohrium.com/openapi/v2/image/private",
-    headers=HEADERS,
-    params={"device": "container", "type": "private", "page": 1, "pageSize": 10})
-# 返回: {items: [{id, name, url, status, buildType, creatorName, projectName, ...}]}
-
-# 私有镜像详情
-r = requests.get(f"https://open.bohrium.com/openapi/v2/image/private/{image_id}",
-    headers=HEADERS)
-
-# 分享/取消分享（项目成员可见）
-requests.post(f"https://open.bohrium.com/openapi/v2/image/{image_id}/share",
-    headers=HEADERS_JSON)
-requests.delete(f"https://open.bohrium.com/openapi/v2/image/{image_id}/share?device=container",
-    headers=HEADERS)
-```
-
----
-
-## 自定义镜像制作
-
-在容器开发机上安装好所需软件后，可将当前节点环境保存为自定义镜像：
-
-1. 在 Bohrium Web 界面节点列表找到目标节点
-2. 点击"保存镜像"按钮
-3. 填写镜像名称和描述
-4. 等待镜像构建完成
-
-> 保存镜像时仅保存系统盘数据，`/personal` 和 `/share` 中的数据不会包含在镜像中。
-
-## 资源配额
-
-| 资源 | 限制 |
-|------|------|
-| 自定义镜像数 | 10 / 项目 |
-
-## 不可用端点
-
-| 端点 | 版本 | 原因 |
-|------|------|------|
-| `GET v1/image/public` | v1 | 路径被 `/:imageId` 路由捕获 |
-| `GET v1/image/private` | v1 | 同上 |
-| `POST v2/image/version/add` | v2 | bohrium-api 未注册此路由 |
-| `DELETE v2/image/version/{versionId}` | v2 | 同上 |
-
-## 常见问题
-
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| `AccessKey Invalid` | 直接调用 `bohr` 时未设置旧变量名 | `export ACCESS_KEY="$BOHR_ACCESS_KEY"` 后重试 |
-| `bohr image pull` 失败 | Docker 未启动 | 先启动 Docker Desktop |
-| v2 private 返回参数错误 | 缺少必填参数 | 加上 `device=container&type=private` 参数 |
-| `no permission` | 非镜像创建者 | 只能操作自己创建的镜像 |
-| v1 `/public` 返回解析错误 | 路由冲突 | 改用 v2 接口 |
-| 镜像地址不对 | 用了镜像名而非完整地址 | 必须用 `registry.dp.tech/dptech/xxx:tag` 格式 |
-| 自定义镜像缓存慢 | 缓存需 10-30 分钟生成 | 构建后等待 30 分钟再使用 |
-| 容器节点不支持 Docker | 安全限制 | 如需 Docker 开发，用 VM 镜像 `LBG_Common_v2` |
-| 创建镜像返回 decode err | dockerfile 未 base64 编码 | 使用 `base64.b64encode(content.encode()).decode()` 编码 |
+标记为 balance-only 的资源操作继续按原有规则从余额计费。全局 `--payment-source` 不会为这些资源启用光子支付；显式指定 `photon` 会在执行前被拒绝。按该资源既有的价格查询和费用授权流程操作。

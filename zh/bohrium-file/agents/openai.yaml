@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 文件盘"
+  short_description: "浏览和传输 personal/share 文件盘内容"
+  default_prompt: "请使用 $bohrium-file 通过 Bohrium CLI 完成相关任务。"

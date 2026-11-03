@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Knowledge Base"
+  short_description: "Manage and search Bohrium knowledge-base documents"
+  default_prompt: "Use $bohrium-knowledge-base to inspect or manage a Bohrium knowledge base safely."

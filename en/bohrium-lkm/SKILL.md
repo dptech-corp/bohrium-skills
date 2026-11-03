@@ -1,702 +1,186 @@
 ---
 name: bohrium-lkm
-description: "Large Knowledge Model (LKM) via open.bohrium.com (v2). Use when: user asks about searching scientific claims/questions, retrieving reasoning chains, viewing a paper's knowledge graph, listing a paper's references or cited-by papers, tracing why a claim holds, batch-hydrating knowledge node details, submitting feedback on LKM content/service, or uploading a local paper PDF to asynchronously extract structured knowledge (questions, conclusions, reasoning steps). NOT for: general paper keyword search (use bohrium-paper-search), knowledge base management (use bohrium-knowledge-base), PDF layout/text/table/formula extraction (use bohrium-pdf-parser)."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Search and trace scientific claims, reasoning chains, paper knowledge graphs,
+  and extracted variables with the `bohr lkm` CLI, or asynchronously extract
+  research questions and reasoning from a local PDF. Use for Bohrium LKM,
+  Large Knowledge Model, 大知识模型, claim provenance, paper graphs, or LKM PDF
+  extraction. Use `bohr paper`, `bohr kb`, or `bohr pdf` for adjacent paper
+  search, personal knowledge-base, or document-layout tasks.
 ---
 
-# SKILL: Bohrium LKM (Large Knowledge Model)
+# Bohrium LKM
 
-## Overview
+LKM (Large Knowledge Model, 大知识模型) turns papers into source-grounded
+reasoning graphs: questions, claims, reasoning chains, and evidence become
+addressable units, aligned across papers.
 
-LKM (Large Knowledge Model) v2 endpoints on `open.bohrium.com` let you search and trace knowledge extracted from scientific literature, or asynchronously extract structured knowledge from a local paper PDF: search abstract/claim/question/reasoning-chain hits, retrieve complete reasoning chains, view an ingested paper-level graph, list a paper's references or cited-by set by paper_id/DOI, trace the reasoning behind a single claim, batch-hydrate node details by ID, and upload a PDF to extract research questions, conclusions, and reasoning steps.
+Operate LKM through the version-matched `bohr lkm` commands. Choose the route
+before acting:
 
-**Core capabilities:**
+- Search the ingested corpus with `search` for claims, questions, abstracts,
+  and scientific concepts.
+- Search whole argument or experimental processes with `reasoning`.
+- Retrieve a known paper's `nodes` / `edges` graph with `graph`.
+- List a known paper's references or cited-by set with `reference`.
+- Trace a known conclusion claim with `claim reasoning`.
+- Hydrate known global node IDs with `variables batch`.
+- Upload a local PDF that may not be in the corpus with asynchronous `extract`.
 
-| Endpoint | Function |
-|----------|----------|
-| `POST /v2/lkm/search` | Public search: recall abstract / claim / question / reasoning_chain hits; claim and question scopes may also target specific roles |
-| `POST /v2/lkm/reasoning/search` | Reasoning chain search: recall whole chains by argument similarity |
-| `POST /v2/lkm/papers/graph` | Ingested paper-level graph (`papers[]` + `graph.nodes` / `graph.edges`) |
-| `POST /v2/lkm/papers/reference` | References / cited-by: batch seed metadata plus `references` / `cited_by` by `paper_ids` / `dois` |
-| `GET /v2/lkm/claims/{id}/reasoning` | Single-claim reasoning chain: why a claim holds |
-| `POST /v2/lkm/variables/batch` | Batch hydration: fetch node details by an ID list |
-| `POST /v2/lkm/feedback` | Submit feedback: report a bug / feature request / question about LKM content or service |
-| `POST /v2/lkm/parse/task` | Upload a PDF and create an async extraction task |
-| `GET /v2/lkm/parse/task/{task_id}` | Poll extraction progress (`status` decides the next step; `stage` is progress copy) |
-| `GET /v2/lkm/parse/task/{task_id}/result` | Fetch the result: `format=local` is the flat graph, `format=graph` matches `/papers/graph`; `partial` / `failed` return `files` |
+This is not generic paper discovery (`bohr paper search`), personal knowledge
+base management (`bohr kb`), or Uni-Parser layout/text/table/formula extraction
+(`bohr pdf parse`).
 
-**Choosing an entry point:**
+## Authentication, output, and billing
 
-- Find claims, questions, abstracts, or reasoning chains by keyword/semantics → `/search`
-- Find whole reasoning chains whose research/experimental process is similar (not just a single matching claim) → `/reasoning/search`
-- Open a paper **already in LKM** and view its nodes/edges graph → `/papers/graph`
-- You have a paper_id / DOI and want its reference or cited-by list (not a knowledge graph) → `/papers/reference`
-- You have a PDF, it may not be in the corpus yet, or you want to run extraction yourself → `/parse/task` (see section 7)
-- Have a claim ID, want its reasoning chain → `/claims/{id}/reasoning`
-- Have a set of node IDs, want to hydrate details → `/variables/batch`
-- Want to report a bug / feature request / question about a node, paper, or the service → `/feedback`
-
-**Don't use for:**
-
-- General paper keyword search → `bohrium-paper-search`
-- Knowledge base file management → `bohrium-knowledge-base`
-- PDF layout / text / table / formula extraction → `bohrium-pdf-parser` (that is not an LKM knowledge graph)
-
-## How the endpoints connect
-
-Endpoints fall into three groups:
-
-- **Natural-language search entry points** (only need `query`, no ID up front): `/search`, `/reasoning/search`
-- **Identifier/ID-based lookups** (need a paper identifier or node ID first): `/papers/graph` (paper `package_id`/`paper_id`/`doi`/`title`), `/papers/reference` (`paper_ids` / `dois`, no title), `/claims/{id}/reasoning` (claim `gcn_` ID), `/variables/batch` (node `gcn_` ID)
-- **Upload-PDF async extraction** (only need a local PDF): `POST /parse/task` → `GET /parse/task/{task_id}` → `GET /parse/task/{task_id}/result`
-
-(`/feedback` is a standalone write endpoint, not part of the retrieval data flow below — see section 6.)
-
-> `/papers/graph` can be a standalone starting point if you already have a DOI or title; otherwise its `package_id`/`paper_id` typically comes from paper metadata returned by `/search` or `/reasoning/search`.
-> If the user uploaded a PDF that may not be in the corpus, use `/parse/task`. Do not send `pdf_md5` to `/papers/graph`.
-
-A search entry point's output (node IDs, paper IDs) is exactly the downstream input. `/search` defaults to paper aggregation: each main `variables[]` row is the representative hit for roughly one paper, and same-paper hits are folded into `related`. Abstract hits are paper-level background context; do not treat them as claims or reasoning roots.
-
-```mermaid
-flowchart TD
-    search["/search node search"]
-    rsearch["/reasoning/search chain search"]
-    pgraph["/papers/graph ingested paper graph"]
-    pref["/papers/reference references/cited-by"]
-    creason["/claims/{id}/reasoning single chain"]
-    batch["/variables/batch hydration"]
-    parse["POST /parse/task upload PDF"]
-    pstatus["GET /parse/task/{id} progress"]
-    presult["GET /parse/task/{id}/result graph"]
-
-    search -->|"variables[].id (gcn_)"| creason
-    search -->|"variables[].id (gcn_)"| batch
-    search -->|"papers package_id / paper_id"| pgraph
-    search -->|"numeric paper_id / doi"| pref
-    rsearch -->|"conclusion node global_id"| creason
-    rsearch -->|"any node global_id (gcn_)"| batch
-    rsearch -->|"paper_id (numeric)"| pgraph
-    rsearch -->|"paper_id / doi"| pref
-    pgraph -->|"conclusion node global_id"| creason
-    pgraph -->|"paper.id / doi"| pref
-    pgraph -->|"any node global_id (gcn_)"| batch
-    creason -->|"any node global_id (gcn_)"| batch
-    parse --> pstatus
-    pstatus -->|"succeeded / partial / failed"| presult
-    presult -->|"non-null global_id"| creason
-    presult -->|"non-null global_id"| batch
-```
-
-**ID flow:**
-
-| Upstream output | ID type | Usable downstream |
-|------|------|------|
-| `search` `variables[].id`; graph node `global_id` | global node ID `gcn_...` | `variables/batch` (any node); `claims/{id}/reasoning` (only `has_reasoning=true` conclusions) |
-| `papers`/`paper` metadata; `reasoning_chains[].paper_id` | paper ID (`paper:<number>` or plain numeric) | `papers/graph` (`package_id`/`paper_id`); `papers/reference` (`paper_ids` must be plain numeric, no `paper:`); `reasoning/search` `filters.paper_ids` (plain numeric, no `paper:` prefix) |
-| `POST /parse/task` `data.task_id` | parse task ID | `GET /parse/task/{task_id}`, `GET /parse/task/{task_id}/result` |
-| parse success `variables[].global_id` or `format=graph` node `global_id` when non-null | global node ID `gcn_...` | same `gcn_` downstream as above |
-| parse success `local_id`, or `format=graph` node `id` (e.g. `paper:6::P1`) | paper-local ID | **must not** be passed to `/claims/{id}/reasoning` or `/variables/batch` |
-
-**Pitfall:** do not pass a graph/parse local node ID (e.g. `paper:...::conclusion_3`) as a global `gcn_` ID or paper ID downstream — `claims/{id}/reasoning` returns `290004`, and `variables/batch` puts it in `not_found`. Do not feed `format=local` into a `/papers/graph` renderer; pass `format=graph` for the same shape.
-
-> `/feedback` optionally reuses an upstream global node ID (`gcn_id`) or paper metadata ID (`paper_metadata_id`) to pin the feedback target; the two are mutually exclusive.
-
-## Auth configuration
-
-The code reads the access key from the `BOHR_ACCESS_KEY` environment variable. Provide it in one of two ways depending on the runtime:
-
-**Option A: set the environment variable directly** (when not running under OpenClaw)
+Use an existing Bohrium login or AccessKey and prefer structured output:
 
 ```bash
-export BOHR_ACCESS_KEY=<YOUR_BOHR_ACCESS_KEY>
+bohr auth whoami -o json
+bohr billing pricing --resource lkm -o json
 ```
 
-**Option B: inject via OpenClaw** (when running inside OpenClaw)
-
-Configure `~/.openclaw/openclaw.json`; OpenClaw injects `env.BOHR_ACCESS_KEY` into the runtime environment automatically:
-
-```json
-"bohrium-lkm": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": {
-    "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY"
-  }
-}
-```
-
-## Common template
-
-```python
-import os, requests
-
-AK = os.environ["BOHR_ACCESS_KEY"]
-BASE = "https://open.bohrium.com/openapi/v2/lkm"
-H = {"Authorization": f"Bearer {AK}", "Content-Type": "application/json"}
-
-def lkm_data(r):
-    """Unwrap an LKM response: return data when code == 0, else raise with code/message."""
-    body = r.json()
-    if body.get("code") != 0:
-        raise RuntimeError(f"LKM error {body.get('code')}: {body.get('message')}")
-    return body["data"]
-```
-
-The examples below call `lkm_data(r)` so the documented `code` contract is always enforced.
-
-**Business status:** HTTP usually returns 200; success is determined by `code` in the response body, where `code == 0` means success. See the error-code table at the end.
-
----
-
-## 1. Public search — `POST /search`
-
-Recall abstract / claim / question / reasoning_chain hits in LKM via natural language. By default, the server aggregates by paper and returns one representative main hit per paper, with additional same-paper hits in `related`. It returns hits and paper metadata, not full reasoning chains.
-
-```python
-r = requests.post(f"{BASE}/search", headers=H, json={
-    "query": "The 2017 chemistry curriculum standard increases emphasis on real‑world problem situations and contexts (explicitly including industrial production, environmental issues, and socio‑technical “hot topics”).",
-    "keywords": ["real-world contexts", "industrial production", "inquiry learning"],
-    "retrieval_mode": "hybrid",
-    "sort_by": "comprehensive",  # optional; default comprehensive; or relevance/recent/journal
-    "scopes": [
-        "abstract", "claim", "premise", "conclusion", "question",
-        "problem", "open_question", "subproblem", "reasoning_chain",
-    ],
-    # "filters": {
-    #     "paper_ids": ["811977903947382784"],  # plain numeric IDs, no paper: prefix
-    #     "dois": ["10.1038/s41586-021-03381-x"],
-    #     "title": "perovskite stability",      # fuzzy title filter
-    #     "publication_date_start": "2020-01-01",
-    #     "publication_date_end": "2026-12-31",
-    #     "limit_publication_date": True,        # default true; false also recalls undated papers
-    # },
-    "reasoning_only": False,
-    "offset": 0,
-    "limit": 20
-})
-data = lkm_data(r)
-for v in data["variables"]:
-    print(v["id"], v["type"], v.get("role"), v["has_reasoning"], (v.get("content") or "")[:80])
-# data["related"]: other relevant same-paper hits folded under the representative hit
-# data["papers"]: authoritative paper metadata referenced by hits (key like paper:<id>)
-# data["has_more"]: whether more pages exist
-```
-
-**Parameters:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `query` | string | yes | Natural language query, ≤200 chars recommended |
-| `keywords` | string[] | no | Up to 10, ≤100 chars each; put terms/materials/methods/abbreviations, not full sentences |
-| `retrieval_mode` | string | no | `hybrid`(default, semantic+lexical) / `semantic`(vector only, faster) / `lexical`(keyword only) |
-| `sort_by` | string | no | Sort strategy, default `comprehensive` when omitted: `relevance`(pure relevance, most on-target top hit) / `recent`(prefers newer once relevance bar is met) / `journal`(prefers high-quality journals once relevance bar is met) / `comprehensive`(relevance+recency+quality+diversity combined) |
-| `scopes` | string[] | no | Restrict hit scope. The 9 valid values are `abstract`, `claim`, `premise`, `conclusion`, `question`, `problem`, `open_question`, `subproblem`, and `reasoning_chain`; omit = no restriction |
-| `filters.visibility` | string | no | Content visibility, usually `public` |
-| `filters.role` | string | no | Restrict claim role: `conclusion`/`premise`/`highlight` |
-| `filters.paper_ids` | string[] | no | Restrict recall to papers, plain numeric IDs, **no `paper:` prefix**, up to 50 |
-| `filters.dois` | string[] | no | Restrict recall to papers by DOI, up to 50; can be combined with `paper_ids` |
-| `filters.title` | string | no | Fuzzy paper-title filter. When combined with `paper_ids` / `dois`, all dimensions are intersected (AND). Title filtering returns only the most relevant few papers by default and is not exhaustive. |
-| `filters.publication_date_start` / `filters.publication_date_end` | string | no | Publication-date bounds in `YYYY-MM-DD`; either side may be omitted |
-| `filters.limit_publication_date` | bool | no | Default `true`: apply the given date range; if both bounds are omitted, fall back to approximately the last 20 years. Set `false` to remove publication-date filtering entirely and recall undated papers. |
-| `reasoning_only` | bool | no | `true` returns only conclusion claims backed by a reasoning chain (legacy alias `evidence_only`) |
-| `include_paper_enrich` | bool | no | `true` returns richer paper metadata (larger response; use only when needed) |
-| `offset` | int | no | Page start, max 10000 |
-| `limit` | int | no | Page size, default 20, max 100 |
-
-**Key response fields:**
-
-| Field | Description |
-|-------|-------------|
-| `data.variables[]` | Main result list after aggregation; each row is the representative hit for roughly one paper. `id` is the hit object ID. |
-| `data.variables[].type` | Top-level hit type: `claim`, `question`, `abstract`, or `reasoning_chain` |
-| `data.variables[].role` | Specific role: claim hits use `premise` / `conclusion`; question hits use `problem` / `open_question` / `subproblem` |
-| `data.variables[].score` / `rerank_score` | Retrieval rank score — **not credibility/evidence strength**, do not show as confidence |
-| `data.variables[].has_reasoning` | Whether the claim has a traceable reasoning chain (prefer `true` when showing reasoning) |
-| `data.variables[].provenance.source_packages` | Source paper package IDs |
-| `data.related` | Other relevant same-paper snippets folded under the main hit. This is same-paper context, not cross-paper recommendation and not the complete paper graph. |
-| `data.papers` | Authoritative paper metadata map, key like `paper:<id>`; use this for paper cards, DOI, journal, impact factor, etc. |
-| `data.has_more` | Whether more pages exist (next page: same body, `offset += page count`) |
-
-**Constraints and policy:**
-
-- `paper_ids`, `dois`, and `title` are intersected (AND). If any dimension resolves to no papers, the whole result is empty.
-- Scope hierarchy: `claim` contains `premise` / `conclusion`, while `question` contains `problem` / `open_question` / `subproblem`; `abstract` and `reasoning_chain` are standalone scopes. Use a parent scope to recall every role in that class, or a child scope to target one role.
-- **Compatibility note:** all question hits, including main results and hits in `related`, no longer return a blanket `premise` in `role`; they now return `problem`, `open_question`, or `subproblem` according to their semantics. Clients must not identify questions with `role == "premise"`.
-- `abstract` hits are paper-level context for judging relevance or RAG background. Do **not** use them as claims and do not request reasoning chains from them.
-- When `reasoning_only=true`, `scopes` must be omitted or `["claim"]` / `["conclusion"]`, and `filters.role` must be omitted or `conclusion`; conflicts return `290002`.
-
-> **Sorting note:** the recency/quality boosts in `recent`/`journal`/`comprehensive` are all relevance-gated, so they never pull in irrelevant content; existing callers that omit `sort_by` automatically get the better `comprehensive` default ordering.
-
----
-
-## 2. Reasoning chain search — `POST /reasoning/search`
-
-Recall whole reasoning chains — the research process a paper used to reach a conclusion (theoretical derivation, numerical computation, experimental procedure) — ranked by how similar that process is to your query, not by single-node text match. New callers should always pass `format: "graph"`.
-
-```python
-r = requests.post(f"{BASE}/reasoning/search", headers=H, json={
-    "query": "infer phase stability from XRD evidence",
-    "keywords": ["powder XRD", "Rietveld refinement", "phase transition"],
-    "retrieval_mode": "hybrid",
-    "sort_by": "comprehensive",  # optional; default comprehensive; or relevance/recent/journal
-    "format": "graph",
-    # "filters": {
-    #     "paper_ids": ["811977903947382784"],
-    #     "dois": ["10.1038/s41586-021-03381-x"],
-    #     "title": "phase stability",
-    #     "publication_date_start": "2020-01-01",
-    #     "limit_publication_date": True,
-    # },
-    "offset": 0,
-    "limit": 20
-})
-data = lkm_data(r)
-for c in data["reasoning_chains"]:
-    print(c["chain_id"], c["paper_id"], c["score"])
-    print("  nodes:", len(c["graph"]["nodes"]), "edges:", len(c["graph"]["edges"]))
-# data["total"]: total hits not truncated by limit
-```
-
-**Parameters:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `query` | string | yes | Describe the reasoning process you want, ≤200 chars recommended |
-| `keywords` | string[] | no | Up to 10; put method/material/condition/metric/abbreviation names |
-| `retrieval_mode` | string | no | `hybrid`(default) / `semantic` / `lexical` |
-| `sort_by` | string | no | Sort strategy, same values/semantics as `/search` (`relevance`/`recent`/`journal`/`comprehensive`), default `comprehensive` when omitted |
-| `filters.paper_ids` / `filters.dois` | string[] | no | Restrict recall to papers, same semantics as `/search`: plain numeric IDs (no `paper:` prefix) / DOIs, ≤50 each, can be combined |
-| `filters.title` | string | no | Fuzzy paper-title filter; intersects (AND) with `paper_ids` and `dois` |
-| `filters.publication_date_start` / `filters.publication_date_end` | string | no | Publication-date bounds in `YYYY-MM-DD`; either side may be omitted |
-| `filters.limit_publication_date` | bool | no | Default `true`; if both bounds are omitted, fall back to approximately the last 20 years. `false` removes publication-date filtering and can recall undated papers. |
-| `format` | string | no | Recommended `graph`, returns `graph.nodes`/`graph.edges`; omit returns legacy structure |
-| `offset` | int | no | Page start, max 10000 |
-| `limit` | int | no | Page size, default 20, max 100 |
-
-**Key response fields (`format: "graph"`):**
-
-| Field | Description |
-|-------|-------------|
-| `data.reasoning_chains[].chain_id` | Reasoning chain ID |
-| `data.reasoning_chains[].paper_id` | Source paper ID (plain numeric) |
-| `data.reasoning_chains[].score` | Retrieval rank score — **do not show as confidence** |
-| `data.reasoning_chains[].graph` | Chain graph (`nodes` / `edges`, see graph section) |
-| `data.reasoning_chains[].paper` | Source paper metadata |
-| `data.reasoning_chains[].addressed_problems` / `open_questions` | Problems addressed / open questions |
-| `data.total` | Total hits; pagination: more pages if `offset + page count < total` |
-
-`paper_ids`, `dois`, and `title` filters are intersected (AND), as in `/search`; an empty match in any dimension yields an empty result set.
-
----
-
-## 3. Paper-level knowledge graph — `POST /papers/graph`
-
-Given a paper, return the full graph LKM extracted from it (conclusions, reasoning steps, highlights, weak points, subproblems and relation edges). The main entry point for paper-level graphs.
-
-```python
-r = requests.post(f"{BASE}/papers/graph", headers=H, json={
-    "package_id": "paper:1020661015349559308"   # one of four identifiers, see below
-})
-data = lkm_data(r)
-for p in data["papers"]:
-    print(p["paper"]["en_title"])
-    print("  nodes:", len(p["graph"]["nodes"]), "edges:", len(p["graph"]["edges"]))
-    print("  addressed_problems:", len(p["addressed_problems"]))
-```
-
-**Parameters (at least one of the four identifiers; not all empty):**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `package_id` | string | LKM package ID, like `paper:<number>`; **highest priority** |
-| `paper_id` | string | LKM paper ID, plain numeric, e.g. `812481689673531392` |
-| `doi` | string | Paper DOI, e.g. `10.1038/s41586-021-03381-x` |
-| `title` | string | Title or title keywords; may return multiple candidates |
-| `title_resolve.limit` | int | When using `title`, cap candidates; default 5, max 20 |
-
-> Priority: `package_id > paper_id > doi > title`. `package_id`/`paper_id` are LKM-internal IDs (not DOI/PMID), usually obtained from paper metadata returned by other LKM endpoints.
-
-**Key response fields:**
-
-| Field | Description |
-|-------|-------------|
-| `data.papers[].paper` | Paper metadata (`package_id`, title, authors, DOI, journal, etc.) |
-| `data.papers[].graph` | Paper-level knowledge graph (`nodes` / `edges`, see graph section) |
-| `data.papers[].addressed_problems` | Core problems the paper addresses |
-| `data.papers[].open_questions` | Open questions / future work |
-
-> Non-title paths usually return 1 paper; title path may return multiple candidates (each may carry `title_match_type`, e.g. `exact`/`keyword`). `include`/`hydrate_factor_refs` are legacy compatibility fields; the new default graph response does not need them.
-
----
-
-## 4. Single-claim reasoning chain — `GET /claims/{id}/reasoning`
-
-Given a global claim ID (`gcn_...`), return the reasoning steps and premises that support it. New callers should always pass `format=graph`.
-
-```python
-claim_id = "gcn_73e13bb548f847bd"
-r = requests.get(f"{BASE}/claims/{claim_id}/reasoning", headers=H,
-                 params={"format": "graph", "max_chains": 10, "sort_by": "comprehensive"})
-data = lkm_data(r)
-print(data["claim"]["id"], "total_chains:", data["total_chains"])
-for c in data["reasoning_chains"]:
-    print("  paper:", c["paper"]["en_title"])
-    print("  nodes:", len(c["graph"]["nodes"]), "edges:", len(c["graph"]["edges"]))
-```
-
-**Parameters:**
-
-| Field | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Global claim ID, like `gcn_...` (do NOT pass graph local node IDs like `paper:...::conclusion_3`) |
-| `max_chains` | query | no | Max chains, default 10, max 100 |
-| `sort_by` | query | no | `comprehensive`(default, by informativeness) / `recent`(newest first) |
-| `format` | query | no | Recommended `graph`; omit or non-graph returns legacy `factors` structure |
-
-**Key response fields (`format=graph`):**
-
-| Field | Description |
-|-------|-------------|
-| `data.claim` | The queried claim itself (`id`/`type`/`content_hash`) |
-| `data.reasoning_chains[].graph` | Chain graph (`nodes` / `edges`, see graph section) |
-| `data.reasoning_chains[].paper` | Source paper metadata for the chain |
-| `data.reasoning_chains[].addressed_problems` / `open_questions` | Problem background / open questions |
-| `data.total_chains` | Total number of available chains |
-
-> Prefer calling only on claims with `role = conclusion` and `has_reasoning = true`. Calling on premise / weak point / no-reasoning claims may return `290008`; wrong ID type often returns `290004`.
-
----
-
-## 5. Batch hydration — `POST /variables/batch`
-
-Fetch node details by ID list. Get IDs from a search endpoint first, then hydrate here. **This is not a search endpoint.**
-
-```python
-r = requests.post(f"{BASE}/variables/batch", headers=H, json={
-    "ids": ["gcn_654cd35dcb814a0c", "gcn_9523aa7f1fd04d8a"]
-})
-data = lkm_data(r)
-for v in data["variables"]:
-    print(v["id"], v["type"], (v.get("content") or "")[:80])
-print("not_found:", data["not_found"])
-# data["papers"]: paper metadata organized by package_id
-```
-
-**Parameters:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `ids` | string[] | yes | Global node IDs (`gcn_...`), 1–100, **no empty strings**; duplicates are deduped |
-
-**Key response fields:**
-
-| Field | Description |
-|-------|-------------|
-| `data.variables[]` | Matched nodes (`id`/`type`/`title`/`content`/`representative_lcn`/`local_members`/`provenance`) |
-| `data.variables[].metadata` / `parameters` | **Parse defensively**: may be empty string, JSON string, or array string |
-| `data.not_found` | IDs not matched (graph local IDs / paper IDs / package IDs land here) |
-| `data.papers` | Paper metadata organized by `package_id` |
-
-> Clean the list first: drop empty strings/null, dedupe, batch ≤100. Partial misses do not fail the request (still `code = 0`).
-
----
-
-## 6. Submit feedback — `POST /feedback`
-
-Submit usage feedback about the LKM service / data. Optionally link it to a GCN node or a paper metadata record to pin the exact target. **This is a write endpoint; it returns no knowledge content.**
-
-```python
-r = requests.post(f"{BASE}/feedback", headers=H, json={
-    "type": "bug",          # required: bug / feature / question, case-insensitive
-    "content": "Reasoning-chain results are missing premise nodes; likely a data gap",  # required, non-empty after trim
-    "gcn_id": "gcn_0002bee76d0c4255"  # optional; link a GCN node. Mutually exclusive with paper_metadata_id
-    # or link a paper instead: drop gcn_id and pass "paper_metadata_id": "867766664756724177"
-})
-fb = lkm_data(r)
-print("feedback id:", fb["id"])
-```
-
-**Parameters (Body):**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | yes | Feedback type: `bug` / `feature` / `question`, case-insensitive |
-| `content` | string | yes | Feedback body, non-empty after trim |
-| `gcn_id` | string | no | Linked GCN node ID (from `/search`, graph, etc.), e.g. `gcn_0002bee76d0c4255`; mutually exclusive with `paper_metadata_id` |
-| `paper_metadata_id` | string | no | Linked paper metadata ID, e.g. `867766664756724177`; mutually exclusive with `gcn_id` |
-
-**Key response fields:**
-
-| Field | Description |
-|-------|-------------|
-| `data.id` | Primary key ID of the newly created feedback record |
-
-> `gcn_id` and `paper_metadata_id` may both be empty (no specific target), but **cannot both be non-empty** — passing both is rejected to avoid ambiguity.
-
----
-
-## 7. Upload a PDF for async extraction — `/parse/task`
-
-Use this trio when you have a PDF that may not be in the corpus yet, or you want to run extraction yourself. A successful submit means the task was accepted, not that the graph is ready.
-
-Vs `/papers/graph`: upload a PDF and inspect *this file's* result with parse; inspect an already-ingested LKM paper with `/papers/graph`. Default `format=local` is the flat extraction; `format=graph` matches `/papers/graph`.
-
-Runnable end-to-end script: `scripts/parse_paper.py`. Examples in this skill share `BASE=.../openapi/v2/lkm` with the other LKM endpoints. The same parse paths also exist on v1/v4.
-
-**Billing:** ¥1/call; ¥0.1/call on cache hit.
-
-**Submit `POST /parse/task`:**
-
-| Field | In | Required | Notes |
-|------|------|------|------|
-| `file` | multipart | yes | Field name must be `file`; body must be a PDF; default max 64 MiB and 50 pages. Do not send `doi` / `arxiv_id` |
-| `Authorization` | header | yes | `Bearer $BOHR_ACCESS_KEY` |
-
-A successful submit (`code=0`) returns `task_id` / `pdf_md5` / `status` / `cache_hit` / `cache_source` / `created_at`. `cache_source` appears only when `cache_hit=true`: `lkm` means the paper was already in the LKM corpus; `local` means an earlier submission of the same PDF (same md5) is reused. Still branch on `status`:
-
-- `queued`: a new or retried run; poll status.
-- `succeeded`: a full graph is already available; fetch Result immediately.
-- `partial`: a **business terminal**. This PDF cannot yield a full research-paper graph (review, too short, collection, etc.). It is not “halfway done”. Resubmitting the same file stays `partial` + `cache_hit=true` and does not rerun.
-- Same user + same PDF still `queued` / `running`: `290020`, with the existing `task_id` in the error.
-- Last run was a technical `failed`: the job is re-queued, `cache_hit=false`.
-
-Do not resubmit to hurry progress.
-
-**Progress `GET /parse/task/{task_id}`:**
-
-Use `status` to decide the next step and `stage` for progress copy (do not show raw `step0` names to users).
-
-| status | Next step |
-|--------|-----------|
-| `queued` / `running` | Poll this endpoint every 5 seconds |
-| `succeeded` | Fetch the graph from the result endpoint |
-| `partial` | Non-retryable business failure. Read `failed_reason` from Result; do not resubmit the same PDF |
-| `failed` | Technical failure. Show a mapped `failed_reason`; the same file may be submitted again |
-
-Typical `stage` order: `metadata` → `ocr` → `step0` → `step1` → `step2_3` → `step4` → `graph` → `done`. `step2_3` is step2/step3 in parallel and often takes longer. Calling Result while `queued` / `running` returns `290017`; the task is not lost.
-
-Status and result responses also carry `step_durations`, listing completed or skipped pipeline clocks in order, for example `{"step":"step1","duration_ms":400}`. It excludes `metadata`, which finishes during submit; the timing order is `ocr` → `step0` → `step1` → `step2` → `step3` → `step4` → `graph`.
-
-**Result `GET /parse/task/{task_id}/result`:**
-
-| Query | Notes |
-|------|------|
-| `format` | Optional. Omit or `local`: flat `variables` / `factors` / `motivations` / `stats`. `graph`: `/papers/graph` shape (`paper` + `addressed_problems` + `open_questions` + `graph.nodes` / `graph.edges`). Affects `succeeded` only. Invalid values return `290015` |
-
-| Case | `data` shape |
-|------|-------------|
-| `succeeded` | Always `task_id` / `status=succeeded` / `cache_hit` (`cache_source` when true) and `step_durations`, plus the graph for `format` |
-| `partial` | `task_id` / `status=partial` / `cache_hit` / `stage` / `failed_reason` / `files` / `step_durations`. Ignores `format`. Do not resubmit the same PDF |
-| `failed` | Same as above, `status=failed`. The same file may be submitted again |
-| still queued or running | `code=290017`; go back to status |
-
-`local_id` or a graph node `id` must not be passed to `/claims/{id}/reasoning` or `/variables/batch`; only a non-null `global_id` is an LKM global ID. `format=local` `parameters` / `metadata` are JSON strings; `format=graph` node `metadata` is an object. Reviews, too-short PDFs, and multi-abstract collections become `partial`; empty `files` is expected.
-
----
-
-## 8. References / cited-by — `POST /papers/reference`
-
-Given `paper_id`s or DOIs, return each seed's forward references and/or reverse cited-by list. This is paper cards (`PaperMeta`), **not** a knowledge graph. Do not send title / `package_id`.
-
-`paper_ids` must be **plain numeric** (strip `paper:` from search/graph ids). Both sides empty, or more than **20** items before dedupe → `290002`. 20 is a hard cap, not the recommended batch.
-
-Defaults: `with_abstract=true`, `with_reference=false`, `with_cited_by=true` (cited-by only, with abstracts). Omitted fields use the default; turning abstracts or cited-by off requires an explicit `false`.
-
-`references` / `cited_by`: switch is false, or the seed has no citation relations to query → **`null`** (not queried); switch is true and citation relations exist, that direction has no edges → **`[]`**. Do not treat `null` and `[]` as the same empty.
-
-Rows are either **LKM data** (LKM metadata present) or **LKM-uncovered data** (no LKM metadata; filled from citation relations). Whole-record exclusive-or: if LKM data exists, use only that; if only LKM-uncovered data exists → `id=""`; neither side → **omitted from `papers`** (`code=0` with `papers=[]` is success). Unknown `paper_id`s are dropped. List items are also `PaperMeta` with no nested citation lists.
-
-**Batching (keep client concurrency ≤5):**
-
-| Usage | Suggested batch | Cap | ~papers/s |
-|------|---:|---:|---:|
-| Forward only + abstracts | 5 | 8 | ~39 |
-| Cited-by only + abstracts (default flags) | 8 | 10 | ~53 |
-| Both lists + abstracts | 4 | 5 | ~20 |
-| Both lists, abstracts off | 8 | 10 | ~72 |
-
-With both lists and abstracts, throughput stays around 20 papers/s; larger batches only add latency. If you only need list cards, pass `with_abstract=false`. Highly cited seeds can expand to hundreds of neighbors — do not mix them into a large batch with ordinary papers.
-
-```python
-r = requests.post(f"{BASE}/papers/reference", headers=H, json={
-    "paper_ids": ["1020661015349559308"],          # numeric, no paper: prefix
-    "dois": ["10.1038/s41586-021-03381-x"],
-    "with_abstract": True,                         # default true; false for cards only
-    "with_reference": False,                       # default false
-    "with_cited_by": True,                         # default true
-})
-data = lkm_data(r)
-for p in data["papers"]:
-    print(p["id"] or "(LKM-uncovered)", p.get("en_title"), "cited_by", None if p["cited_by"] is None else len(p["cited_by"]))
-```
-
-**Parameters:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `paper_ids` | string[] | at least one of the two lists | LKM paper ids, plain numeric; empty strings dropped after trim |
-| `dois` | string[] | at least one of the two lists | DOIs |
-| `with_abstract` | bool | no | default true; applies to the seed and both lists |
-| `with_reference` | bool | no | default false; `references` only when true |
-| `with_cited_by` | bool | no | default true; explicit false → `cited_by` is null |
-
-**Key response fields:**
-
-| Field | Description |
-|-------|-------------|
-| `data.papers[]` | Seeds; same shape as search paper cards, **no** `package_id` |
-| `data.papers[].references` / `cited_by` | `PaperMeta[]` or `null` |
-| `data.papers[].id` | Set for LKM data; `""` for LKM-uncovered data |
-| `data.papers[].authors` | Pipe-joined string, not an array |
-| `data.papers[].created_at` | LKM-uncovered rows may be the zero time `0001-01-01T00:00:00Z` |
-
-> Do not use this endpoint as general paper search (**bohrium-paper-search**). Do not pass `package_id` as `paper_ids`.
-
----
-
-## Shared graph notes (`/papers/graph`, `/reasoning/search?format=graph`, `/claims/{id}/reasoning?format=graph`, parse `format=graph`)
-
-`graph` consists of `nodes` and `edges`, ready for frontend graph rendering.
-
-**Node `kind`:**
-
-| kind | Meaning |
-|------|---------|
-| `conclusion` | Conclusion node (in endpoint 4, usually the passed claim) |
-| `reasoning_steps` | Reasoning steps supporting a conclusion, usually with a `steps[]` array |
-| `highlight` | Positive highlight / key evidence / supporting observation |
-| `weak_point` | Weakness / limitation / risk / premise to treat cautiously |
-| `subproblem` | Subproblem or research motivation driving the conclusion |
-
-**Edge `type`:**
-
-| type | Meaning |
-|------|---------|
-| `concludes` | reasoning_steps points to conclusion |
-| `highlight_of` | highlight points to the reasoning_steps it supports (positive) |
-| `weakpoint_of` | weak_point points to the reasoning_steps it weakens (limitation/risk) |
-| `subproblem_of` | subproblem points to the conclusion it drives |
-| `previous_conclusion_of` | Contextual/precedence relation between a prior conclusion and the current one |
-
-**Notes:**
-
-- `highlight_of` and `weakpoint_of` are opposites — positive vs. limitation/risk; do not treat every edge as "support".
-- Do not treat `highlight` as the final conclusion, `weak_point` as positive evidence, or `subproblem` as supporting evidence.
-- Edge `p1`/`p2` are model/graph internal parameters — **do not show as user-facing confidence**.
-- `reasoning_steps.steps` is best shown as node detail, not expanded into multiple main-graph nodes by default.
-
----
-
-## Worked example: verify and trace a scientific conclusion
-
-> Idea: use `/search` (`reasoning_only=true`) to find a conclusion backed by a reasoning chain, then use `/claims/{id}/reasoning` to see why it holds.
-
-```python
-# 1) Search: only conclusion claims backed by a reasoning chain
-res = lkm_data(requests.post(f"{BASE}/search", headers=H, json={
-    "query": "perovskite thermal stability at 85 C",
-    "keywords": ["FAPbI3", "thermal stability"],
-    "retrieval_mode": "hybrid",
-    "reasoning_only": True,
-    "scopes": ["conclusion"],
-    "limit": 10,
-}))
-
-# 2) Pick the first traceable conclusion
-claim = next((v for v in res["variables"] if v.get("has_reasoning")), None)
-if not claim:
-    print("No conclusion with a traceable reasoning chain")
-else:
-    print("Conclusion:", (claim.get("content") or "")[:120])
-    # 3) Trace: fetch the reasoning chain for this claim
-    chains = lkm_data(requests.get(f"{BASE}/claims/{claim['id']}/reasoning",
-                                   headers=H, params={"format": "graph"}))
-    for c in chains["reasoning_chains"]:
-        print("Source paper:", c["paper"]["en_title"])
-        for n in c["graph"]["nodes"]:
-            print(f"  [{n['kind']}] {(n.get('title') or n['content'])[:80]}")
-```
-
----
-
-## Worked example: extract structured knowledge from a PDF
-
-> Flow: submit PDF → inspect `status` / `cache_hit` → poll status → fetch the result. Full script: `scripts/parse_paper.py`.
-
-```python
-# python3 scripts/parse_paper.py paper.pdf --out result.json
-# python3 scripts/parse_paper.py paper.pdf --format graph --out result.json
-```
-
-- `succeeded`: `format=local` reads flat `variables` / `factors`; `format=graph` reads nodes/edges. Do not pass `local_id` or a node `id` to reasoning.
-- `partial`: non-retryable business failure; show `failed_reason`; do not resubmit the same PDF.
-- `failed`: technical failure; the same file may be submitted again.
-- Do not resubmit to hurry the job. Do not feed `format=local` into a `/papers/graph` renderer; pass `format=graph` for the same shape.
-
----
-
-## curl examples
-
-Auth and `code` handling are identical across endpoints. One POST and one GET shown below; other endpoints differ only in path and body (bodies are in each section above).
+`search`, `reasoning`, `graph`, `reference`, `variables batch`, and
+`claim reasoning` are
+fixed-price calls at **0.05 CNY** each, covered first by LKM's personal
+monthly 1,000-call quota. The CLI confirmation gate applies even when remaining
+quota may make the call free. In non-interactive use, add `--yes` only after
+spending is authorized; otherwise report `CONFIRMATION_REQUIRED`.
+
+Extract is separate from the monthly query quota: **1.00 CNY** per successful
+paper, or **0.10 CNY** on a cache hit. The same task is not charged twice.
+In non-interactive use, add `--yes` only after spending is authorized.
+
+Submitting still uploads the selected PDF to Bohrium, so confirm the exact file
+and the user's intent before the real submission.
+
+## Search and trace the ingested corpus
+
+Start from natural language when no identifier is known:
 
 ```bash
-AK="$BOHR_ACCESS_KEY"
-BASE="https://open.bohrium.com/openapi/v2/lkm"
+bohr lkm search "perovskite thermal stability" \
+  --mode hybrid \
+  --sort comprehensive \
+  --scopes conclusion,abstract \
+  --top-k 10 \
+  --yes \
+  -o json
 
-# POST example (other POST endpoints work the same: just change path and body)
-curl -s -X POST "$BASE/papers/reference" \
-  -H "Authorization: Bearer $AK" -H "Content-Type: application/json" \
-  -d '{"paper_ids":["1020661015349559308"],"with_cited_by":true,"with_abstract":true}' | jq .
-
-curl -s -X POST "$BASE/search" \
-  -H "Authorization: Bearer $AK" -H "Content-Type: application/json" \
-  -d '{"query":"perovskite thermal stability","retrieval_mode":"hybrid","scopes":["abstract","conclusion"],"filters":{"title":"perovskite","publication_date_start":"2020-01-01"},"limit":20}' | jq .
-
-# GET example (single-claim reasoning chain)
-curl -s -X GET "$BASE/claims/gcn_73e13bb548f847bd/reasoning?format=graph&max_chains=10" \
-  -H "Authorization: Bearer $AK" | jq .
-
-# Upload a PDF for extraction (field name must be file)
-curl -s -X POST "$BASE/parse/task" \
-  -H "Authorization: Bearer $AK" \
-  -F "file=@paper.pdf;type=application/pdf" | jq .
-
-# Fetch the result (format=graph matches /papers/graph)
-curl -s -X GET "$BASE/parse/task/$TASK_ID/result?format=graph" \
-  -H "Authorization: Bearer $AK" | jq .
+bohr lkm reasoning \
+  --query "infer phase stability from XRD evidence" \
+  --top-k 10 \
+  --yes \
+  -o json
 ```
 
----
+`search` returns representative `variables`, same-paper `related` context, and
+authoritative paper metadata. `reasoning` returns whole reasoning-chain hits.
+Treat `score` and `rerank_score` as ranking signals, never as confidence,
+truth probability, or evidence strength.
 
-## Error codes
+Capture identifiers from structured results rather than inventing IDs:
 
-| code | Meaning | Fix |
-|------|---------|-----|
-| `2000` | Unauthorized | Check `BOHR_ACCESS_KEY` validity and that the request carries `Authorization: Bearer` |
-| `290002` | Invalid params | Check `retrieval_mode`/`scopes` values, `keywords` over limit, pagination bounds, `reasoning_only` vs scopes/role conflict, title/date filter format, empty/over-100 `ids`, `package_id` format, `/papers/reference` with both lists empty or `paper_ids+dois` over 20 |
-| `290001` | Search/query failed | Retry once; if still failing, shorten query or lower limit |
-| `290004` | Claim not found | Ensure you pass a global `gcn_...`, not a graph local node ID |
-| `290008` | Claim has no reasoning chain | Only call reasoning on conclusions with `has_reasoning=true` |
-| `290009` | Query timeout | Retry later, or use a more precise `paper_id`/`package_id` |
-| `290011` | Paper not found | Check `paper_id`/`package_id`/`doi`/`title` |
-| `290013` | Paper exists but no graph extracted | Show paper metadata and note no structured graph yet |
-| `290015` | Parse bind/param error | Multipart field name must be `file`; file must be non-empty; Result `format` must be `local` or `graph` |
-| `290016` | Parse task not found | `task_id` must come from submit and belong to the current user |
-| `290017` | Parse result not ready | Go back to the status endpoint; do not substitute `/papers/graph` |
-| `290018` | PDF too large | Default cap is 64 MiB |
-| `290019` | Not a valid PDF | File header must be `%PDF-` |
-| `290020` | Same user + same PDF already in progress | Do not resubmit; poll the `task_id` in the error |
-| `290021` | Parse failed (generic) | Retry once; inspect `failed_reason` on status/result |
-| `290022` | PDF has too many pages | Default cap is 50 pages |
-| `7002` | Result not available yet | Retry the same `task_id` later |
+- A numeric paper ID is consumed by `bohr lkm graph --paper-id` or
+  `bohr lkm reference --paper-id`.
+- A DOI is consumed by `bohr lkm graph --doi` or `bohr lkm reference --doi`.
+- A `paper:<digits>` package key is consumed by `bohr lkm graph --package-id`.
+- A title is consumed by `bohr lkm graph --title` (may return multiple graphs).
+- A global `gcn_...` ID is consumed by `variables batch`; only a conclusion
+  claim with reasoning should be sent to `claim reasoning`.
+- A graph-local node ID describes a node only inside one returned graph and is
+  not a global variable, claim, or paper ID.
 
----
+```bash
+bohr lkm graph --paper-id <numeric_paper_id> --yes -o json
+bohr lkm graph --doi <doi> --yes -o json
+bohr lkm graph --title "<paper_title>" --yes -o json
+bohr lkm reference --paper-id <numeric_paper_id> --yes -o json
+bohr lkm variables batch <global_gcn_id> [global_gcn_id...] --yes -o json
+bohr lkm claim reasoning <global_conclusion_gcn_id> --format graph --yes -o json
+```
 
-## Pairs well with
+Use the graph's direction and node kinds when explaining provenance. A
+`highlight` is positive support, a `weak_point` is a limitation, and a
+`subproblem` is a research question or motivation; they are not interchangeable
+with the final `conclusion`.
 
-> For chaining between LKM endpoints, see "How the endpoints connect" and the "Worked example" above. This section lists cross-skill pairings only.
+## Extract knowledge from a local PDF
 
-- **lkm** `/papers/reference` after expanding citations → **bohrium-paper-search** for the full text; use `/papers/graph` for a knowledge graph, not this endpoint
-- **lkm** after verifying/tracing a conclusion → **bohrium-paper-search** for the original full text
-- **local PDF, want questions/conclusions/reasoning** → this skill's `/parse/task` (not **bohrium-pdf-parser**)
-- **layout/text/tables/formulas from a PDF** → **bohrium-pdf-parser**
-- **lkm** batch-hydration / graph results → **bohrium-knowledge-base** to archive
+Use `extract` when the user has a local PDF rather than a known corpus result:
+
+```bash
+bohr lkm extract submit paper.pdf -o json
+bohr lkm extract wait <task_id> --interval 5s --timeout 30m -o json
+bohr lkm extract result <task_id> --yes -o json
+bohr lkm extract result <task_id> --format graph --yes -o json
+```
+
+Extract costs **1.00 CNY** per successful paper, or **0.10 CNY** on a cache hit.
+Confirm spend before a real submit.
+
+The local file must be a non-empty regular PDF of at most 64 MiB; the service
+also enforces a 50-page limit. Submission returns an extract task ID and may report
+`cache_hit`; a cache hit reuses an existing extraction. Do not resubmit a
+running PDF to make it faster. The service returns `290020` with the existing
+task ID, which the caller should continue through `status` or `wait`.
+
+`queued` and `running` are non-terminal. `succeeded`, `partial`, and `failed`
+are terminal. `partial` is a non-retryable business terminal state for a paper
+that cannot produce a complete graph; the same PDF should not be resubmitted.
+`failed` is a technical terminal state and the PDF may be resubmitted. A local
+wait timeout or cancellation only stops waiting; it does not cancel the remote
+task. Keep the extract task ID and resume with `status`, `wait`, or `result`.
+
+The default `local` success format returns a flat `variables` / `factors` / `motivations` graph.
+`--format graph` returns `addressed_problems`, `open_questions`, and
+`graph.nodes` / `graph.edges` — the same field kinds as `bohr lkm graph`, not
+that command's envelope. In either format, local node identifiers exist only
+in that extraction. Only a non-null `global_id` can be reused with
+`variables batch` or, when it identifies a supported conclusion claim,
+`claim reasoning`.
+
+For `partial` or `failed`, inspect the stage, failure reason, and any
+intermediate files. Their URLs are expiring credentials: use them only for the
+requested recovery and keep them out of chat transcripts and logs.
+
+`290017` means the task is not ready: continue waiting. For a concurrent first
+Result charge, retry with the same task ID and payment source only when the
+returned structured error has `retryable: true`. Photon insufficiency may retain
+upstream subtype `7002` but is `BILLING_INSUFFICIENT` with `retryable: false`: stop
+and follow the payment-source rule below. Keep the existing task; do not resubmit
+the PDF to recover from a billing failure.
+
+## Capability boundary
+
+The current CLI intentionally exposes a focused subset of the broader LKM
+service. Feedback submission and arbitrary response controls remain outside
+this command surface. Inspect `bohr lkm <command> --help` instead of
+translating every service field into a flag.
+
+## Choose the payment source
+
+Without `--payment-source`, the CLI sends no channel preference: the gateway
+uses photons first and falls back to balance only on definite photon
+insufficiency. Tell the user this policy when obtaining spending authorization.
+To restrict spending to one source, use `--payment-source photon` or
+`--payment-source balance`. Explicit photon stops when photons are insufficient;
+explicit balance charges balance directly. Existing free quotas and exemptions
+still apply.
+
+When an explicitly selected channel returns `BILLING_INSUFFICIENT` with
+`retryable: false`, report the refusal and wait
+for the user to recharge the selected source or authorize the other source for
+the original command. Explicit balance insufficiency also stops without charging
+photons; use `--payment-source photon` only after that source is authorized.
+`--yes` confirms execution; it does not authorize changing the payment source.
+Use `--payment-source balance` only when that source is authorized. Keep the
+selected source on subsequent billable calls in a multi-step workflow; options
+from a previous CLI invocation are not saved. `bohr api` follows the same rule.
+
+## Detailed reference
+
+Read [`references/commands.md`](references/commands.md) for every current
+command, flag, output field, ID rule, graph semantic, extract state, and version
+contract.

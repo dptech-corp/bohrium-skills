@@ -1,0 +1,391 @@
+{
+  "package": "@dptech-corp/bohr-cli",
+  "version": "2.9.19",
+  "git_head": "efb5ba5707427708c2a82b794598868160a87ed0",
+  "skills": [
+    {
+      "name": "bohrium-job",
+      "guide": "bohr-job",
+      "command": "bohr job",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-node",
+      "guide": "bohr-node",
+      "command": "bohr node",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-dataset",
+      "guide": "bohr-dataset",
+      "command": "bohr dataset",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-file",
+      "guide": "bohr-file",
+      "command": "bohr file",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-database",
+      "guide": "bohr-database",
+      "command": "bohr database",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-image",
+      "guide": "bohr-image",
+      "command": "bohr image",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-project",
+      "guide": "bohr-project",
+      "command": "bohr project",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-knowledge-base",
+      "guide": "bohr-knowledge-base",
+      "command": "bohr kb",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-paper-search",
+      "guide": "bohr-paper-search",
+      "command": "bohr paper",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-pdf-parser",
+      "guide": "bohr-pdf-parse",
+      "command": "bohr pdf",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-scholar-search",
+      "guide": "bohr-scholar-search",
+      "command": "bohr scholar",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-sciencepedia",
+      "guide": "bohr-wiki",
+      "command": "bohr wiki",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-tools",
+      "guide": "bohr-tools",
+      "command": "bohr wiki tools",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-web-search",
+      "guide": "bohr-web-search",
+      "command": "bohr search",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-sandbox",
+      "guide": "bohr-sandbox",
+      "command": "bohr sandbox",
+      "files": [
+        "SKILL.md",
+        "references/images.md",
+        "references/platform-snapshot.md",
+        "references/sandbox/exec.md",
+        "references/sandbox/execution-modes.md",
+        "references/sandbox/files.md",
+        "references/sandbox/lifecycle.md",
+        "references/sandbox/network.md",
+        "references/sandbox/pitfalls.md",
+        "references/sandbox/remote-storage-index.md",
+        "references/sandbox/storage.md",
+        "references/sandbox/templates.md",
+        "references/sandbox/terminal.md",
+        "references/software-install/README.md",
+        "references/software-install/mirrors.md",
+        "references/software-install/pre-installed.md"
+      ]
+    },
+    {
+      "name": "bohrium-lkm",
+      "guide": "bohr-lkm",
+      "command": "bohr lkm",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    },
+    {
+      "name": "bohrium-mentor",
+      "guide": "bohr-mentor",
+      "command": "bohr agents mentor",
+      "files": [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md"
+      ]
+    }
+  ],
+  "compatibility": "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access.",
+  "public_proxy_host": "proxy.example.com",
+  "proxy_notice": "> Public distribution note: `proxy.example.com:3128` is a placeholder. Before configuring a proxy, obtain the proxy URL approved for the target sandbox and replace the placeholder throughout that operation. If no approved proxy is available, leave it disabled and report the network limitation. Never execute the placeholder configuration as-is.\n\n",
+  "patches": [
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "## Wenyon-backed sandboxes (two-stage contract)\n\nWenyon dataset mounting is supported only through a template created with the\nexact Provider value `volcengine-openkruise`. Template creation stores the\ndataset descriptor; it does **not** create a lease and does not need a Wenyon\nJWT. A Wenyon template is always private (`visibility=2`), has `replicas=0`,\ncannot be shared, and cannot have prewarmed sandbox instances.\n\nThe current template API does not echo a Wenyon-backed acknowledgement, so the\nCLI cannot preflight-prove that an arbitrary existing template has the\ndescriptor. Use only a template created in a known supported environment, heed\nthe CLI warning, and verify the configured mount after the first create. Do not\nguess from the template name or treat dry-run as server capability proof.\n\n```bash\n# Stage 1: descriptor only; no Wenyon JWT is read or sent.\nbohr sandbox template create wenyon-work \\\n  --image <immutable-image> \\\n  --sku-name <sku> \\\n  --provider volcengine-openkruise \\\n  --wenyon-dataset-id <dataset-id> \\\n  --wenyon-mount-path /mnt/wenyon \\\n  --visibility 2 \\\n  -o json\n\n# Stage 2: the secret/session must already export WENYON_USER_JWT; do not\n# substitute BOHR_ACCESS_KEY.\nREQUEST_ID=\"$(uuidgen)\"\nbohr sandbox create wenyon-work \\\n  --wenyon-user-token-env WENYON_USER_JWT \\\n  --request-id \"$REQUEST_ID\" \\\n  --yes -o json\n\n# Save canonical data.sandbox_id as SANDBOX_ID (data.sandboxID is the retained\n# compatibility spelling), then verify the actual mount.\nbohr sandbox exec \"$SANDBOX_ID\" \\\n  'test -d /mnt/wenyon && (findmnt -T /mnt/wenyon || grep \" /mnt/wenyon \" /proc/mounts) && df -hT /mnt/wenyon'\n```\n\nThe mounted write directory is initially empty. A write lease does **not**\ncopy or seed the dataset's existing current version. Wenyon prewarm/read-open\nonly serves read/warm replicas and never populates this write mount. If old\ncontent must survive into the new version, the user or workflow must obtain it\nthrough a separate Wenyon read flow and explicitly copy/write it into the\nmount before the Sandbox terminates. The current `bohr sandbox` Wenyon flow\ndoes not support a read lease; stop and say so instead of inventing one.\n\n`--wenyon-user-token-env` accepts only the name of the environment variable\nholding the Wenyon/Vouch user JWT. Sandbox create does not implicitly read the\nstored Vouch login. Do not populate this variable from `bohr auth token` when\nthat command reports `auth_method=access_key`; `--as user` does not turn an\nAccessKey into a Vouch JWT. The token is request-scoped: it must not\nenter the create body, Sandbox metadata, environment metadata, dry-run, logs,\nor command output. Dataset ID, mount path, PVC, PFS, and lease details also do\nnot belong in the Stage 2 body; they come from the template and service.\n\n`sandbox create --timeout 43200` controls the Sandbox's 12-hour lifetime. It\nis **not** an HTTP or Wenyon readiness timeout. Do not increase it to work\naround write-mount initialization, and do not invent an async create or\nclient-side lease poll. Template image states `PREPARING`, `READY`, and\n`DEGRADED` describe image preparation only. Even image `READY` does not prove\nthat the Wenyon dataset or PVC is Ready, and a separate prewarm/read-open does\nnot change the empty-write-mount contract.\n\nWenyon creates a write lease for each Sandbox. Reuse the same stable request\nID while reconciling one logical create. Validation/auth errors are not\ntransient; fix the named Provider, mount, or token source before trying again.\nIf create returns `sandbox_create_outcome_uncertain`, list/reconcile by request\nID instead of blind-retrying create, so a late success is not duplicated. Do\nnot mistake the expected empty write mount for a readiness failure or retry\ncreate to obtain the current version.\n\nDeleting a Wenyon-backed Sandbox needs no Wenyon JWT. Once an active Sandbox\nreally reaches `Stopped`, `Deleted`, or `Failed`, the service performs\n`finalize -> end` with its machine token and submits the write mount as the new\ncurrent version; a create that failed before becoming active is ended without\nfinalize. There is no discard/end-only CLI for an active Sandbox, and\n`sandbox delete --force` only skips the process pre-check: it does not discard\npending Wenyon writes or suppress finalization. Retrieve outputs first, then\nuse the normal `bohr sandbox delete` flow.\n\n",
+      "new": "## Mount a Wenyon dataset in an instance\n\nUse an ordinary compute template. The dataset, mount path, mode, and starting\nversion are **sandbox create parameters**, not template defaults. Check\n`bohr sandbox create --help` and the local\n[lifecycle reference](references/sandbox/lifecycle.md#mount-a-wenyon-dataset-in-an-instance).\n\n```bash\nREQUEST_ID=\"$(uuidgen)\"\n\nbohr sandbox create sdbxagent \\\n  --wenyon-dataset-id <dataset-id> \\\n  --wenyon-mount-path /mnt/wenyon \\\n  --wenyon-mode read --wenyon-version current \\\n  --wenyon-user-token-env WENYON_USER_JWT \\\n  --request-id \"$REQUEST_ID\" --yes -o json\n```\n\nGenerate `REQUEST_ID` once for this logical create and retain it across shell/tool invocations. Reuse it while reconciling this request; do not generate a new ID for a retry.\n\n`read/current` is the default and pins the current version when the lease is\ncreated. `write/current` or a positive version preloads that complete baseline;\nonly `write/none` starts empty. Missing versions and failed preload do not fall\nback to an empty directory. Confirm the dataset, mount path, requested/resolved\nversion, and actual access mode in the response and verify the mounted data.\n\n`--wenyon-user-token-env` names an existing environment variable holding a\nWenyon/Vouch user JWT; it never takes a token literal. AccessKey authentication\nand `--as user` do not supply this JWT. Do not copy `bohr auth token` output when\nit reports `auth_method=access_key`. Keep tokens out of command arguments,\nmetadata, dry-run output, logs, and chat. Do not combine this mount with\n`--inherit-auth`.\n\nA writable mount requires an explicit settlement choice: `sandbox delete\n--commit --wait` publishes the entire workspace, including deletions;\n`--discard --wait` discards it. `--force` only skips the process check and does\nnot choose settlement. Check the returned `produced_version` after commit.\nWithout `--wait`, acceptance is not evidence that the data was saved.\n\nIf writable execution fails or expires and the workspace remains available,\ninspect `recovery_deadline` and choose settlement during the one-hour\n`awaiting_decision` window. The write lock remains held; after the deadline the\nworkspace is discarded. Upstream eviction can make recovery unavailable sooner.\nKeep the same request ID while reconciling an uncertain create instead of\ncreating another instance. A sandbox lifetime limit is not an HTTP or mount\nreadiness timeout, and an image `READY` state does not prove dataset readiness.\n\n",
+      "reason": "Align the stale template-only Wenyon section with 2.9.19 instance-mount flags and its lifecycle reference."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "`-o json|human|pretty|table`",
+      "new": "`-o json|human|table|ndjson|csv|yaml`",
+      "reason": "pretty is not an accepted output format in the published CLI."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "references/sandbox/lifecycle.md",
+      "old": "`-o json|pretty|table|yaml|...`",
+      "new": "`-o json|table|yaml|ndjson|csv`",
+      "reason": "Use the supported structured output formats."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "- Long-running automation: `bohr config set billing_confirmation false --yes`\n  once. Destructive operations still confirm separately.",
+      "new": "- Keep confirmation enabled. Change persistent billing confirmation only when\n  the user explicitly requests that configuration change; it is not a workaround\n  for a refused operation. Destructive operations keep their own confirmation.",
+      "reason": "Keep persistent confirmation changes separate from authorization for one operation."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "Wenyon requires the exact Provider plus dataset/mount flags",
+      "new": "legacy Wenyon descriptor flags do not configure instance mounts",
+      "reason": "Separate legacy template descriptors from the published instance mount workflow."
+    },
+    {
+      "guide": "bohr-wiki",
+      "path": "SKILL.md",
+      "old": "- Find scientific software in SciencePedia's tool library with `wiki tools`;",
+      "new": "- Find scientific software in SciencePedia's tool library with `bohr wiki tools`;",
+      "reason": "Qualify the canonical scientific-tool library path; top-level bohr tools is a hidden deprecated rename alias in this release."
+    },
+    {
+      "guide": "bohr-paper-search",
+      "path": "SKILL.md",
+      "old": "Pagination is a new paid call each time. Bound `--page` and `--size` to the\nrequested evidence volume; do not page automatically without additional\nspending authorization.",
+      "new": "In published bohr 2.9.19, `--page` is accepted but is not forwarded in paper or patent requests. Increasing it repeats the same query parameters rather than requesting a next page, and each invocation may still be billable. Keep `--page 1`; bound `--size` to the requested evidence volume. Refine the query or filters only within the authorized search budget, and report that pagination is unavailable instead of claiming additional page coverage.",
+      "reason": "The 2.9.19 request builders never forward the registered page value; avoid paid duplicate queries masquerading as pagination."
+    },
+    {
+      "guide": "bohr-paper-search",
+      "path": "references/commands.md",
+      "old": "# Paper and patent command reference\n\n## Academic papers\n\n```text\nbohr paper search <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Page number; each invocation may be billed |\n| `--size` | `10` | Page size |\n| `--year-from` | unset | Inclusive start year |\n| `--year-to` | unset | Inclusive end year |\n| `--type` | `0` | `0` normal, `1` enhanced |\n| `--jcr` | empty | Comma-separated JCR zones |\n| `--db` | empty | Comma-separated source databases |\n\nPrices: normal **0.05 CNY**, enhanced **0.10 CNY** per request.\n\n## Patents\n\n```text\nbohr paper patent <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Page number; each invocation may be billed |\n| `--size` | `10` | Page size |\n| `--type` | `0` | `0` normal, `1` enhanced, `2` professional |\n\nPrices: normal **0.10 CNY**, enhanced **0.30 CNY**, professional **0.50 CNY**\nper request.\n\n",
+      "new": "# Paper and patent command reference\n\n## Academic papers\n\n```text\nbohr paper search <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Accepted but not forwarded in 2.9.19; keep 1 (not pagination) |\n| `--size` | `10` | Page size |\n| `--year-from` | unset | Inclusive start year |\n| `--year-to` | unset | Inclusive end year |\n| `--type` | `0` | `0` normal, `1` enhanced |\n| `--jcr` | empty | Comma-separated JCR zones |\n| `--db` | empty | Comma-separated source databases |\n\nPrices: normal **0.05 CNY**, enhanced **0.10 CNY** per request.\n\n## Patents\n\n```text\nbohr paper patent <query> [flags]\n```\n\n| Flag | Default | Meaning |\n|---|---:|---|\n| `--page` | `1` | Accepted but not forwarded in 2.9.19; keep 1 (not pagination) |\n| `--size` | `10` | Page size |\n| `--type` | `0` | `0` normal, `1` enhanced, `2` professional |\n\nPrices: normal **0.10 CNY**, enhanced **0.30 CNY**, professional **0.50 CNY**\nper request.\n\n",
+      "reason": "Both page flags are registered but absent from the actual outgoing request bodies."
+    },
+    {
+      "guide": "bohr-paper-search",
+      "path": "SKILL.md",
+      "old": "safe pagination rule",
+      "new": "result-volume limits and the unsupported-pagination boundary",
+      "reason": "Remove residual pagination wording because the published page flag is not forwarded."
+    },
+    {
+      "guide": "bohr-paper-search",
+      "path": "references/commands.md",
+      "old": "every page and tier",
+      "new": "every invocation and tier",
+      "reason": "Remove residual pagination wording because the published page flag is not forwarded."
+    },
+    {
+      "guide": "bohr-web-search",
+      "path": "SKILL.md",
+      "old": "# Bohrium Web Search\n\n",
+      "new": "# Bohrium Web Search\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Find a website, official manual, or recent public information | Narrow web query → select primary sources → verify their pages |\n| Find papers, people, or private documents | Route to Paper, Scholar, or Knowledge Base before searching |\n| Answer a factual question | Use returned links as leads; verify the evidence before writing the answer |\n\n## Workflow: find documentation and deliver a sourced answer\n\n1. Identify the product/topic, version if relevant, and what fact the user needs. Include those terms in the query; `--limit` bounds returned leads, not verification depth.\n2. Run a small discovery query:\n\n```bash\nbohr search \"official VASP documentation PAW method\" --limit 5 -o json\n```\n\n3. Inspect the actual returned container/URL fields (for example `data.organic_results[].link` or `data.results[].url`); carry each selected title, URL and snippet together. Open the selected official page using an available page reader/browser. This Skill's command searches; it does not fetch full pages.\n4. Verify that the page supports the requested claim and matches the version/date. Deliver the supported answer with its source URL. If only snippets are available, label the finding as a search lead and state the missing verification.\n5. An empty result calls for one more precise query when useful; an authentication/network error calls for fixing that error. Neither supports a claim that the subject does not exist. Stop when the requested fact is supported, rather than accumulating unrelated hits.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-scholar-search",
+      "path": "SKILL.md",
+      "old": "# Bohrium Scholar Search\n\n",
+      "new": "# Bohrium Scholar Search\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Identify a researcher from a name | Search → disambiguate → retrieve the selected profile |\n| Find researchers in a field/institution | Search with supplied school/tags → compare candidates |\n| Inspect a known person | Use the exact scholar ID directly with `info` |\n\n## Workflow: resolve a person before attributing work\n\n1. Search the supplied name with a bounded result set. Keep same-name candidates separate; add affiliation or research filters only when supported by the request.\n\n```bash\nbohr scholar search \"Geoffrey Hinton\" --page 1 --size 10 -o json\nbohr scholar info <scholar_id> -o json\n```\n\n2. Replace `<scholar_id>` with the selected record's actual scholar identifier. Search data is forwarded from upstream; inspect the returned records before choosing a JSON path. A name or DOI is not a valid substitute.\n3. Compare the retrieved profile's affiliation and research direction with the intended person. If the evidence conflicts or remains ambiguous, show the candidates and obtain the distinguishing information before attributing publications.\n4. Complete with the resolved scholar ID and supported profile facts. Preserve missing fields as unavailable; citation totals are a returned snapshot, not a reconstructed citation history. A failed `info` does not validate the search candidate; retry only the failed read when its error is retryable.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-paper-search",
+      "path": "SKILL.md",
+      "old": "# Bohrium Paper and Patent Search\n\n",
+      "new": "# Bohrium Paper and Patent Search\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Build a bounded bibliography | Paper search → screen record types → deduplicate → evidence table |\n| Find patent evidence | Patent search → inspect publication/applicant/legal metadata actually returned |\n| Read layout or scientific reasoning | Selected PDF URL/file → PDF Parser; supported paper identity → LKM |\n\n## Workflow: search, screen, then hand off evidence\n\n1. Define the question, inclusion criteria, date range, record count and authorized number/tier of paid calls. Use the pricing and payment rules below before execution.\n2. Search once with explicit limits:\n\n```bash\nbohr paper search \"solid electrolyte interphase lithium metal\"   --year-from 2020 --year-to 2026 --page 1 --size 10 --type 0 --yes -o json\n```\n\n3. Inspect returned records rather than assuming a fixed response array. Keep title, authors, year, source, DOI or publication identifier, abstract, record type and URL when present. Deduplicate by DOI/identifier, falling back to title/year with uncertainty recorded.\n4. Screen relevance and source type; report excluded and missing evidence. Deliver a table with provenance and the filters used. This is a bounded retrieval, not exhaustive coverage; the published pagination limitation below applies.\n5. For full-text extraction, first resolve an actual accessible PDF file or direct PDF URL, then use PDF Parser. For LKM reasoning, use a supported identity such as a DOI/title or confirmed numeric paper ID according to its reference. A paper-search record ID or landing-page URL is not automatically a parser token or LKM ID.\n6. If results are empty, refine only within the search budget. If a paid call is refused or its outcome is unknown, inspect the error/billing evidence before another call; switching tier/source or repeating a call is a new spending decision.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-pdf-parse",
+      "path": "SKILL.md",
+      "old": "# Bohrium PDF Parse\n\n",
+      "new": "# Bohrium PDF Parse\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Extract a local PDF | Validate file → submit `--file` → retain token → retrieve requested blocks |\n| Extract a directly reachable PDF | Validate URL → submit `--url` → use the same result workflow |\n| Recover an interrupted wait | Continue `result` with the original token; submission creates another parse |\n| Extract claims or research reasoning | Route to LKM extract instead of layout parsing |\n\n## Workflow: turn one PDF into a usable artifact\n\n1. Confirm input, requested semantic modes and spending using the sections below. Record the original source alongside the task token.\n2. Submit once, then replace `<token>` with the returned `data.token`. JSON is forwarded from upstream: if the token is absent, preserve the full response and report the missing handoff; do not substitute another task ID or resubmit in human mode to obtain it:\n\n```bash\nbohr pdf parse --file ./paper.pdf --table 2 --equation 2 --yes -o json\nbohr pdf result <token> --formatted markdown -o json\n```\n\n3. Inspect the returned status before using content. Continue the same token through `undefined`/`processing` at a bounded interval. `success` completes parsing; `PARSE_FAILED` ends it unsuccessfully. A timeout stops this wait and retains the token for later retrieval.\n4. On success, inspect the requested text/objects and `proc_page`/`total_page`; record missing or partial pages. Deliver the requested content with page provenance and the source/token needed to trace it. Non-empty `--return-half` output remains partial until terminal success.\n5. When result retrieval fails transiently, retry that free read with the same token. A failed or uncertain submission needs its returned diagnostic/token examined before resubmission; a new parse may incur another charge. Critical table/equation values require comparison with the source page before use.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-wiki",
+      "path": "SKILL.md",
+      "old": "# Bohrium SciencePedia\n\n",
+      "new": "# Bohrium SciencePedia\n\n## Workflow: explain a concept with its prerequisites\n\n| User's deliverable | Ordered route |\n|---|---|\n| A concept explanation | Search → route article/keyword ID → read → explain with a reading link |\n| A learning outline | Search → returned `field_id` → course tree → selected entry articles |\n| Related concepts | Confirm entry/keyword ID → graph → preserve edge direction |\n\n1. Set the requested language/style and authorize the bounded search/read/graph calls using the prices below.\n2. Search, then choose a result using the ID routing section. The following is an article branch; a `type=keyword` result uses `keyword get` instead:\n\n```bash\nbohr wiki search \"quantum entanglement\" --lang en-US --style Feynman --yes -o json\nbohr wiki article <article_id> --lang en-US --style Feynman --yes -o json\nbohr wiki graph <article_id> --yes -o json\n```\n\n3. Replace `<article_id>` with `data.articles[].id` only from the selected `type=article` hit. Graph expansion is optional: run it only if relationships are requested and its cost is authorized. A course uses `data.fields[].field_id`, not a major/level ID.\n4. Complete with the supported explanation, source reading link and relevant prerequisites/relationships. Preserve graph direction; a relation label is not proof of causality. For a course, retain chapter/entry hierarchy rather than flattening it into search hits.\n5. If content is ungenerated/blank, apply the language/style fallback below and disclose it. If no course `field_id` is returned, stop that branch rather than substituting another ID. Repeated paid search or graph expansion requires room in the authorized budget.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-mentor",
+      "path": "SKILL.md",
+      "old": "# Bohrium Mentor\n\n",
+      "new": "# Bohrium Mentor\n\n## Choose the deliverable\n\n| Goal | Route |\n|---|---|\n| Explain a mechanism or compare methods | One focused Mentor question with scope and comparison criteria |\n| Obtain a screened corpus or evidence table | Paper retrieval/screening first; Mentor alone does not establish systematic coverage |\n| Check a specific claim or reference | Paper records or LKM provenance; verify the cited source |\n\n## Workflow: produce and check a scientific explanation\n\n1. Define the scientific question, domain, date scope and desired output. For a comparison, include the criteria (assumptions, accuracy, cost, applicability) in the question itself; these are question text, not new CLI flags.\n2. Inspect the normalized input with `--dry-run` and the session price below. After the session budget is authorized, request structured output:\n\n```bash\nbohr agents mentor   \"Compare DFT and Hartree-Fock for periodic solids: assumptions, accuracy, computational cost and limitations\"   --discipline Physics --journal-type foreign --model reason --yes -o json\n```\n\n3. Keep the process attached for the answer. On successful JSON, retain `data.answer` and `data.session_id` together. The session ID is provenance, not an input to a CLI resume/get command.\n4. Inspect the actual answer: an empty or visibly truncated `data.answer` is incomplete delivery even if the CLI returned `ok=true`; the CLI does not verify a service completion event. Check that it addresses every requested comparison criterion. Separate returned synthesis from independently checked evidence; resolve key references through paper/source retrieval when the deliverable requires verifiable citations.\n5. Complete with the answer, uncertainty and actual verification boundary. If the stream fails or times out, report the partial/unknown outcome using the interruption rules below. Creating another session is a new billable action; do not treat retry as continuation of the original session.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-job",
+      "path": "SKILL.md",
+      "old": "# Bohrium Job\n\n",
+      "new": "# Bohrium Job\n\n## Choose the task\n\n| Goal | Ordered route |\n|---|---|\n| Run a batch calculation | Resolve resources/cost → submit → track Bohr ID → verify terminal outcome → download |\n| Recover an existing calculation | Describe/log the original Bohr ID; a new submit starts another job |\n| Stop work | Resolve phase → terminate running / kill queued → confirm terminal state |\n\n## Workflow: submit a calculation and retrieve its outputs\n\n1. Resolve the project, image, machine and authorized resource budget using the preflight below. Confirm input and result paths before submit.\n2. For an output-producing run, put the collection contract in `job.json` (these are config keys, not public flags):\n\n```json\n{\n  \"out_files\": [\"result.csv\"],\n  \"log_files\": [\"run.log\"]\n}\n```\n\nThe selected image must provide Python; `./input/run.py` must write `result.csv` in the job working directory. Submit once after filling the resolved resource values:\n\n```bash\nbohr job submit -i ./job.json --project-id <project_id> --job_name analysis \\\n  --image_address <image> --machine_type <machine> \\\n  --command \"python run.py > run.log 2>&1\" --input_directory ./input \\\n  --result_path /personal/results --yes -o json\n```\n\n`--result_path` is remote storage; download's `--out` is local. Capture identifiers from the actual successful response:\n\n| Returned value | Next consumer |\n|---|---|\n| `data.bohrJobId` | `job describe --id`, `job log`, `job download`, lifecycle commands |\n| `data.bohrJobGroupId` | Later `job submit --job_group_id` |\n| `data.jobGroupId` | Immediate job-group lifecycle operations |\n| `data.jobId` | Internal platform ID; retain as evidence rather than substituting it for Bohr ID |\n\n```bash\nbohr job describe --id <bohr_job_id> -o json\nbohr job download <bohr_job_id> --out ./results -o json\n```\n\n3. Replace `<bohr_job_id>` with `data.bohrJobId` from submission (or the selected public Bohr ID from listing). For a single describe, inspect `data.phase`, `data.terminal`, and `data.exitCode`. Download the requested results after `phase=completed` and exit code `0`; a queued/running or accepted response is not completion.\n4. For a failed terminal job, inspect `errorInfo` and logs for that same Bohr ID before deciding whether new input/compute is needed. Preserve failed-run diagnostics; another submit is another resource action.\n5. Complete with the terminal outcome and actual local artifacts from download's `data.files[].path`/`bytes`. A completed job with failed or missing download is compute success with an unfinished delivery. `JOB_FILES_EMPTY` means no downloadable artifacts were found; check the collection paths and preserve the run evidence. A monitoring timeout retains the Bohr ID for resumption; it does not stop the job.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-node",
+      "path": "SKILL.md",
+      "old": "# Bohrium Node\n\n",
+      "new": "# Bohrium Node\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Open an interactive development environment | Resources/cost → create → wait for running → connect |\n| Reuse a known environment | Resolve Node ID → inspect state → authorized restart if stopped |\n| End a session | Save work → stop → verify stopped; delete only for explicit disposal |\n\n## Workflow: create, use, and stop a development node\n\n1. Select project/image/machine, disk and auto-shutdown using the cost preflight below. After authorized create, preserve `data.id` as the Node ID. From a list, use `data.items[].nodeId`.\n2. Inspect the same Node ID within the agreed waiting budget until `data.status=2`, then connect; if the deadline expires, retain this ID and report that readiness is unconfirmed:\n\n```bash\nbohr node get <node_id> -o json\nbohr node connect <node_id>\n```\n\n3. `get` preserves the lookup ID in `data.requestedNodeId`; its detail `nodeId`/`machineId` may identify the underlying machine. Continue using the original Node ID for lifecycle/SSH operations. `connect` launches interactive SSH even if global JSON output is selected; use an interactive terminal and keep connection secrets private.\n4. Save the user's work, then stop when requested:\n\n```bash\nbohr node stop <node_id> -o json\nbohr node get <node_id> -o json\n```\n\n5. Completion requires the requested environment to be usable, and after an authorized stop, observed `status=-1` from detail/list. Stop acceptance alone is insufficient. If startup or SSH fails, inspect the original node before creating another billable one. Restart may resume charges; delete is a separate destructive decision.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-dataset",
+      "path": "SKILL.md",
+      "old": "# Bohrium Dataset\n\n",
+      "new": "# Bohrium Dataset\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Publish local data | Confirm owner/source → create/upload → inspect dataset and version |\n| Obtain reproducible input | Resolve dataset ID → select a ready version → download and verify ZIP |\n| Recover interrupted transfer | Same upload identity + `--resume`, or same download version/destination |\n\n## Workflow: publish and retrieve an exact dataset version\n\n1. Confirm project, local tree and intended dataset identity, then use the create command below. Preserve `data.dataset_id`; retain `data.version_id` when returned. Do not confuse dataset ID with version ID.\n2. Inspect the dataset and its existing versions:\n\n```bash\nbohr dataset get <dataset_id> -o json\nbohr dataset versions <dataset_id> -o json\nbohr dataset download <dataset_id> --version-id <version_id> --dest ./dataset.zip -o json\n```\n\n3. Select `<version_id>` from the chosen `data.items[].id` in `versions`. The downloadable version must be `status=committed`, `packStatus=completed`, with a usable `downloadUri`. An accepted upload or a version still packaging is not a ready input archive; recheck that version within the waiting budget.\n4. Download that exact version, and complete only when the receipt has `data.verified=true`; report its `path`/`bytes` and the dataset/version binding. Preserve the ZIP as an archive until the downstream task explicitly needs extraction.\n5. On interrupted upload, retain all four identity inputs and add `--resume` as described below. On download interruption, retain the version and destination so `.part` recovery remains bound to the same data. `--force` discards recovery state and needs overwrite intent; changing version is not a safe continuation of the original partial download.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-file",
+      "path": "SKILL.md",
+      "old": "# Bohrium File\n\n",
+      "new": "# Bohrium File\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Send/receive one disk object | Resolve space/project/path → transfer → stat/receipt verification |\n| Copy or download a directory tree | List the narrow prefix → explicit recursive operation → inspect per-file outcomes |\n| Recover an upload | Preserve local file and remote target → inspect uncertain outcome → resume compatible session |\n\n## Workflow: transfer a project input and verify the round trip\n\n1. Confirm the local source and destination, project ownership and intended remote key. A share disk path requires the same positive project ID on every call.\n\n```bash\nbohr file upload ./input.dat share/experiment/input.dat --project-id <project_id> -o json\nbohr file stat share/experiment/input.dat --project-id <project_id> -o json\nbohr file download share/experiment/input.dat --project-id <project_id> --dest ./retrieved-input.dat -o json\n```\n\n2. Upload success returns `data.remote_path`, `space`, `project_id` and `size`. Carry the returned full `remote_path` and project scope into stat/download; a basename alone loses the storage route. Check remote metadata against the intended object and expected size.\n3. Download success reports `data.dest_path`/`size`. Complete with the verified remote target and actual local destination; for critical content, compare bytes/checksum locally when that verification is available. Size equality alone is not content integrity.\n4. For recursive downloads, inspect `downloaded`, `skipped` and `failed`; `files` is not the count newly transferred. Report partial delivery and failed paths rather than treating a populated directory as complete.\n5. On `UPLOAD_NOT_CONFIRMED`, inspect the same remote object and the returned recovery hint before another write. Apply the multipart resume rules below for compatible interrupted uploads. A failed download preserves the previous complete destination; retrying is a read plus an authorized local-file write.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-project",
+      "path": "SKILL.md",
+      "old": "# Bohrium Project\n\n",
+      "new": "# Bohrium Project\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Select ownership for compute/storage | List → inspect project/members → hand the exact project ID downstream |\n| Create a project with limits | Confirm name/limits → create → resolve the created project through list/get |\n| Remove a project | Inspect membership/dependencies → exact-target approval → delete and verify |\n\n## Workflow: resolve the project before creating resources\n\n1. List and select a project using `data.items[].id`, then inspect that ID and its members:\n\n```bash\nbohr project list -o json\nbohr project get <project_id> -o json\nbohr project members <project_id> -o json\n```\n\n2. Confirm the returned identity/ownership, rather than selecting solely by a duplicate display name. A member's user ID is not a project ID. If creating first, inspect the actual create response; it is upstream data, not a guaranteed `data.projectId` contract. Re-list by the intended unique name and verify with `get` before proceeding.\n3. Carry the same project ID into each resource operation:\n\n| Consumer | Project input |\n|---|---|\n| Dataset create | `--pid <project_id>` |\n| Job submit / Node create / Image build | `--project-id <project_id>` |\n| Project-share File operations | `share/... --project-id <project_id>` |\n\n4. Completion is a confirmed project-to-resource binding, not merely a successful project list. Respect the downstream Skill's spending/write gates. If detail fails, distinguish permission/network/incomplete-upstream errors from a missing project before choosing or creating a replacement.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-database",
+      "path": "SKILL.md",
+      "old": "# Bohrium Database\n\n",
+      "new": "# Bohrium Database\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Obtain crystal structures | Search → inspect usable structures/warnings → optional archive download → validate local inputs |\n| Browse polymers | Bounded library list → inspect returned scientific records |\n| Query an existing private table | Supplied `db_ak` → tables → schema → typed filter/query, only where those routes are enabled |\n\n## Workflow: retrieve structures for a calculation\n\n1. Define composition/query, maximum matches, desired CIF/POSCAR format and the local destination. Archive download writes locally even though the remote operation is read-only.\n\n```bash\nbohr database structure search --query \"Li Fe P O\" --n-results 5   --output-format cif --download --out ./structures.tgz -o json\n```\n\n2. Inspect `data.cleaned_structures` for the usable scientific records. The command uses that same search's `data.output_dir` to download the archive; it is a retrieval URL, not a private `db_ak` or local path.\n3. Check `notice.warnings` and `data.errors`. `STRUCTURE_SEARCH_PARTIAL` means some sources are missing despite success. Inspect archive contents and structure format before selecting local files as a Job input directory; neither match count nor a downloaded filename proves valid calculation inputs.\n4. Complete with selected structure provenance, missing-source disclosure and the actual verified local files. If download fails, retain the search records; use the returned recovery hint and destination rules in the reference. An unusable archive link cannot be fixed by repeatedly downloading it.\n5. For private tables, first confirm the routes are available: the published CLI can return `db_route_unavailable` and has no private-database discovery command. When enabled, pass the selected `table_ak` from table records to schema/query, and use schema column names/types for filter values. A route failure is not evidence of an empty database and is not fixed by inventing keys.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-image",
+      "path": "SKILL.md",
+      "old": "# Bohrium Image\n\n",
+      "new": "# Bohrium Image\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Reuse an existing image | List/search → get → keep the canonical registry address |\n| Build with local source files | Local build → returned `pushCommand` → validated push receipt |\n| Build Dockerfile text remotely | Remote build → terminal image status → inspect final image |\n| Save a sandbox rootfs | Storage gate below → commit → terminal status; mounted data is separate |\n\n## Workflow: build locally, publish, then use the image\n\n1. Confirm Docker context/daemon, Dockerfile/build context, unique short name, project and write intent. Local mode reserves a remote record/quota but does not push.\n\n```bash\nbohr image build --mode local --dockerfile ./Dockerfile --context .   --name research-env:v1 --project-id <project_id> -o json\n```\n\n2. Preserve the local-build result's `data.localImage`, `imageUrl`, `id` and `pushCommand`. With `uploaded=false`, the image is only built locally. Run the actual returned `pushCommand` in the same Docker daemon, Bohrium identity/profile and project; do not reconstruct a registry path.\n3. A successful push validates its final `data.id`, `imageUrl`, `status=1`, `digest` and `sizeBytes`. Use that final `imageUrl` with Job `--image_address` or Node `--image_path`; an image record ID or local tag is not the registry address.\n4. The local prepare record is not a remote build task: do not poll it with `status`/`build-log`. Remote build/commit uses the separate `0/1 → 2/3/4` lifecycle described below; its success status `2` must not be applied to a local push receipt.\n5. Complete with the published address and digest plus the selected consumer's requirements. If build/push is interrupted or prepare outcome is uncertain, reconcile the same name/record using the reference before reserving another one. A built local image alone is unfinished publication.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-sandbox",
+      "path": "SKILL.md",
+      "old": "# Bohrium Sandbox (`bohr sandbox`)\n\n",
+      "new": "# Bohrium Sandbox (`bohr sandbox`)\n\n## Choose the task path\n\n| Goal | Required reference/route |\n|---|---|\n| Run one calculation and collect files | Doctor/quota → create → upload → foreground exec → download → authorized cleanup |\n| Run long-lived/background work | [Execution modes](references/sandbox/execution-modes.md) and [exec recovery](references/sandbox/exec.md) |\n| Read/write a Wenyon dataset | [Instance lifecycle and settlement](references/sandbox/lifecycle.md#mount-a-wenyon-dataset-in-an-instance) |\n| Install software, expand storage, or save an image | Relevant software/storage/image reference before that operation |\n\n## Workflow: run a script and deliver its output\n\n1. Check `doctor`'s `data.ready`, quota, selected template/resources and authorized cost. Confirm the script, remote paths and local output destination. For this ordinary, non-Wenyon example, generate one create request ID and retain it across tool calls:\n\n```bash\nREQUEST_ID=\"$(uuidgen)\"\nbohr sandbox create sdbxagent --timeout 3600 --request-id \"$REQUEST_ID\" --yes -o json\n```\n\n2. Set `<sandbox_id>` to the successful response's canonical `data.sandbox_id` (`sandboxID` is the compatibility spelling). Receipt/error wrappers need the reconciliation flow below; an operation ID is not a sandbox ID.\n\n```bash\nbohr sandbox files write --source ./run.py <sandbox_id> /tmp/run.py -o json\nbohr sandbox exec <sandbox_id> -o json -- python /tmp/run.py\nbohr sandbox files read <sandbox_id> /tmp/result.json --destination ./result.json -o json\n```\n\n3. The script must actually produce `/tmp/result.json`. For foreground execution require `data.result_known=true` and `data.exit_code=0`, then inspect the requested output. A background receipt with `start_confirmed=true` and `result_known=false` confirms launch only. In argv mode put global CLI flags before `--`; anything after it is a remote argument.\n4. Verify download's reported `output`, transfer summary and manifest against the requested local artifact before cleanup. Delete only after outputs are safe and disposal is authorized. Wenyon write mounts additionally require the explicit commit/discard settlement below.\n5. Unknown create outcomes use the original request ID and scope to reconcile; unknown exec outcomes use the returned process/request evidence in the exec reference. Re-running create or a side-effecting script can duplicate work. A local deadline does not prove the remote task ended.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-knowledge-base",
+      "path": "SKILL.md",
+      "old": "# Bohrium Knowledge Base\n\n",
+      "new": "# Bohrium Knowledge Base\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Search existing private content | Resolve KB ID → targeted `search` → inspect returned evidence |\n| Add a local document | Confirm file/KB → upload → locate stable document ID → inspect indexing → test retrieval |\n| Remove content | List/get exact document or KB → authorized delete; folder IDs are separate |\n\n## Workflow: upload a paper and verify it can be retrieved\n\n1. Resolve the intended KB from `kb list`, confirm the local file and destination, then upload. Use either `--kb-id` or `--parent-id`, following the selector rules below.\n\n```bash\nbohr kb upload ./paper.pdf --kb-id <kb_id> -o json\nbohr kb document list --kb-id <kb_id> --page 1 --size 50 -o json\nbohr kb document get <document_id> -o json\nbohr kb search <kb_id> \"distinctive phrase from the uploaded paper\" -o json\n```\n\n2. Preserve upload's `data.knowledge_base_id`, `parent_id` and `md5`. Its `data.document.index_state=submitted` means registration succeeded, not indexing completed. `data.document.document_id` may be absent if post-upload lookup has not found the document yet; use document listing to resolve it instead of uploading again.\n3. In `data.documents[]`, match the selected document and preserve its `document_id` for get/delete. Inspect that row's `index_state`: `processing` permits bounded rechecks; `ready` permits the retrieval check; `failed`/`unsupported` needs a reported failure/format remedy. `unavailable`/`unknown` is missing evidence, not a reason for endless polling. Page-level `index_status_available=false` can be caused by another row.\n4. `document get` verifies safe metadata, not full text. Search for distinctive content and confirm an actual hit attributable to the intended document before claiming it is searchable. Preserve an explicit `recallable=false` limitation; a no-hit query alone does not prove indexing failed.\n5. Complete with KB ID, stable document ID, observed indexing state and the retrieval evidence. If registration succeeded but indexing/search is unverified, report that exact partial outcome. Continue the original document's checks; a repeated upload is a new write, not a readiness probe.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-tools",
+      "path": "SKILL.md",
+      "old": "# Bohrium Scientific Tools\n\n",
+      "new": "# Bohrium Scientific Tools\n\n## Choose the task\n\n| Goal | Route |\n|---|---|\n| Understand available scientific domains | Free taxonomy discovery; returned node IDs are categories |\n| Find software for a concrete task | Paid hybrid search → selected tool key → paid detail |\n| Recommend a usable tool | Inspect detail/source → check license, platform and installation requirements |\n\n## Workflow: select a tool for an analysis task\n\n1. Define input format, scientific operation, runtime/platform constraints and the authorized search/detail budget. Taxonomy browsing can refine the wording but does not return executable tool records.\n2. Search for the task, then inspect one promising candidate:\n\n```bash\nbohr wiki tools search \"molecular dynamics trajectory analysis\" --k 10 --lang en-US --yes -o json\nbohr wiki tools info <tool_unique_key> --yes -o json\n```\n\n3. Replace `<tool_unique_key>` with the selected search record's `data.tools[].tool_unique_key`. Category discovery uses `data.items[].node_id`; that node ID is not accepted as a tool key. Search has no `--domain` filter: encode the relevant field in the query rather than inventing a flag.\n4. Inspect returned capabilities, repository, tutorial and usage details. Verify that the candidate accepts the user's inputs and is available for the target platform/license. A returned command is reference material; execute or install only when that action is in scope.\n5. Complete with a justified selection, source link, constraints and next runnable step. A ranked hit alone is discovery, not a compatibility check. If detail is missing or search is empty, retain the limitation; another paid candidate/detail requires room in the existing budget.\n\n",
+      "reason": "Add an implementation-verified, LKM-style intent route and complete task workflow with identifier handoffs, completion evidence and recovery."
+    },
+    {
+      "guide": "bohr-tools",
+      "path": "SKILL.md",
+      "old": "`domains`, `subdomains`, and `list` are free. Domain IDs identify taxonomy\nnodes, not tools. Use the returned unique tool key for detail retrieval.",
+      "new": "`domains`, `subdomains`, and `list` are free taxonomy discovery. `list --domain`\nreturns subdomain records, not tools. Their node IDs describe categories. Obtain\na unique tool key from hybrid search before requesting tool detail.",
+      "reason": "Free taxonomy discovery returns category IDs; only tool-search records supply the detail key."
+    },
+    {
+      "guide": "bohr-web-search",
+      "path": "SKILL.md",
+      "old": "Raw provider data may include base64 favicons, internal search URLs, related\nqueries, and other provider extras. When only organic results matter, use the\nsupported jq-like path `-q '.data.organic_results'` rather than object construction.",
+      "new": "Raw provider data may include base64 favicons, internal search URLs, related\nqueries, and other extras. JSON is forwarded without normalizing result containers:\ninspect the actual response first (`organic_results[].link` and `results[].url`\nare supported upstream shapes). The shown `-q '.data.organic_results'` projection\napplies only when that field exists; an empty projection is not proof of no hits.",
+      "reason": "Web search forwards upstream JSON unchanged; human-renderer fields do not define a normalized machine schema."
+    }
+  ]
+}

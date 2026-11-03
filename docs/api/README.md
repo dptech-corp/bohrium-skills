@@ -1,6 +1,6 @@
 # Bohrium OpenAPI — 单一事实源（SSOT）
 
-本目录维护 Bohrium 平台对外 API 文档的**唯一事实源**，内容基于各 Skill（`zh/<skill>/SKILL.md`）中记录的真实接口。新增/修改接口或调整定价，都改这里；Apifox 定时从本仓库抓取 `openapi.json` 并同步到 <https://open.bohrium.com>，飞轮自动运转，无需手工维护 Apifox。
+本目录独立维护 Bohrium 平台对外 API 规范。CLI 版 Skills 通过 `bohr guide` 读取指引，不再记录接口定义或维护本目录的副本。新增/修改接口或调整 API 定价时，更新本目录规范；Apifox 定时从本仓库抓取 `openapi.json` 并同步到 <https://open.bohrium.com>，飞轮自动运转，无需手工维护 Apifox。
 
 ## 文件
 
@@ -29,11 +29,11 @@
 ```
 
 - `items[].condition` 可选，用于按参数区分档位（如 `type=0`）；`unit` 常见 `次`/`页`/`小时`。
-- 与根目录 `README.md` 的「计费说明」表保持一致。
+- API 定价由本规范独立维护；CLI 用户通过 `bohr billing pricing` 和当前内嵌指引核对价格。
 
 ## 维护流程
 
-1. 改动代码或 `zh|en/*/SKILL.md` 中的接口/定价时，同步更新 `openapi.json` 对应 operation。
+1. API 实现或定价发生变更时，同步更新 `openapi.json` 对应 operation；Skill 文字更新不作为接口变更来源。
 2. 校验：`python3 -c "import json;json.load(open('docs/api/openapi.json'))"`，并可用 `openapi-spec-validator` 或 `npx @redocly/cli lint` 做 3.0 合规检查。
 3. 合并到 `main` 后，Apifox 在下一个抓取周期（每 3 小时）自动拉取。
 

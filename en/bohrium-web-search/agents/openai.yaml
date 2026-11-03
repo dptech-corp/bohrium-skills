@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Web Search"
+  short_description: "Search the open web through the Bohrium CLI"
+  default_prompt: "Use $bohrium-web-search to find relevant public web sources through the Bohrium CLI."

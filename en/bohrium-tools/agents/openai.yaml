@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Scientific Tools"
+  short_description: "Browse and search Bohrium scientific software tools"
+  default_prompt: "Use $bohrium-tools to find a suitable scientific software tool through the Bohrium CLI."

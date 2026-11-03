@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 科学小导师"
+  short_description: "获取文献支持的科学问答和方法比较"
+  default_prompt: "请使用 $bohrium-mentor 通过 Bohrium CLI 完成相关任务。"

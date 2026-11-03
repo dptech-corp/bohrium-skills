@@ -1,205 +1,102 @@
 ---
 name: bohrium-node
-description: "Manage Bohrium dev nodes (containers/VMs) via open.bohrium.com API. Use when: user asks about creating/querying dev machines on Bohrium, checking available resources and pricing, or managing node lifecycle. NOT for: job submission, image management, or project management."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Create, list, inspect, connect to, restart, stop, or delete Bohrium interactive
+  development nodes with `bohr node`. Use for 开发机, long-lived CPU/GPU nodes,
+  machine pricing, image selection, disk size, auto-shutdown, SSH connection,
+  and node lifecycle. Use Job for non-interactive batch compute.
 ---
 
-# SKILL: Bohrium Dev Node Management
+# Bohrium Node
 
-## Overview
+## Choose the task
 
-Manage dev nodes (container/VM instances) on the Bohrium platform through OpenAPI.
+| Goal | Route |
+|---|---|
+| Open an interactive development environment | Resources/cost → create → wait for running → connect |
+| Reuse a known environment | Resolve Node ID → inspect state → authorized restart if stopped |
+| End a session | Save work → stop → verify stopped; delete only for explicit disposal |
 
-Dev nodes are used for data preparation, compilation, debugging, and post-processing. They support Web Shell and SSH connections.
+## Workflow: create, use, and stop a development node
 
-## Authentication
-
-```json
-"bohrium-node": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": { "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY" }
-}
-```
-
-Only configure `BOHR_ACCESS_KEY` for this skill. Helper scripts handle any legacy CLI compatibility internally.
-
-When calling `bohr node ...` commands directly, map `BOHR_ACCESS_KEY` to the legacy variable that the CLI reads:
+1. Select project/image/machine, disk and auto-shutdown using the cost preflight below. After authorized create, preserve `data.id` as the Node ID. From a list, use `data.items[].nodeId`.
+2. Inspect the same Node ID within the agreed waiting budget until `data.status=2`, then connect; if the deadline expires, retain this ID and report that readiness is unconfirmed:
 
 ```bash
-export PATH="$HOME/.bohrium:$PATH"
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
+bohr node get <node_id> -o json
+bohr node connect <node_id>
 ```
 
-## List Nodes
+3. `get` preserves the lookup ID in `data.requestedNodeId`; its detail `nodeId`/`machineId` may identify the underlying machine. Continue using the original Node ID for lifecycle/SSH operations. `connect` launches interactive SSH even if global JSON output is selected; use an interactive terminal and keep connection secrets private.
+4. Save the user's work, then stop when requested:
 
 ```bash
-python node_manager.py list
-python node_manager.py list --page 1 --page-size 20
+bohr node stop <node_id> -o json
+bohr node get <node_id> -o json
 ```
 
-**JSON fields:** `nodeId`, `nodeName`, `status` (Started/Paused/Pending/Waiting), `cpu`/`memory`/`gpu`, `ip`, `imageName`, `cost`
+5. Completion requires the requested environment to be usable, and after an authorized stop, observed `status=-1` from detail/list. Stop acceptance alone is insufficient. If startup or SSH fails, inspect the original node before creating another billable one. Restart may resume charges; delete is a separate destructive decision.
 
----
-
-## Create Node
+Nodes are interactive, potentially long-lived compute resources. Inspect
+available machines and pricing before create or restart:
 
 ```bash
-bohr node create    # Interactive: Project -> Image -> Machine -> Name -> Disk
+bohr billing pricing --resource node -o json
+bohr machine list --scene node --choose-type all -o json
+bohr node resources -o json
 ```
 
-> `bohr node create` is interactive. For automation, use the API (see below).
-
-**Recommended images:**
-
-| Scenario | Image |
-|----------|-------|
-| CPU basic | `registry.dp.tech/dptech/ubuntu:20.04-py3.10` |
-| CPU + Intel MPI | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022` |
-| GPU basic | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-cuda11.6` |
-| GPU + Intel MPI | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022-cuda11.6` |
-
----
-
-## Connect to Node
+Create and restart are balance-only resource operations. Confirm project,
+machine, image, disk, auto-shutdown, and spending before adding `--yes`:
 
 ```bash
-bohr node connect YOUR_NODE_ID       # Passwordless SSH via nodeId
+bohr node create --name dev-node --project-id <project_id> \
+  --image_path <image> --machine_type <machine> --disk_size 40 \
+  --turnoff_after 24 --yes -o json
 ```
 
-Alternative: **Web Shell** via the Bohrium web UI (auto-login as root), or manual SSH using credentials from the API.
+Disk size is required and must be one of **20, 40, 80, 100** GB.
+`--turnoff_after` defaults to `24` hours; common values are `1`, `8`, `24`, and
+`-1` for never. Never-ending resources require especially explicit cost intent.
+A JSON config file is an alternative input; inspect it before submission.
 
----
+Always preserve the ID returned by create as the requested Node ID. A later detail
+response may also expose a different internal machine/node ID; do not silently
+replace the create ID in lifecycle commands.
 
-## Stop / Delete
+Track and connect by node ID:
 
 ```bash
-bohr node stop YOUR_NODE_ID          # Stop (pause billing, data preserved)
-bohr node delete YOUR_NODE_ID        # Delete (irreversible)
+bohr node list --started -o json
+bohr node get <node_id> -o json
+bohr node connect <node_id>
 ```
 
-> **Important**: Nodes are billed continuously while running. Stop or delete when not in use.
+Connect opens an interactive local SSH process. Keep credentials and connection
+details out of logs and summaries.
 
----
+Lifecycle commands:
 
-## Storage & Networking
-
-| Item | Details |
-|------|---------|
-| **System disk** | Selected at creation (max 100GB); stores OS packages |
-| **Personal disk /personal** | 500GB per user per project; persists after node release |
-| **Shared disk /share** | 1TB per project; read/write for all members |
-| **Public ports** | 50001-50005 open by default |
-| **GPU driver** | v525 default; cannot upgrade |
-| **Docker** | **Not supported** inside container nodes (security) |
-
----
-
-## Dataset Mounting
-
-Mount datasets when creating a container node; access via path (e.g. `/bohr/my-dataset/v1`).
-
-- Adds 2-4s boot delay (regardless of dataset count)
-- Use `df -a | grep bohr` to view mount points
-
----
-
-## Boot Time & Image Cache
-
-| Scenario | Boot time |
-|----------|-----------|
-| Cached CPU machine | ~20s |
-| Cached GPU machine | ~40s |
-| GPU under resource pressure | 1-5 min |
-| No cache (new/expired image) | 10-30 min (image pull) |
-
-**Cache rules:**
-- Public images have persistent cache
-- Custom images: cache builds in 10-30 min after creation; wait before using
-- Custom images unused for 30 days: cache expires, re-pull required
-- Billing starts from resource allocation, even during image pull
-
----
-
-## API Supplement
-
-```python
-import os, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-BASE = "https://open.bohrium.com/openapi/v2/node"
-HEADERS = {"Authorization": f"Bearer {AK}"}
-HEADERS_JSON = {**HEADERS, "Content-Type": "application/json"}
-
-# Programmatic node creation (non-interactive)
-r = requests.post(f"{BASE}/add", headers=HEADERS_JSON, json={
-    "projectId": YOUR_PROJECT_ID, "name": "my-node", "imageId": YOUR_BASE_IMAGE_ID,
-    "machineConfig": {"type": 0, "value": 388, "label": "c2_m4_cpu"},
-    "diskSize": 20,
-})
-# Returns: {"code": 0, "data": {"machineId": YOUR_MACHINE_ID}}
-
-# Available resources
-r = requests.get(f"{BASE}/resources", headers=HEADERS)
-# Returns: {disks, cpuList, gpuList} — value = skuId
-
-# Resource pricing
-r = requests.get(f"{BASE}/resources/price", headers=HEADERS,
-    params={"skuId": 388, "projectId": YOUR_PROJECT_ID})
-# Returns: {"data": {"price": "0.4"}}  (CNY/hour)
-
-# Node details (includes SSH password)
-r = requests.get(f"{BASE}/{machine_id}", headers=HEADERS)
-# Returns: {nodeId, nodeName, status, ip, nodeUser, nodePwd, domainName, ...}
-
-# Restart (must stop first)
-requests.post(f"{BASE}/restart/{machine_id}", headers=HEADERS)
-
-# Rename
-requests.post(f"{BASE}/modify/{machine_id}", headers=HEADERS_JSON,
-    json={"name": "new-name"})
-
-# View/bind datasets
-r = requests.get(f"{BASE}/ds", headers=HEADERS, params={"nodeId": node_id})
-requests.post(f"{BASE}/ds/bind", headers=HEADERS_JSON,
-    json={"nodeId": node_id, "datasetId": dataset_id})
+```bash
+bohr node stop <node_id> -o json
+bohr node restart <node_id> --turnoff_after 24 --yes -o json
+bohr node delete <node_id> --yes -o json
 ```
 
----
+Stop is a write; restart may resume billing; delete is destructive. Verify the
+returned state instead of treating request acceptance as lifecycle completion.
+After delete, confirm the unique Node name/ID is absent from `bohr node list`.
+`bohr node get` may briefly return stale detail after deletion, so a stale detail
+record alone is not evidence that the Node remains active.
+The current CLI has no separate start, rename, or dataset-binding subcommand.
 
-## Status Codes
+Read [`references/commands.md`](references/commands.md) for every current
+command, filter, resource input, price boundary, and lifecycle guardrail.
 
-| status | Meaning | CLI Display |
-|--------|---------|-------------|
-| 2 | Running | Started |
-| -1 | Stopped/Released | Paused |
+## Resource payment boundary
 
-## Quotas
-
-| Resource | Limit |
-|----------|-------|
-| Nodes | 4 per user per project |
-| System disk | Max 100GB |
-| Personal disk | 500GB per user per project |
-| Shared disk | 1TB per project |
-
-## SSH vs Web Shell Environment
-
-| Method | Env var source |
-|--------|---------------|
-| Web Shell | System env + `/root/.bashrc` |
-| SSH | `/root/.bashrc` only (overwrites globals) |
-
-## Troubleshooting
-
-| Problem | Cause | Solution |
-|---------|-------|----------|
-| `AccessKey Invalid` | Direct `bohr` calls are missing the legacy variable name | Run `export ACCESS_KEY="$BOHR_ACCESS_KEY"` and retry |
-| `No resource for selected machine` | Out of stock | Try another spec or retry later |
-| `record not found` | Invalid machineId | Verify with `python node_manager.py list` |
-| Restart fails | Node not stopped | `bohr node stop` first, wait for Paused |
-| `nodeId` vs `machineId` | Two different IDs | CLI uses `nodeId`; API uses `machineId`; dataset API uses `nodeId` |
-| SSH fails | Image lacks SSH | DockerHub images need manual sshd install |
-| Domain not resolving | Stopped >7 days | Restart; wait 10-30 min for DNS; use Web Shell meanwhile |
-| Slow terminal | VPN/network or browser memory | Disable VPN; refresh page |
-| Cannot run Docker | Container security | Use VM image `LBG_Common_v2` |
-| Image pulling | Cache not ready or expired | Wait 10-30 min after build |
+Resource actions marked balance-only keep their existing balance billing. The
+global `--payment-source` option does not enable photon billing for these
+resources; explicitly selecting `photon` on a balance-only action is rejected
+before execution. Use the existing resource pricing/authorization workflow.

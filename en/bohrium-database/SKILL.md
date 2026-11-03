@@ -1,199 +1,75 @@
 ---
 name: bohrium-database
-description: "Operate Bohrium private databases with bohrium-open-sdk. Use when: the user asks to list private/authorized Bohrium databases, inspect tables or schemas, query/filter/export rows, insert/update/delete records, create tables, or alter table columns using db_ak/table_ak IDs. NOT for: public materials databases such as crystal/electrolyte/positive-electrode databases, internal shrimp PostgreSQL operations, general file storage, datasets, or compute jobs."
-metadata:
-  openclaw:
-    primaryEnv: BOHR_ACCESS_KEY
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Query Bohrium scientific databases with `bohr database`: browse polymer
+  records, search crystal structures, or inspect and query private tabular
+  databases by db_ak and table_ak. Use for Bohrium database, 私有数据库, polymer
+  library, crystal structure search, table schema, or filtered row queries.
 ---
 
-# SKILL: Bohrium Private Database
+# Bohrium Database
 
-## Overview
+## Choose the task
 
-Use `bohrium-open-sdk` to operate Bohrium private databases that the user can access. "Private databases" here includes databases created by the user, team-authorized databases, and any database visible to the current AK. It does not include the public materials database catalog such as crystal, electrolyte, or positive-electrode databases. Common identifiers:
+| Goal | Route |
+|---|---|
+| Obtain crystal structures | Search → inspect usable structures/warnings → optional archive download → validate local inputs |
+| Browse polymers | Bounded library list → inspect returned scientific records |
+| Query an existing private table | Supplied `db_ak` → tables → schema → typed filter/query, only where those routes are enabled |
 
-- `db_ak`: database access key, for example `669ng`
-- `table_ak`: table access key, for example `669ng00`
+## Workflow: retrieve structures for a calculation
 
-Prefer the bundled `database_manager.py` for routine operations. Use direct SDK calls only for complex filters, data cleaning, or custom exports.
-
-## Authentication and Install
-
-Read `BOHR_ACCESS_KEY` from the environment. Never print, log, or hardcode it.
-
-```bash
-test -n "$BOHR_ACCESS_KEY" || echo "BOHR_ACCESS_KEY is missing"
-python3 -m pip install "bohrium-open-sdk>=1.0.5" -q
-```
-
-If `BOHR_ACCESS_KEY` is missing, ask the user to configure their AccessKey before calling the API.
-
-## Quick CLI
-
-Run these commands from the skill directory, or replace `database_manager.py` with the actual script path:
+1. Define composition/query, maximum matches, desired CIF/POSCAR format and the local destination. Archive download writes locally even though the remote operation is read-only.
 
 ```bash
-python3 database_manager.py list-dbs
-python3 database_manager.py list-tables 669ng          # shows up to 30 fields per table by default
-python3 database_manager.py detail 669ng00
+bohr database structure search --query "Li Fe P O" --n-results 5   --output-format cif --download --out ./structures.tgz -o json
 ```
 
-Query rows:
+2. Inspect `data.cleaned_structures` for the usable scientific records. The command uses that same search's `data.output_dir` to download the archive; it is a retrieval URL, not a private `db_ak` or local path.
+3. Check `notice.warnings` and `data.errors`. `STRUCTURE_SEARCH_PARTIAL` means some sources are missing despite success. Inspect archive contents and structure format before selecting local files as a Job input directory; neither match count nor a downloaded filename proves valid calculation inputs.
+4. Complete with selected structure provenance, missing-source disclosure and the actual verified local files. If download fails, retain the search records; use the returned recovery hint and destination rules in the reference. An unusable archive link cannot be fixed by repeatedly downloading it.
+5. For private tables, first confirm the routes are available: the published CLI can return `db_route_unavailable` and has no private-database discovery command. When enabled, pass the selected `table_ak` from table records to schema/query, and use schema column names/types for filter values. A route failure is not evidence of an empty database and is not fixed by inventing keys.
+
+Choose the database family before acting:
+
+- Domain libraries use `bohr database polymer` or `bohr database structure`.
+  They return scientific records and do not use private table keys.
+- Private tabular access uses `tables`, `schema`, and `query` with stable
+  `db_ak` and `table_ak` identifiers.
+
+All current database commands are read-only and free. Prefer structured output:
 
 ```bash
-python3 database_manager.py query 669ng00 \
-  --where '[{"field":"name","op":"LIKE","value":"sample"}]' \
-  --order-by createTime --desc --page 1 --page-size 20
+bohr auth whoami -o json
+bohr database polymer list --page 1 --size 20 -o json
+bohr database structure search --query "Si O" --n-results 5 -o json
 ```
 
-Insert rows:
+For a private database, discover tables before querying rows:
 
 ```bash
-python3 database_manager.py insert 669ng00 \
-  --rows '[{"name":"new sample","value_a":1.5,"value_b":2.3}]'
+bohr database tables <db_ak> -o json
+bohr database schema <db_ak> <table_ak> -o json
+bohr database query <db_ak> <table_ak> \
+  --filter '[{"field":"status","operator":"eq","value":"active"}]' \
+  --limit 20 \
+  --offset 0 \
+  -o json
 ```
 
-Update and delete preview the target rows by default. Add `--yes` after confirming:
+Treat display names as labels, not identifiers. Preserve `db_ak` and
+`table_ak` exactly between discovery, schema, and query calls. The filter is a
+JSON array; use field names and types from the returned schema rather than
+guessing them.
 
-```bash
-python3 database_manager.py update 669ng00 \
-  --where '[{"field":"name","op":"EQ","value":"old value"}]' \
-  --set '{"name":"new value","value_a":99}' \
-  --yes
+Structure search can return CIF or POSCAR output metadata and optionally
+download its result archive. Confirm the local destination before `--download`;
+the remote operation remains read-only, but it writes a local file.
 
-python3 database_manager.py delete 669ng00 \
-  --where '[{"field":"name","op":"EQ","value":"delete me"}]' \
-  --yes
-```
+The current CLI does not list private databases or mutate rows, tables, or
+columns. If the requested workflow needs database creation, insert/update/delete,
+or schema alteration, report that it is outside this command surface.
 
-Create or alter tables:
-
-```bash
-python3 database_manager.py create-table 669ng "new_table" \
-  --schema '[{"title":"sample_name","dataType":"str"},{"title":"mass","dataType":"num"}]'
-
-python3 database_manager.py alter-table 669ng00 \
-  --schema '[{"title":"sample_name","dataType":"str"},{"title":"mass","dataType":"num"},{"title":"new_column","dataType":"str"}]' \
-  --yes
-```
-
-`--rows`, `--where`, `--set`, and `--schema` accept either JSON strings or `@/path/to/file.json`.
-
-## Direct SDK Template
-
-```python
-import os
-from bohrium_open_sdk.db import SQLClient
-
-client = SQLClient("", os.environ["BOHR_ACCESS_KEY"], "https://openapi.dp.tech")
-```
-
-### List Databases
-
-```python
-data = client.base().Dbs()
-for db in data.get("list", []):
-    print(db["name"], db["ak"], db.get("createTime", ""))
-```
-
-### List Tables and Schema
-
-```python
-result = client.db_with_ak("669ng").Tables()
-for table in result.get("tables", []):
-    fields = ", ".join(f"{f['name']}({f['type']})" for f in table.get("fields", []))
-    print(table["name"], table["tableAk"], fields)
-
-detail = client.table_with_ak("669ng00").Detail()
-for field in detail.get("fields", []):
-    print(field["name"], field["type"])
-```
-
-### Query
-
-```python
-from bohrium_open_sdk.db import Op, Where
-
-count, rows = (
-    client.table_with_ak("669ng00")
-    .Where("price", Op.GTE, 10)
-    .And(Where("name", Op.LIKE, "sample"))
-    .order(key="price", is_asc=False)
-    .page(1)
-    .page_size(20)
-    .Find()
-)
-print(count, rows[:20])
-```
-
-### Full Export
-
-```python
-from bohrium_open_sdk.db.func import db_query_full
-
-table = client.db_with_ak("669ng")
-table.table_ak = "669ng00"
-count, df = db_query_full(table, batch_size=1000)
-df.to_csv("bohrium_table_export.csv", index=False)
-print(f"exported {count} rows")
-```
-
-## Filter Format
-
-`database_manager.py --where` accepts an array of conditions:
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `field` | Yes | Column name, case-sensitive |
-| `op` | Yes | Operator, see below |
-| `value` | Yes | Filter value |
-| `join` | No | From the second condition onward: `AND` or `OR`; default `AND` |
-
-Operators:
-
-| Operator | Meaning | Value type |
-|----------|---------|------------|
-| `EQ` | Equal | string or number |
-| `NEQ` | Not equal | string or number |
-| `GT` / `GTE` | Greater than / greater or equal | number |
-| `LT` / `LTE` | Less than / less or equal | number |
-| `BETWEEN` | Closed range | `"1,100"` or `[1, 100]` |
-| `LIKE` | String contains | string |
-| `IN` / `NIN` | In / not in | array |
-| `ELEMENTMATCHOFNUM` | Numeric array element range | `{"min":0,"max":10}` |
-
-## Column Types
-
-When creating or altering tables, schema items use `{"title": "column_name", "dataType": "type"}`.
-
-| Type | Description |
-|------|-------------|
-| `str` | String |
-| `num` | Number |
-| `smiles` | SMILES string |
-| `img` | Image object, usually uploaded to Tiefblue first |
-| `file` | File object, usually uploaded to Tiefblue first |
-| `file_arr` | Array |
-
-Altering a table requires the complete new schema. Omitting an existing column usually means deleting it and may lose data.
-
-## Safety Rules
-
-- Preview target rows or target schema before deleting, updating, or altering tables.
-- For batch inserts, updates, or deletes affecting more than 100 rows, explain the impact and ask for confirmation first.
-- If a query returns more than 20 rows, show only the first 20 rows and the total count unless the user asks for export.
-- For wide tables, use `list-tables --max-fields 30` for an overview, then use `detail` for the full schema of one table.
-- Prefer filters for wide or large tables; unfiltered scans may time out. Use `export` when the user needs the full table.
-- For image and file columns, show short fields such as `name`; do not show full signed URLs.
-- Hide metadata fields such as `_id`, `audit_id`, `createTime/create_time`, `updateTime/update_time`, `authors`, `owner_id`, `status`, and internal audit/permission fields unless requested.
-- Do not expose complete API responses; they may contain internal IDs, temporary paths, or signed links.
-
-## Error Handling
-
-| Signal | Handling |
-|--------|----------|
-| `BOHR_ACCESS_KEY` missing | Ask the user to configure AccessKey |
-| 401 / 403 / `code: 2000` | Treat as invalid key or missing permission |
-| Column `KeyError`, or unexpectedly empty query | Run `detail` to verify exact column names and types |
-| Table or database not found | Use `list-dbs` and `list-tables` to confirm `db_ak` / `table_ak` |
-| Network timeout | The helper retries once; if it still fails, narrow the filter/page or use `export` |
+Read [`references/commands.md`](references/commands.md) for every current
+command, flag, identifier, and output/download boundary.

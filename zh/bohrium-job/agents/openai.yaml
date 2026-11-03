@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium 计算任务"
+  short_description: "提交、跟踪、停止计算任务并取回结果"
+  default_prompt: "请使用 $bohrium-job 通过 Bohrium CLI 完成相关任务。"

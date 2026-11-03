@@ -1,332 +1,144 @@
 ---
 name: bohrium-sciencepedia
-description: "Search and read Bohrium SciencePedia (科学百科) via open.bohrium.com. Use when the user wants to: look up / explain a scientific term and get a reading link (搜词条/关键词), browse what disciplines·fields·courses exist (有哪些领域和课程), get a course's chapter outline and knowledge list (课程章节与知识点), or explore the knowledge graph around a topic (主题相关的知识图谱). NOT for: paper search (use bohrium-paper-search), managing your own knowledge base (use bohrium-knowledge-base), or the LKM reasoning graph (use bohrium-lkm)."
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr wiki 检索和解释科学词条、关键词、学科课程与知识图谱。用于 SciencePedia、科学概念解释、课程知识树和百科图谱；论文与个人知识库分别使用 bohr paper 和 bohr kb。"
 ---
 
-# SKILL: Bohrium 科学百科（SciencePedia）
+<a id="bohrium-sciencepedia"></a>
 
-一个面向科学概念的百科。这个 skill 把它包装成 **4 件你能直接做的事**：
+# Bohrium 科学百科
 
-1. **搜一个词** → 拿到简介 + 可点击的阅读链接（自动覆盖「词条」和「关键词」，你**不用**向用户区分二者）。
-2. **看百科里有哪些领域和课程**（按学科浏览）。
-3. **给定一个课程** → 拿到它的章节结构和知识点列表。
-4. **从一个主题出发** → 拿到它和相关概念组成的知识图谱。
+## 工作流：解释概念并说明前置知识
 
-> **两个 Host，别混用**：调 **API** 用 `open.bohrium.com`；给人看的**阅读链接**用 `https://www.bohrium.com`（见[拼阅读链接](#拼阅读链接)）。不要把 API 地址发给用户。
+| 用户需要的产物 | 执行顺序 |
+|---|---|
+| 概念解释 | 搜索 → 分流 article 或 keyword ID → 阅读 → 附阅读链接解释 |
+| 学习大纲 | 搜索 → 返回的 `field_id` → 课程树 → 选读 entry 文章 |
+| 相关概念 | 确认 entry 或 keyword ID → 图谱 → 保留边的方向 |
 
-**不适用**：搜论文 → `bohrium-paper-search`；管理自己的知识库 → `bohrium-knowledge-base`；大知识模型推理图谱 → `bohrium-lkm`。
-
-**无 CLI** — 全部通过 HTTP API。
-
----
-
-## 认证配置
-
-```json
-"bohrium-sciencepedia": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": { "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY" }
-}
-```
-
-## 通用模板（复制即用）
-
-```python
-import os, requests
-from urllib.parse import quote
-
-AK = os.environ["BOHR_ACCESS_KEY"]
-BASE = "https://open.bohrium.com/openapi/v2/literature-sage/wiki_v2"
-H = {"Authorization": f"Bearer {AK}", "Content-Type": "application/json"}
-
-# 几乎所有接口都要带这两个参数：
-DEFAULTS = {"language": "en-US", "style": "Feynman"}
-# language: "en-US" 或 "zh-CN"
-# style:    "Feynman"（通俗易懂）或 "Hardcore"（硬核学术）
-
-def data(resp):
-    """统一解包：响应是 {"code":0,"data":{...}}，错误时 code!=0。"""
-    resp.raise_for_status()
-    body = resp.json()
-    if body.get("code") not in (0, None):
-        raise RuntimeError(f"API error code={body.get('code')}: {body.get('message') or body}")
-    return body.get("data", body)
-```
-
-## 三个最少必要的概念（其余 jargon 都可忽略）
-
-| 概念 | 是什么 | 怎么给用户 |
-|------|--------|-----------|
-| **词条 / 主题（topic）** | 一篇完整的百科文章 | 用 `entry_id` 拼文章链接 |
-| **关键词（keyword）** | 一个更小的概念卡片 | 用 `keyword_id` 拼关键词链接 |
-| **课程 / 领域（field）** | 一组词条组成的「课」 | 用 `field_id` 拼课程链接 |
-
-> 搜索时这三者会混在一起返回。**对用户而言它们都是「百科条目」**——直接给标题 + 简介 + 链接即可，不必解释类型差异。
-
----
-
-## 任务 1：搜一个词，拿简介和阅读链接
-
-**首选一个接口搞定**：`POST /search/universal`。它一次返回相关的「词条 + 关键词」（在 `articles` 里）和相关「课程」（在 `fields` 里），每条都带高亮简介。
-
-```python
-d = data(requests.post(f"{BASE}/search/universal", headers=H,
-                       json={"text": "graphene", **DEFAULTS}))
-
-for a in d["articles"]:                       # 词条与关键词混合，按相关度排好序
-    link = build_read_url(a["type"], a["id"], **DEFAULTS)   # 见“拼阅读链接”
-    snippet = a["matched_elements"][0]["content"] if a.get("matched_elements") else ""
-    print(a["article_name"], "→", link)
-    print("  ", snippet.replace("<em>", "").replace("</em>", ""))   # 去掉高亮标签
-
-for f in d["fields"]:                         # 相关课程（可选展示）
-    print("课程：", f["node_name"], "→", course_url(f["field_id"], **DEFAULTS))
-```
-
-`articles[]` 每项关键字段：
-- `type`：`"article"`（词条/主题）或 `"keyword"`（关键词）——**决定用哪种链接**。
-- `id`：词条是 `entry_id`，关键词是 `keyword_id`。
-- `article_name`：标题。
-- `matched_elements[].content`：命中的高亮片段，可直接当**简介**（含 `<em>` 高亮标签，展示前去掉）。
-
-### 想要更完整的简介 / 全文
-
-`/search/universal` 给的是检索片段。要正文，再按类型取详情：
-
-```python
-# 词条（主题文章）全文
-doc = data(requests.post(f"{BASE}/article", headers=H,
-                         json={"entry_id": "<entry_id>", **DEFAULTS}))["document"]
-
-# 关键词全文
-doc = data(requests.post(f"{BASE}/keyword", headers=H,
-                         json={"keyword_id": "<keyword_id>", **DEFAULTS}))["document"]
-
-# doc 常用字段：
-#   article_name    标题
-#   seo_description 一句话简介（最适合做摘要）
-#   definition      定义
-#   key_points      要点
-#   main_content    正文（Markdown）
-#   applications    应用
-```
-
-> ⚠️ `article` / `keyword` 偶尔返回 `code=250002`（内容按需生成、当前语言/风格下还没有）。这时**回退**用搜索结果里的 `matched_elements` 片段，或换一个 `style` / `language` 再试。
-
----
-
-## 任务 2：看百科里有哪些领域和课程
-
-**按学科浏览**：先拿大类与分级，再列某个分级下的课程。
-
-```python
-# 1) 顶层结构：大类(major) → 分级(level)
-ml = data(requests.post(f"{BASE}/major_levels", headers=H, json={**DEFAULTS}))
-for m in ml["majors"]:
-    levels = "、".join(l["name"] for l in m["levels"])
-    print(m["name"], "｜分级：", levels)
-
-# 2) 列出某些分级下的课程(field)
-level_ids = [lv["node_id"] for m in ml["majors"] for lv in m["levels"]]
-lf = data(requests.post(f"{BASE}/level_fields", headers=H,
-                        json={"node_ids": level_ids[:5], "page_num": 1, "page_size": 20, **DEFAULTS}))
-for it in lf["items"]:
-    f = it["field"]
-    print(f'{it["major"]["name"]} / {it["level"]["name"]} / {f["name"]}'
-          f'（{it.get("topic_count", 0)} 个知识点）→', course_url(f["field_id"], **DEFAULTS))
-```
-
-- `major_levels` 返回 `majors[]`，每个含 `name` 和 `levels[]`（`name` + `node_id`）。
-- `level_fields` 返回分页 `items[]`（`total` 为总数），每项含 `major` / `level` / `field`、`topic_count`、以及若干示例 `topics`；其中 `field` 带 `node_id`、`name`、`seo_title` 和 **`field_id`**。
-
-> 课程**阅读链接**直接用 `field.field_id` 拼（`course_url(...)`，见[拼阅读链接](#拼阅读链接)）；想要章节结构就把 `field_id`（或 `field.node_id`）传给任务 3 的 `get_wiki_index`。
-
----
-
-## 任务 3：给定课程，拿章节结构和知识点列表
-
-两步：用课程名找到课程 → 用课程取整棵章节树。
-
-```python
-# 1) 用课名定位课程（拿到 field_id）
-s = data(requests.post(f"{BASE}/search/universal", headers=H,
-                       json={"text": "Solid State Physics", **DEFAULTS}))
-field = s["fields"][0]                 # 含 node_id、field_id、node_name
-
-# 2) 取章节结构 + 知识点（传 field_id，或传该 field 的 node_id 也行）
-tree = data(requests.post(f"{BASE}/get_wiki_index", headers=H,
-                          json={"field_id": field["field_id"], **DEFAULTS}))
-
-def walk(nodes, depth=0):
-    for n in nodes:
-        print("  " * depth, f'[{n["node_type"]}]', n["node_name"])
-        if n["node_type"] == "entry":          # 叶子 = 一个知识点（词条）
-            print("  " * (depth + 1), "→", topic_url(n["entry_id"], **DEFAULTS))
-        walk(n.get("children") or [], depth + 1)
-
-walk(tree["wiki_indices"])
-print("总知识点：", tree.get("entry_count"))
-```
-
-- 树是 4 层：`field`（课程）→ `category`（大章）→ `chapter`（小节）→ `entry`（知识点/词条）。
-- 每个节点：`node_id`、`node_type`、`node_name`；**叶子 `entry` 节点额外带 `entry_id`**（拼阅读链接用）、`snapshot`（AI 速览，适合当一句话摘要）、`seo_title`。
-- 顶层还返回 `entry_count` 及 `foundational_entry_count` / `core_entry_count` / `advanced_entry_count`（基础 / 核心 / 进阶知识点数）。
-
----
-
-## 任务 4：从一个主题出发，拿知识图谱
-
-从某个中心节点（词条或关键词）向外扩展，得到它和相关概念组成的图。
-
-```python
-# 1) 先找到中心节点的 id（词条用 entry_id，关键词用 keyword_id）
-s = data(requests.post(f"{BASE}/search/universal", headers=H,
-                       json={"text": "superconductivity", **DEFAULTS}))
-center_id = s["articles"][0]["id"]
-# 也可以用图谱内检索直接找节点：
-# gs = data(requests.post(f"{BASE}/knowledge_graph/search", headers=H, json={"text": "entropy"}))
-# center_id = gs["items"][0]["id"]
-
-# 2) 取图谱（注意：是 GET + query 参数）
-g = data(requests.get(f"{BASE}/knowledge_graph", headers=H,
-                      params={"id": center_id, **DEFAULTS}))
-
-for n in g["nodes"]:                  # 节点
-    link = build_read_url(n["node_type"], n["node_id"], **DEFAULTS)
-    print(n["display_name"], f'({n["node_type"]}, 深度{n["depth"]})', "→", link)
-
-for e in g["relationships"]:          # 边
-    print(e["src_node_id"], "──", e["relationship"], "──>", e["desc_node_id"],
-          f'(权重 {e["weight"]})')
-```
-
-- 入参：`id`（必填，中心节点的 `entry_id` 或 `keyword_id`）、`language`、`style`、可选 `skip_cross_domain`（true=只看同领域）。
-- `nodes[]`：`node_id`（就是 `entry_id`/`keyword_id`，可直接拼链接）、`node_type`（`entry`/`keyword`）、`display_name`、`description`、`field_name`、`major_name`、`depth`（中心节点为 0）。
-- `relationships[]`：`src_node_id` / `desc_node_id`、`relationship`（关系描述）、`relation_type`、`description`、`weight`、`evidence_count`、`is_bidirectional`、`is_cross_domain`。
-- `domains[]`：图里涉及的学科（`major_node_id` + `major_name`）。
-
-### 看某个节点 / 某条边的细节
-
-```python
-# 单个节点详情
-node = data(requests.get(f"{BASE}/knowledge_graph/node", headers=H,
-            params={"id": center_id, "node_type": "entry", **DEFAULTS}))
-
-# 单条关系详情（含支撑证据 evidences）
-rel = data(requests.get(f"{BASE}/knowledge_graph/relationship", headers=H,
-           params={"src_node_id": "A", "desc_node_id": "B", "relation_id": "R", **DEFAULTS}))
-```
-
----
-
-## 动作速查表
-
-| 任务 | 方法 + 路径 | 用途 |
-|------|------------|------|
-| 搜索（首选） | `POST /search/universal` | 一个词拿到词条 + 关键词 + 相关课程 |
-| 词条全文 | `POST /article` | 按 `entry_id`（或 `node_id`）取主题文章正文 |
-| 关键词全文 | `POST /keyword` | 按 `keyword_id` 取关键词内容 |
-| 学科结构 | `POST /major_levels` | 所有大类及其分级 |
-| 课程列表 | `POST /level_fields` | 某些分级下的课程（分页） |
-| 课程结构 | `POST /get_wiki_index` | 课程的章节树 + 知识点（叶子带 `entry_id`） |
-| 知识图谱 | `GET /knowledge_graph` | 从一个主题/关键词扩展出图谱 |
-| 图谱·节点 | `GET /knowledge_graph/node` | 单个节点详情 |
-| 图谱·边 | `GET /knowledge_graph/relationship` | 单条关系详情（含证据） |
-| 图谱·检索 | `POST /knowledge_graph/search` | 在图谱里按词找节点 |
-| （可选）基础信息 | `GET /info` | 词条 / 关键词总量 |
-| （可选）名称搜索 | `POST /search_index_name` | 按名字搜节点（如只要 `field`） |
-
-> 所有响应都包了一层 `{"code":0,"data":{...}}`，用上面的 `data()` 解包。`GET` 类用 `params=`，`POST` 类用 `json=`。
-
----
-
-## 拼阅读链接
-
-凡是展示给人的词条 / 关键词 / 课程，都附上 `https://www.bohrium.com` 上的阅读链接（**不是** API host）。
-
-规则：
-- **语言前缀**：`zh-CN` → 无前缀；`en-US` → 加 `/en`。
-- **风格段**：小写，`Feynman → feynman`、`Hardcore → hardcore`。
-- 动态 id 要 **URL 编码**。
-
-| 类型 | 模板 | id 来源 |
-|------|------|---------|
-| 词条 / 主题 | `{前缀}/sciencepedia/{style}/{entry_id}` | 搜索结果 `type=article` 的 `id`；课程树叶子的 `entry_id`；图谱里 `node_type=entry` 的 `node_id` |
-| 关键词 | `{前缀}/sciencepedia/{style}/keyword/{keyword_id}` | 搜索结果 `type=keyword` 的 `id`；图谱里 `node_type=keyword` 的 `node_id` |
-| 课程 / 领域 | `{前缀}/sciencepedia/field/{style}/{field_id}` | `/search/universal` 的 `fields[].field_id`，或 `/level_fields` 的 `items[].field.field_id` |
-
-```python
-def _site(language):
-    return "https://www.bohrium.com/en" if language == "en-US" else "https://www.bohrium.com"
-
-def topic_url(entry_id, language="en-US", style="Feynman"):
-    return f"{_site(language)}/sciencepedia/{style.lower()}/{quote(str(entry_id))}"
-
-def keyword_url(keyword_id, language="en-US", style="Feynman"):
-    return f"{_site(language)}/sciencepedia/{style.lower()}/keyword/{quote(str(keyword_id))}"
-
-def course_url(field_id, language="en-US", style="Feynman"):
-    return f"{_site(language)}/sciencepedia/field/{style.lower()}/{quote(str(field_id))}"
-
-def build_read_url(node_type, node_id, language="en-US", style="Feynman"):
-    # node_type: "keyword" -> 关键词页；其余（article/entry）-> 词条页
-    if node_type == "keyword":
-        return keyword_url(node_id, language, style)
-    return topic_url(node_id, language, style)
-```
-
-示例：
-```text
-词条（en, Feynman）：    https://www.bohrium.com/en/sciencepedia/feynman/<entry_id>
-关键词（zh, Feynman）：  https://www.bohrium.com/sciencepedia/feynman/keyword/<keyword_id>
-课程（en, Hardcore）：   https://www.bohrium.com/en/sciencepedia/field/hardcore/<field_id>
-```
-
----
-
-## curl 示例
+1. 确定语言和风格，按下方价格授权有界的搜索、阅读及图谱调用。
+2. 搜索后按 ID 路由章节选择记录。下面展示 article 分支；`type=keyword` 的结果应使用 `keyword get`：
 
 ```bash
-AK="$BOHR_ACCESS_KEY"
-BASE="https://open.bohrium.com/openapi/v2/literature-sage/wiki_v2"
-
-# 统一搜索
-curl -s -X POST "$BASE/search/universal" \
-  -H "Authorization: Bearer $AK" -H "Content-Type: application/json" \
-  -d '{"text":"graphene","language":"en-US","style":"Feynman"}' \
-  | jq '.data.articles[] | {type, id, article_name}'
-
-# 知识图谱（GET + query）
-curl -s -G "$BASE/knowledge_graph" \
-  -H "Authorization: Bearer $AK" \
-  --data-urlencode "id=<entry_id_or_keyword_id>" \
-  --data-urlencode "language=en-US" --data-urlencode "style=Feynman" \
-  | jq '.data | {nodes: (.nodes|length), edges: (.relationships|length)}'
+bohr wiki search "quantum entanglement" --lang en-US --style Feynman --yes -o json
+bohr wiki article <article_id> --lang en-US --style Feynman --yes -o json
+bohr wiki graph <article_id> --yes -o json
 ```
 
----
+3. 仅从选中且 `type=article` 的 `data.articles[].id` 填入 `<article_id>`。图谱为可选步骤，只在需要关系且费用获授权时调用。课程使用 `data.fields[].field_id`，不能使用 major 或 level ID。
+4. 完成时给出有内容依据的解释、阅读链接及相关前置知识或关系。保留图谱方向，关系标签不等于因果证据。课程应保持章节和 entry 层级，而非压平成搜索列表。
+5. 内容未生成或为空时，按下方语言或风格规则回退并说明。如果没有课程 `field_id`，停止该分支，不能用其他 ID 顶替。重复付费搜索或扩图需要剩余授权预算。
 
-## 回答规范
+通过与版本匹配的 `bohr wiki` 命令操作 SciencePedia，先按用户意图选择路径：
 
-- **搜索类**：直接给「标题 + 一句话简介 + 阅读链接」的列表，不用向用户解释「词条 / 关键词」的区别。
-- **解释概念**：定义 → 直觉 → 要点，并附该条目的阅读链接。
-- **课程结构**：按 章 → 节 → 知识点 的层级呈现，每个知识点带链接；可按基础 / 核心 / 进阶分组（用 `*_entry_count`）。
-- **知识图谱**：先讲中心节点，再列最相关的几条关系（按 `weight` 排），需要展开时再调 `node` / `relationship` 详情。
-- 凡是提到的条目都附阅读链接。指定的 `language`/`style` 无结果时，按序回退：同语言换另一风格 → `zh-CN`+`Feynman` → `en-US`+`Feynman`，并告知已切换。
-- API 失败要如实说明；无结果时给近义词建议和一个备选语言 / 风格。
+- `wiki search` 搜索词条，返回摘要和 ID。
+- `wiki article` 读取完整词条，`wiki keyword get` 读取较小的概念卡片。
+- `wiki levels` 免费浏览学科/层级结构。
+- `wiki course` 读取课程章节和知识条目树。
+- `wiki graph` 将词条或关键词展开为相关概念图。
+- `bohr wiki tools` 在工具库发现科学软件；路径和价格可通过 `bohr guide read bohr-tools` 查看。
 
-## 常见问题
+论文使用 `bohr paper search`，个人知识库使用 `bohr kb`。SciencePedia 是百科系统，应与这两类任务区分。
 
-| 现象 | 原因 | 解决 |
-|------|------|------|
-| 搜不到 | 词不在索引里 | 换近义词；或用 `/search_index_name` 放开 `node_types` |
-| `article`/`keyword` 返回 `250002` | 该语言/风格下内容尚未生成 | 回退到搜索片段，或换 `style`/`language` 重试 |
-| 结果全英文（或全中文） | `language` 不对 | 指定 `"language":"en-US"` 或 `"zh-CN"` |
-| 知识图谱为空 | `id` 不是有效的 `entry_id`/`keyword_id`，或该节点无邻居 | 先用 `/search/universal` 或 `/knowledge_graph/search` 拿到正确 id |
-| 阅读链接拼到了 `open.bohrium.com` | 混淆了 API host 与页面 host | 页面链接用 `https://www.bohrium.com`（见[拼阅读链接](#拼阅读链接)） |
+<a id="authentication-output-and-billing"></a>
 
-## 搭配使用
+## 身份、输出和计费
 
-- **bohrium-sciencepedia** 拿概念的基础解释 → **bohrium-paper-search** 深入某个方向
-- **bohrium-sciencepedia** 浏览学科目录（`major_levels`）→ 选定课程 → **bohrium-scholar-search** 找代表学者
+使用现有 Bohrium 登录态或 AccessKey，优先结构化输出：
+
+```bash
+bohr auth whoami -o json
+bohr billing pricing --resource wiki -o json
+```
+
+当前 CLI 的固定价格：
+
+- **0.01 CNY**：`wiki search` 和 `wiki course`。
+- **0.02 CNY**：`wiki article`、`wiki keyword get` 和 `wiki graph`。
+
+这些调用使用 Wiki/Tool 共享的每月 1,000 次额度。即使额度可能使调用免费，确认门禁仍适用。非交互调用只有费用已获授权后才能添加 `--yes`，否则报告 `CONFIRMATION_REQUIRED`。
+
+`wiki levels`、其兼容入口 `wiki disciplines` 和 `wiki keyword list` 是免费的发现命令。
+
+<a id="search-and-route-ids"></a>
+
+## 搜索并按 ID 分流
+
+```bash
+bohr wiki search "quantum entanglement" \
+  --lang en-US \
+  --style Feynman \
+  --yes \
+  -o json
+```
+
+搜索会混合概念和课程，按结构化结果分流，不能仅看显示名称：
+
+- `data.articles[]` 中 `type=article`：其 `id` 是交给 `bohr wiki article <id>` 的词条 ID。
+- `data.articles[]` 中 `type=keyword`：其 `id` 是交给 `bohr wiki keyword get <id>` 的关键词 ID。
+- `data.fields[]`：`field_id` 是交给 `bohr wiki course <field_id>` 的课程领域 ID。
+- 条目或关键词 ID 均可作为 `bohr wiki graph <id>` 的中心。
+
+面向用户呈现题名、清理后的一句话摘要及阅读链接。移除结构化摘要中的 `<em>` 高亮标签；结果类型用于命令和链接分流，无需让用户额外理解内部类型。
+
+<a id="read-concepts-and-courses"></a>
+
+## 读取概念与课程
+
+```bash
+bohr wiki article <article_id> --lang en-US --style Feynman --yes -o json
+bohr wiki keyword get <keyword_id> --lang en-US --style Feynman --yes -o json
+bohr wiki levels --lang en-US -o json
+bohr wiki course <field_id> --lang en-US --style Feynman --yes -o json
+```
+
+`levels` 返回学科及层级 ID；`disciplines` 是调用相同层级的兼容入口，新流程优先使用 `levels`。当前 CLI 不能列出某层级下的全部课程，应从 `wiki search` 获取课程 field ID。学科和层级 ID 仅用于导航，不是课程 field ID。搜索未返回 `field_id` 时停止课程流程并报告限制。
+
+`course` 返回递归的领域 → 分类 → 章节 → 条目树，以及基础、核心和进阶数量。呈现提纲时保留层级；条目叶节点的 `entry_id` 可用于打开百科文章。
+
+所选语言/风格尚未生成词条或关键词正文时，可回退搜索摘要或尝试其他受支持的语言/风格，并说明回退。不能把空文档说成完整解释。
+
+<a id="explore-a-concept-graph"></a>
+
+## 探索概念图谱
+
+```bash
+bohr wiki graph <entry_or_keyword_id> --yes -o json
+```
+
+图谱返回领域、概念节点和关系。节点优先使用 `display_name`，再依次回退 `node_name`、`name`、`node_id`。先解释中心，再解释最相关的关系；保留来源和目标方向，并区分关系标签与较长的关系描述。
+
+当前 graph 没有语言、风格、深度、节点详情或跨领域过滤参数，只使用 `bohr wiki graph --help` 展示的参数。
+
+<a id="reading-links"></a>
+
+## 阅读链接
+
+API 调用保留在 `bohr` 内，面向用户的阅读链接使用 `https://www.bohrium.com`。所有动态 ID 都需要 URL 编码。
+
+- 词条：`{site}/sciencepedia/{style-lowercase}/{entry_id}`。
+- 关键词：`{site}/sciencepedia/{style-lowercase}/keyword/{keyword_id}`。
+- 课程：`{site}/sciencepedia/field/{style-lowercase}/{field_id}`。
+
+`en-US` 的 `{site}` 是 `https://www.bohrium.com/en`；`zh-CN` 则是 `https://www.bohrium.com`。例如英文 Feynman 词条以 `/en/sciencepedia/feynman/` 开头，中文 Feynman 关键词路径包含 `/sciencepedia/feynman/keyword/`，所有课程链接都包含 `/sciencepedia/field/`。
+
+<a id="capability-boundary"></a>
+
+## 能力边界
+
+当前 CLI 有意不提供上游服务的部分操作，包括按层级列出课程、独立图节点/边详情，以及图深度/领域过滤。以 `bohr wiki <command> --help` 为准，不要将服务请求字段推断为 CLI 参数。
+
+<a id="choose-the-payment-source"></a>
+
+## 选择支付来源
+
+不指定 `--payment-source` 时，CLI 不发送支付渠道偏好：网关优先使用光子，仅在明确光子不足时回退余额。获取费用授权时向用户说明此策略。限定单一来源时，使用 `--payment-source photon` 或 `--payment-source balance`。显式选择 photon 时，光子不足即停止；显式选择 balance 时直接使用余额。现有免费额度和豁免仍然适用。
+
+显式指定的渠道返回 `BILLING_INSUFFICIENT` 且 `retryable: false` 时，报告拒绝结果，等待用户为该渠道充值，或授权原命令使用另一渠道。显式选择余额但余额不足时，也会停止而不扣光子；只有获准后才能改用 `--payment-source photon`。`--yes` 确认执行，不代表授权切换支付来源。只有余额渠道已获授权时才使用 `--payment-source balance`。多步流程的后续计费调用应保持已选渠道；上次 CLI 调用的参数不会保存。`bohr api` 遵循同一规则。
+
+
+<a id="detailed-reference"></a>
+
+## 详细参考
+
+全部命令、参数、输出、计费、回退、图谱、阅读链接和版本信息见 [命令参考](references/commands.md)。

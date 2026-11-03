@@ -1,391 +1,113 @@
 ---
 name: bohrium-job
-description: "Manage Bohrium compute jobs via bohr CLI or open.bohrium.com API. Use when: user asks about submitting/listing/killing/deleting compute jobs on Bohrium, checking job logs, or monitoring job status. NOT for: node management, image management, or project management."
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr job 和 bohr job-group 提交、查询、停止、删除或下载计算任务。用于 BOHR_ID、机器镜像选择、科学批量计算、任务日志、排队取消、运行终止及任务组生命周期。"
 ---
 
-# SKILL: Bohrium 任务 (Job) 管理
+<a id="bohrium-job"></a>
 
-## 概述
+# Bohrium 计算任务
 
-管理 Bohrium 平台的计算任务。**优先使用 `bohr` CLI**，仅在 CLI 不支持的高级操作时回退到 API。
+## 按任务选择路径
 
-## 认证配置
+| 目标 | 执行顺序 |
+|---|---|
+| 运行批量计算 | 确认资源和费用 → 提交 → 用 Bohr ID 跟踪 → 核实终态 → 下载 |
+| 恢复已有计算的处理 | 对原 Bohr ID 查看详情或日志；重新提交会创建另一任务 |
+| 停止计算 | 确认阶段 → 运行中 terminate／排队中 kill → 确认终态 |
 
-BOHR_ACCESS_KEY 和 PROJECT_ID 从 OpenClaw 配置文件 `~/.openclaw/openclaw.json` 中读取：
+## 工作流：提交计算并取回产物
 
-```json
-"bohrium-job": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": {
-    "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY",
-    "PROJECT_ID": "YOUR_PROJECT_ID"
-  }
-}
-```
-
-OpenClaw 会自动将 `env` 中的变量注入到运行环境。Skill 只要求配置 `BOHR_ACCESS_KEY`；兼容旧 CLI 所需的映射由辅助脚本内部处理。
-
-直接调用 `bohr` CLI 时，先把 `BOHR_ACCESS_KEY` 映射给旧 CLI 读取的 `ACCESS_KEY`：
-
-```bash
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
-```
-
-## 前置条件：安装 bohr CLI
-
-```bash
-# macOS
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_mac_curl.sh)"
-
-# Linux
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_linux_curl.sh)"
-
-# 安装后确认
-source ~/.bashrc  # 或 source ~/.zshrc
-export PATH="$HOME/.bohrium:$PATH"
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
-bohr version
-```
-
-> 安装脚本会自动配置 `OPENAPI_HOST` 和 `TIEFBLUE_HOST` 环境变量。若未生效，手动设置：
-> ```bash
-> export OPENAPI_HOST=https://open.bohrium.com
-> export TIEFBLUE_HOST=https://tiefblue.dp.tech
-> ```
-
----
-
-## 提交任务
-
-### 方式 1：命令行参数（推荐）
-
-```bash
-bohr job submit \
-  -m "registry.dp.tech/dptech/deepmd-kit:3.1.1" \
-  -t "c4_m15_1 * NVIDIA T4" \
-  -c "python train.py" \
-  -p ./input_dir/ \
-  --project_id YOUR_PROJECT_ID \
-  -n "my-job-name"
-```
-
-**参数说明：**
-
-| 参数 | 缩写 | 必填 | 说明 |
-|------|------|------|------|
-| `--image_address` | `-m` | 是 | 镜像地址（必须用完整地址，如 `registry.dp.tech/dptech/xxx:tag`） |
-| `--machine_type` | `-t` | 是 | 机器规格 |
-| `--command` | `-c` | 是 | 执行命令 |
-| `--input_directory` | `-p` | 否 | 输入文件目录（默认 `./`） |
-| `--project_id` | | 是 | 项目 ID |
-| `--job_name` | `-n` | 否 | 任务名称 |
-| `--log_file` | `-l` | 否 | 日志文件路径 |
-| `--result_path` | `-r` | 否 | 完成后自动下载结果到指定目录（仅 `/data`、`/personal`、`/share`） |
-| `--job_group_id` | `-g` | 否 | 任务组 ID（需先通过 `bohr job_group create` 创建） |
-| `--max_run_time` | | 否 | 最大运行时间（分钟），超时自动终止并回收文件 |
-| `--max_reschedule_times` | | 否 | 异常中断后自动重试次数 |
-| `--nnode` | | 否 | 并行计算节点数（默认 1） |
-
-### 方式 2：配置文件（适合复杂场景）
-
-```bash
-bohr job submit -i job.json -p ./input_dir/
-```
-
-**job.json 完整示例：**
+1. 按下方预检确定项目、镜像、机型及资源预算，提交前确认输入和结果路径。
+2. 需要取回产物时，在 `job.json` 明确收集规则；这些是配置键，不是公开参数：
 
 ```json
 {
-  "job_name": "my-training-job",
-  "command": "python train.py --epochs 10",
-  "log_file": "train.log",
-  "backward_files": ["model.pt", "results/"],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c4_m15_1 * NVIDIA T4",
-  "image_address": "registry.dp.tech/dptech/deepmd-kit:3.1.1",
-  "job_type": "container",
-  "disk_size": 50,
-  "dataset_path": ["/bohr/my-dataset/v1"],
-  "result_path": "/personal",
-  "max_reschedule_times": 2,
-  "max_run_time": 120,
-  "nnode": 1
+  "out_files": ["result.csv"],
+  "log_files": ["run.log"]
 }
 ```
 
-**job.json 字段说明：**
-
-| 字段 | 说明 | 示例 |
-|------|------|------|
-| `job_name` | 任务名称 | `"DeePMD-kit test"` |
-| `command` | 执行命令，用**相对路径** | `"cd se_e2_a && dp train input.json"` |
-| `log_file` | 运行期间可实时查看的日志文件 | `"train.log"` |
-| `backward_files` | 需要下载的结果文件，为空则保留全部 | `["model.pt", "results/"]` |
-| `project_id` | 项目 ID | `YOUR_PROJECT_ID` |
-| `machine_type` | 机器规格 | `"c4_m15_1 * NVIDIA T4"` |
-| `image_address` | 完整镜像地址（非镜像名） | `"registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6"` |
-| `job_type` | 必须为 `"container"` | `"container"` |
-| `dataset_path` | 挂载的数据集路径数组 | `["/bohr/my-dataset/v1"]` |
-| `result_path` | 自动回收结果到数据盘 | `"/personal"` |
-| `max_run_time` | 最大运行时间（分钟） | `120` |
-| `max_reschedule_times` | 异常中断重试次数 | `2` |
-| `disk_size` | 磁盘大小(GB) | `50` |
-
-### 关键注意事项
-
-| 项目 | 说明 |
-|------|------|
-| **工作目录** | Bohrium 自动 `cd` 到解压后的输入目录，cmd 中用**相对路径** |
-| **不要** `cd /root/input` | 实际路径是 `/home/input_lbg-{userId}-{jobId}/`，不可预测 |
-| **image_address 格式** | 必须用完整地址 `registry.dp.tech/dptech/xxx:tag`，不能只写镜像名 |
-| **machine_type 格式** | CPU: `c2_m4_cpu`；GPU: `c4_m15_1 * NVIDIA T4`、`c8_m32_1 * NVIDIA V100` |
-| **WAF 拦截** | 若 command 含 shell 关键字被阿里云 WAF 拦截(405)，将命令写入脚本，cmd 改为 `bash run.sh` |
-| **-p 参数大文件** | 提交后无输出提示时，检查 `-p` 目录下是否有大的隐藏文件导致压缩慢 |
-| **自动重试** | 设置 `max_reschedule_times` 可在异常中断后自动重试（全量重跑） |
-| **job_type** | 必须设为 `"container"`，自 2023 年起不再支持虚拟机任务 |
-
----
-
-## 查看任务
+所选镜像需要提供 Python，`./input/run.py` 需要在任务工作目录生成 `result.csv`。填入已确定的资源后只提交一次：
 
 ```bash
-bohr job list -n 10              # 最近 10 个
-bohr job list -n 5 --json        # JSON 格式输出
-bohr job list -r                 # 只看运行中
-bohr job list -f                 # 只看失败的
-bohr job list -i                 # 只看已完成
-bohr job list -p                 # 只看等待中
-bohr job list -j YOUR_JOB_GROUP_ID        # 查看指定 job group 下的任务
+bohr job submit -i ./job.json --project-id <project_id> --job_name analysis \
+  --image_address <image> --machine_type <machine> \
+  --command "python run.py > run.log 2>&1" --input_directory ./input \
+  --result_path /personal/results --yes -o json
 ```
 
-### 查看任务详情
+`--result_path` 是远端存储，下载的 `--out` 是本地目录。从实际成功响应中保存标识：
+
+| 返回值 | 下一步消费者 |
+|---|---|
+| `data.bohrJobId` | `job describe --id`、`job log`、`job download` 及生命周期命令 |
+| `data.bohrJobGroupId` | 后续 `job submit --job_group_id` |
+| `data.jobGroupId` | 提交后立即执行的 job-group 生命周期操作 |
+| `data.jobId` | 平台内部 ID，保留作证据，不能代替 Bohr ID |
 
 ```bash
-bohr job describe -j YOUR_JOB_ID --json    # JSON 格式详情
-bohr job describe -j YOUR_JOB_ID -l        # 完整详细信息
+bohr job describe --id <bohr_job_id> -o json
+bohr job download <bohr_job_id> --out ./results -o json
 ```
 
-### 查看/下载日志
+3. 用提交返回的 `data.bohrJobId`，或列表中选定的公开 Bohr ID 替换 `<bohr_job_id>`。单任务详情检查 `data.phase`、`data.terminal` 和 `data.exitCode`。`phase=completed` 且退出码为 `0` 后再下载所需结果；排队、运行中或请求已受理都不算完成。
+4. 失败终态先查看同一 Bohr ID 的 `errorInfo` 和日志，再决定是否需要调整输入或重新计算。保留失败诊断；再次提交属于新的资源操作。
+5. 交付终态结果及下载实际返回的 `data.files[].path`、`bytes`。计算完成但下载失败或产物缺失，应报告计算成功而交付未完成。`JOB_FILES_EMPTY` 表示未发现可下载产物，需检查收集路径并保留本次运行证据。监控超时保留 Bohr ID 供继续查询，不会停止任务。
+
+<a id="resolve-resources-and-cost-before-submission"></a>
+
+## 提交前确定资源与费用
+
+计算任务仅使用余额支付，按机器类型和实际用量计费。授权提交前先查看价目和可用机器：
 
 ```bash
-bohr job log -j YOUR_JOB_ID                # 查看日志
-bohr job log -j YOUR_JOB_ID -o ./logs/     # 下载日志到本地目录
+bohr billing pricing --resource job -o json
+bohr machine list --scene job --choose-type all -o json
 ```
 
-### 下载任务结果
+确认项目、机器、镜像、命令、节点数、运行时间限制、本地输入目录、远程结果路径和费用授权后，再提交：
 
 ```bash
-bohr job download -j YOUR_JOB_ID -o ./results/
-bohr job_group download -j YOUR_JOB_GROUP_ID -o ./results/   # 下载整组结果
+bohr job submit --project-id <project_id> --job_name <name> \
+  --image_address <image> --machine_type <machine> --command <command> \
+  --input_directory ./input --result_path /personal/results --yes -o json
 ```
 
----
+输入为空时省略 `--input_directory`。复杂设置可以放入配置文件，但显式参数与文件中的值不得冲突。
 
-## 管理任务
+<a id="track-jobs-by-bohr-id"></a>
+
+## 使用 Bohr ID 跟踪任务
+
+`bohr job list` 的 `BOHR_ID` 列是 describe、terminate、kill、delete、download 和 log 使用的公开任务标识。CLI 自动解析平台内部任务 ID：
 
 ```bash
-bohr job terminate YOUR_JOB_ID             # 终止任务（保留结果文件，状态变为 completed）
-bohr job kill YOUR_JOB_ID                  # 强制停止（不保留结果文件，不删除任务记录）
-bohr job delete YOUR_JOB_ID                # 删除任务（状态变为 failed，结果文件删除，记录消失）
-bohr job terminate YOUR_JOB_ID YOUR_JOB_ID_2    # 批量终止
-bohr job delete YOUR_JOB_ID YOUR_JOB_ID_2       # 批量删除
+bohr job list --running -o json
+bohr job describe --id <bohr_id> -o json
 ```
 
-**terminate vs kill vs delete：**
+存在归一化的 `phase` 和 `terminal` 字段时优先使用。停止请求已受理或任务仍处于非终态，均不代表操作完成。
 
-| 操作 | 结果文件 | 任务记录 | 状态 |
-|------|---------|---------|------|
-| `terminate` | 保留 | 保留 | → completed |
-| `kill` | 不保留 | 保留 | → failed |
-| `delete` | 删除 | 删除 | 从列表消失 |
+运行中的任务使用 `bohr job terminate`；排队中的任务使用 `bohr job kill`。CLI 默认在 `--confirm-timeout` 限制内确认终态。`--no-wait` 在受理后返回，必须将结果报告为“尚未确认”。
 
----
+`kill` 和 `delete` 属于破坏性操作，需要具体目标授权及 `--yes`。`terminate` 是非破坏性停止请求，仍需明确的用户意图。日志和结果会写入本地文件，下载前确认 `--out`。
 
-## 任务组管理
+<a id="job-groups"></a>
 
-```bash
-bohr job_group list -n 10 --json                    # 列出任务组
-bohr job_group list -s 2026-01-01 -e 2026-03-14     # 按日期范围过滤
-bohr job_group create -n "experiment-v1" -p YOUR_PROJECT_ID      # 创建任务组
-bohr job_group terminate YOUR_JOB_GROUP_ID                    # 终止任务组
-bohr job_group delete YOUR_JOB_GROUP_ID                       # 删除任务组
-bohr job_group download -j YOUR_JOB_GROUP_ID -o ./results/    # 下载任务组结果
-```
+## 任务组
 
-> **注意**：`bohr job_group create` 创建的 `job_group_id` 用于 `bohr job submit -g <id>` 将多个任务归入同一组。此 ID 与 Web 界面上的任务组 ID 不同，仅适用于 CLI 提交。
+`bohr job submit` 可能同时返回 `jobGroupId` 和 `bohrJobGroupId`：
 
----
+- 后续提交的 `--job_group_id` 使用 `bohrJobGroupId`。
+- 提交后立即终止或删除任务组时，优先使用 `jobGroupId`；只有任务被索引后，`bohrJobGroupId` 才能被解析。
 
-## 科学计算软件示例
+使用规范的 `bohr job-group` 命令创建、列出、终止、删除任务组或下载结果。任务组终止和删除均属于破坏性操作。
 
-### DeePMD-kit 训练任务
+完整命令、参数、ID 类型、计费边界、状态与停止规则见 [命令参考](references/commands.md)。
 
-```json
-{
-  "job_name": "DeePMD-kit test",
-  "command": "cd se_e2_a && dp train input.json > tmp_log 2>&1 && dp freeze -o graph.pb",
-  "log_file": "se_e2_a/tmp_log",
-  "backward_files": ["se_e2_a/lcurve.out", "se_e2_a/graph.pb"],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c4_m15_1 * NVIDIA T4",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6"
-}
-```
+<a id="resource-payment-boundary"></a>
 
-### LAMMPS 分子动力学
+## 资源支付边界
 
-```json
-{
-  "job_name": "lammps_tutorial",
-  "command": "mpirun -n 32 lmp_mpi -i in.shear > log",
-  "log_file": "log",
-  "backward_files": [],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c32_m64_cpu",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/lammps:29Sep2021"
-}
-```
-
-### ABACUS 第一性原理
-
-```json
-{
-  "job_name": "ABACUS test",
-  "command": "OMP_NUM_THREADS=1 mpirun -np 8 abacus > log",
-  "log_file": "log",
-  "backward_files": [],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c16_m32_cpu",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/abacus:3.0.0"
-}
-```
-
-### GROMACS 分子模拟
-
-```json
-{
-  "job_name": "bohrium-gmx-example",
-  "command": "bash rungmx.sh > log",
-  "log_file": "log",
-  "backward_files": [],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c16_m62_1 * NVIDIA T4",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/gromacs:2022.2"
-}
-```
-
-### CP2K 量子化学
-
-```json
-{
-  "job_name": "CP2K_Si_opt",
-  "command": "source /cp2k-7.1/tools/toolchain/install/setup && mpirun -n 16 --allow-run-as-root --oversubscribe cp2k.popt -i input.inp -o output.log",
-  "log_file": "output.log",
-  "backward_files": ["output.log"],
-  "project_id": YOUR_PROJECT_ID,
-  "machine_type": "c16_m32_cpu",
-  "job_type": "container",
-  "image_address": "registry.dp.tech/dptech/cp2k:7.1"
-}
-```
-
----
-
-## 容器镜像与虚拟机镜像映射
-
-| 软件 | 虚拟机镜像 | 容器镜像地址 |
-|------|-----------|-------------|
-| DeePMD-kit | LBG_DeePMD-kit_2.1.4_v1 | `registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6` |
-| DPGEN | LBG_DP-GEN_0.10.6_v3 | `registry.dp.tech/dptech/dpgen:0.10.6` |
-| LAMMPS | LBG_LAMMPS_stable_23Jun2022_v1 | `registry.dp.tech/dptech/lammps:29Sep2021` |
-| GROMACS | gromacs-dp:2020.2 | `registry.dp.tech/dptech/gromacs:2022.2` |
-| Quantum-Espresso | LBG_Quantum-Espresso_7.1 | `registry.dp.tech/dptech/quantum-espresso:7.1` |
-| CP2K | - | `registry.dp.tech/dptech/cp2k:7.1` |
-| ABACUS | - | `registry.dp.tech/dptech/abacus:3.0.0` |
-| 基础镜像 (CPU) | LBG_Common_v1/v2 | `registry.dp.tech/dptech/ubuntu:20.04-py3.10` |
-| 基础镜像 (GPU) | LBG_base_image_ubun20.04 | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-cuda11.6` |
-| Intel OneAPI | LBG_oneapi_2021_v1 | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022-cuda11.6` |
-
----
-
-## API 补充（CLI 不支持的操作）
-
-以下操作 bohr CLI 不支持，需通过 API 完成：
-
-```python
-import os, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-BASE = "https://open.bohrium.com/openapi/v1"
-HEADERS = {"Authorization": f"Bearer {AK}"}
-
-# 按状态过滤任务列表 (0=等待, 1=运行中, 2=完成, 3=调度中, -1=失败)
-r = requests.get(f"{BASE}/job/list", headers=HEADERS,
-    params={"page": 1, "pageSize": 10, "status": 1})
-
-# 查看任务配置（含文件访问 token）
-r = requests.get(f"{BASE}/job/view/conf/{job_id}", headers=HEADERS)
-# 返回: {state, baseDir, tempDir, token, host, expires}
-# token + host 可用于 tiefblue 访问任务文件
-
-# 查看快照
-r = requests.get(f"{BASE}/job/{job_id}/snapshot", headers=HEADERS)
-
-# 修改任务名
-requests.post(f"{BASE}/job/{job_id}/modify",
-    headers={**HEADERS, "Content-Type": "application/json"},
-    json={"name": "new-name"})
-
-# 修改任务组名
-requests.post(f"{BASE}/job_group/{job_group_id}/modify",
-    headers={**HEADERS, "Content-Type": "application/json"},
-    json={"name": "new-group-name"})
-```
-
----
-
-## 任务状态码
-
-| status | 含义 | bohr CLI 显示 |
-|--------|------|---------------|
-| 0 | 等待中 | Pending |
-| 1 | 运行中 | Running |
-| 2 | 已完成 | Finished |
-| 3 | 调度中 | Scheduling |
-| -1 | 失败 | Failed |
-
-## 常见机器规格
-
-| machine_type | 说明 |
-|--------------|------|
-| `c2_m4_cpu` | 2 核 4G 内存 CPU |
-| `c4_m8_cpu` | 4 核 8G 内存 CPU |
-| `c8_m32_cpu` | 8 核 32G 内存 CPU |
-| `c16_m32_cpu` | 16 核 32G 内存 CPU |
-| `c32_m64_cpu` | 32 核 64G 内存 CPU |
-| `c4_m15_1 * NVIDIA T4` | 4 核 15G + 1×T4 GPU |
-| `c16_m62_1 * NVIDIA T4` | 16 核 62G + 1×T4 GPU |
-| `c8_m32_1 * NVIDIA V100` | 8 核 32G + 1×V100 GPU |
-| `c32_m128_4 * NVIDIA V100` | 32 核 128G + 4×V100 GPU |
-
-## 常见错误与排查
-
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| `cd /root/input: No such file` | cmd 中用了绝对路径 | Bohrium 工作目录不可预测，用**相对路径** |
-| `unsupported protocol scheme ""` | bohr CLI 缺少环境变量 | `export OPENAPI_HOST=https://open.bohrium.com && export TIEFBLUE_HOST=https://tiefblue.dp.tech` |
-| `(200, '/account/login', None)` | 旧版 lbg (pip) 不支持 access_key | 用新版 Go CLI（`~/.bohrium/bohr`） |
-| `AccessKey Invalid` | 直接调用 `bohr` 时未设置旧变量名 | `export ACCESS_KEY="$BOHR_ACCESS_KEY"` 后重试 |
-| WAF 405 拦截 | cmd 含 shell 关键字被阿里云 WAF 拦截 | 将命令写入脚本文件，cmd 改为 `bash run.sh` |
-| `Permission error` | Job 不属于当前用户 | 确认 BOHR_ACCESS_KEY 对应的用户 |
-| `jobId` vs `jobGroupId` 搞混 | 两个是不同概念 | CLI 中 `kill/terminate/delete` 均使用 `jobId` |
-| 提交后无输出 | `-p` 目录下有大隐藏文件 | 检查目录大小，排除不需要的大文件 |
-| 同规格任务效率不同 | 算法波动 ~30% + 不同供应商资源差异 | 属正常现象 |
-| 任务调度时间长 | 供应商缓存自定义镜像或资源不足 | 耐心等待或联系技术支持 |
-| 结果文件撑满系统盘 | 输出写到了系统盘而非数据盘 | 调整脚本输出路径，结果写到工作目录内 |
-| 异常中断 | 机器回收或物理机故障（低概率） | 设置 `max_reschedule_times` 自动重试 |
+标记为 balance-only 的资源操作继续按原有规则从余额计费。全局 `--payment-source` 不会为这些资源启用光子支付；显式指定 `photon` 会在执行前被拒绝。按该资源既有的价格查询和费用授权流程操作。

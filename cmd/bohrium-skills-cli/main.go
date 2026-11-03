@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	bohriumskills "github.com/dptech-corp/bohrium-skills"
 	"github.com/dptech-corp/bohrium-skills/internal/build"
@@ -19,7 +22,6 @@ import (
 )
 
 const (
-	childSyncEnv        = "BOHRIUM_SKILLS_CLI_CHILD_SYNC"
 	refreshCacheCommand = "__refresh-update-cache"
 )
 
@@ -121,8 +123,8 @@ func runUpdate(args []string, stdout, stderr io.Writer) int {
 	}
 
 	runner := updater.RealRunner{
-		SyncFunc: func(version string, force bool) error {
-			return syncForVersion(version, *lang, force)
+		SyncFunc: func(request updater.SyncRequest) error {
+			return syncForVersion(request, *lang)
 		},
 	}
 	result, err := updater.Update(updater.UpdateOptions{
@@ -235,17 +237,29 @@ func runVersion(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func syncForVersion(version, lang string, force bool) error {
-	if normalizeVersion(version) != normalizeVersion(build.Version) && os.Getenv(childSyncEnv) == "" {
+func syncForVersion(request updater.SyncRequest, lang string) error {
+	version, force := request.Version, request.Force
+	if request.UpdatedBinary || normalizeVersion(version) != normalizeVersion(build.Version) {
+		binary, err := installedNPMBinary(version)
+		if err != nil {
+			return err
+		}
 		args := []string{"install", "--lang", lang, "--json"}
 		if force {
 			args = append(args, "--force")
 		}
-		cmd := exec.Command("bohrium-skills-cli", args...)
-		cmd.Env = append(os.Environ(), childSyncEnv+"=1")
-		out, err := cmd.CombinedOutput()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		out, err := installerCommandOutput(ctx, binary, args...)
 		if err != nil {
-			return fmt.Errorf("new binary skill sync failed: %w\n%s", err, strings.TrimSpace(string(out)))
+			return fmt.Errorf("verified new binary skill sync failed: %w", err)
+		}
+		var receipt syncer.Result
+		if err := json.Unmarshal(out, &receipt); err != nil {
+			return fmt.Errorf("new binary returned an invalid sync receipt: %w", err)
+		}
+		if receipt.Action != "synced" || receipt.Lang != lang || normalizeVersion(receipt.Version) != normalizeVersion(version) {
+			return fmt.Errorf("new binary sync receipt does not match requested version %s and language %s", version, lang)
 		}
 		return nil
 	}
@@ -256,6 +270,65 @@ func syncForVersion(version, lang string, force bool) error {
 		SourceFS: bohriumskills.EmbeddedFS,
 	})
 	return err
+}
+
+// installedNPMBinary follows the same npm prefix used by `npm install -g`.
+// PATH may still resolve a different manual binary, so it is not authoritative.
+func installedNPMBinary(version string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	out, err := installerCommandOutput(ctx, "npm", "root", "-g")
+	if err != nil {
+		return "", fmt.Errorf("resolve installed npm package: %w", err)
+	}
+	root := strings.TrimSpace(string(out))
+	if !filepath.IsAbs(root) {
+		return "", fmt.Errorf("npm root -g did not return an absolute package directory")
+	}
+	packageDir := filepath.Join(root, updater.NpmPackage)
+	data, err := os.ReadFile(filepath.Join(packageDir, "package.json"))
+	if err != nil {
+		return "", fmt.Errorf("read installed npm package identity: %w", err)
+	}
+	var pkg struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return "", fmt.Errorf("read installed npm package identity: %w", err)
+	}
+	if pkg.Name != updater.NpmPackage || normalizeVersion(pkg.Version) != normalizeVersion(version) {
+		return "", fmt.Errorf("installed npm package identity/version does not match %s@%s", updater.NpmPackage, version)
+	}
+	binary := filepath.Join(packageDir, "bin", updater.NpmPackage)
+	if _, err := os.Stat(binary); os.IsNotExist(err) {
+		binary += ".exe"
+	}
+	out, err = installerCommandOutput(ctx, binary, "version", "--json")
+	if err != nil {
+		return "", fmt.Errorf("verify installed npm binary version: %w", err)
+	}
+	var reported struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(out, &reported); err != nil {
+		return "", fmt.Errorf("installed binary returned an invalid version receipt: %w", err)
+	}
+	if normalizeVersion(reported.Version) != normalizeVersion(version) {
+		return "", fmt.Errorf("installed binary reports version %s, expected %s; no skill sync was started", reported.Version, version)
+	}
+	return binary, nil
+}
+
+func installerCommandOutput(ctx context.Context, binary string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, binary, args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return out, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()+"\n"+string(out)))
+	}
+	return out, nil
 }
 
 type targetStatus struct {

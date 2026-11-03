@@ -1,302 +1,68 @@
 ---
 name: bohrium-tools
-description: "浏览与检索 Bohrium 科学工具库（Tools），通过 open.bohrium.com 访问。Use when: 用户需要按领域/子领域浏览科学计算工具、按关键词混合检索工具、查看某个工具的详情（GitHub 指标、教程、关联词条等）。NOT for: 论文检索（用 bohrium-paper-search）、百科词条（用 bohrium-sciencepedia）、知识库管理（用 bohrium-knowledge-base）。"
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr wiki tools 浏览领域和科学工具、混合检索并读取详情。用于工具分类标识、唯一工具键、显式关键词权重、定价和适用条件核对。"
 ---
 
-# SKILL: Bohrium 科学工具库（Tools）
+<a id="bohrium-scientific-tools"></a>
 
-## 概述
+# Bohrium 科学工具库
 
-通过 `open.bohrium.com` 的 `/v2/lkm/tool/*` 端点访问 **Bohrium 科学工具库**——一个按 `domain`(领域) → `subdomain`(子领域) → `tool`(工具) 层级组织的科学计算软件/工具目录，并提供混合检索（BM25 + 向量召回）能力。工具用 `tool_unique_key` 标识。
+## 按任务选择路径
 
-> **两个 Host，各司其职**：调用 **API** 用 `open.bohrium.com`；给人看的**可点击阅读链接**用 `https://www.bohrium.com`（见[构造页面链接](#构造页面链接)）。二者是不同的 Host——不要把 API URL 直接发给用户。
+| 目标 | 路径 |
+|---|---|
+| 了解可选科学领域 | 免费浏览分类；返回的 node ID 是分类节点 |
+| 为具体任务找软件 | 付费混合检索 → 选定工具键 → 付费详情 |
+| 推荐可用工具 | 查看详情和来源 → 核对许可证、平台和安装要求 |
 
-**典型场景**：
+## 工作流：为分析任务选择工具
 
-- 浏览某个领域下的工具（如分子动力学领域下的所有工具）
-- 用自然语言 + 关键词混合检索最匹配的工具
-- 查看某个工具的详细信息（简介、GitHub star/fork、教程、关联词条、Docker 镜像、MCP 地址等）
-
-**不适用**：
-
-- 搜论文 → `bohrium-paper-search`
-- 查百科词条 → `bohrium-sciencepedia`
-- 管理自己的知识库 → `bohrium-knowledge-base`
-
-**无 CLI 支持** — 通过 HTTP API 操作。
-
-## 认证配置
-
-```json
-"bohrium-tools": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": {
-    "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY"
-  }
-}
-```
-
-## 通用代码模板
-
-```python
-import os, requests
-
-AK = os.environ["BOHR_ACCESS_KEY"]
-BASE = "https://open.bohrium.com/openapi/v2/lkm/tool"
-
-# 语言通过 Content-Language 头控制：en-us / zh-cn
-H = {
-    "Authorization": f"Bearer {AK}",
-    "Content-Type": "application/json",
-    "Content-Language": "en-us",   # 或 "zh-cn"
-}
-
-# 所有响应都包了一层信封：{"code": 0, "data": {...}, "trace_id": "..."}。
-# 真正的数据（items / tools / total_num / ...）都在 "data" 里，务必先解包。
-def data(r):
-    r.raise_for_status()
-    body = r.json()
-    if isinstance(body, dict) and body.get("code") not in (0, None) and "data" not in body:
-        raise RuntimeError(f"API error code={body.get('code')} msg={body.get('message')}")
-    return body.get("data", body) if isinstance(body, dict) else body
-```
-
-> **语言说明**：展示语言由请求体 `language` / `lang`、HTTP 头 `Content-Language`（`en-us` / `zh-cn`）决定；都空则回落 `en-US`，无法识别也不报错。规范值 `en-US` / `zh-CN`。
-
----
-
-## Action 概览
-
-| Action | 方法 | 路径 | 用途 |
-|--------|------|------|------|
-| `domain` | GET | `/domain` | 列出所有工具领域 |
-| `domain/summary` | GET | `/domain/summary` | 工具总数统计 |
-| `subdomain` | POST | `/subdomain` | 列出领域下的子领域（分页） |
-| `subdomain/detail` | POST | `/subdomain/detail` | 获取子领域详情 |
-| `list` | POST | `/list` | 列出子领域下的工具（标签筛选/排序/分页） |
-| `detail` | GET | `/detail` | 按 `tool_unique_key` 获取工具详情 |
-| `tags` | POST | `/tags` | 获取一组子领域下的标签 |
-| `search/hybrid` | POST | `/search/hybrid` | 工具混合检索（文本 + 关键词权重） |
-
----
-
-## 如何选择 Action（意图 → Action）
-
-| 用户想要…… | 用 | 拿到 |
-|-----------|----|------|
-| “有哪些工具领域？” / “工具总量？” | `domain` / `domain/summary` | 领域及其 `node_id`；总数 |
-| “这个领域下有哪些子领域？” | `subdomain` | 子领域及 `node_id`、`tool_num`、`tags` |
-| “列出该子领域下的工具”（排序/筛选） | `list` | 工具的 `name`、`star_count`、`tool_unique_key` |
-| “再按标签筛这个列表” | `tags` → 再 `list` 传 `tag_ids` | 标签 id，再得筛选后的工具 |
-| “找一个能做 **X** 的工具”（自然语言） | `search/hybrid` | 带 `tool_unique_key` 的工具排名 |
-| “某工具的详情 / GitHub / MCP / Docker / 教程” | `detail`（`tool_unique_key`） | 完整工具档案 |
-
-**经验法则**：开放式“帮我找个做……的工具”→ `search/hybrid`；结构化“浏览这个领域”→ `domain` → `subdomain` → `list`。推荐工具前务必先 `detail`。
-
-## 工作流
-
-### A. 按需求找工具（最常见）
-
-1. `search/hybrid`，传自然语言 `text` + 带权重的 `keywords`。
-2. 取 Top 的 `tool_unique_key` → `detail` 拿仓库 / 指标 / 运行方式。
-3. 给出推荐，每个都附 `tool_url`（见[构造页面链接](#构造页面链接)）。
-
-### B. 自顶向下浏览领域
-
-1. `domain` → 选定领域 `node_id`。
-2. `subdomain`（传 `domain_node_ids`）→ 选定子领域。
-3. `list`（`sort_by: "popular"`）→ 热门工具 → 对优胜者 `detail`。
-
----
-
-## 1. 列出领域 — `domain`
-
-```python
-r = requests.get(f"{BASE}/domain", headers=H)
-for it in data(r).get("items", []):
-    print(f"- {it['node_name']}  [{it['node_id']}]  tools={it['tool_num']}")
-```
-
-返回字段：`data.items[].node_id` / `node_name` / `tool_num`。
-
----
-
-## 2. 工具总数 — `domain/summary`
-
-```python
-r = requests.get(f"{BASE}/domain/summary", headers=H)
-print(data(r).get("total_num"))   # data: {"total_num": 1234}
-```
-
----
-
-## 3. 列出子领域 — `subdomain`
-
-```python
-r = requests.post(f"{BASE}/subdomain", headers=H, json={
-    "domain_node_ids": ["DOMAIN_NODE_ID"],   # 领域 node_id 列表，可为空表示全部
-    "page": 1,
-    "page_size": 20,
-})
-body = data(r)
-print("total:", body.get("total"))
-for it in body.get("items", []):
-    print(f"- {it['node_name']}  [{it['node_id']}]  tools={it['tool_num']}  tags={it.get('tags')}")
-```
-
-返回字段：`data.items[].node_id` / `node_name` / `tool_num` / `tags` / `tools[]`(轻量工具：`tool_unique_key`/`tool_name`/`avatar_url`)；分页 `data.total` / `page` / `pageSize`。
-
----
-
-## 4. 子领域详情 — `subdomain/detail`
-
-```python
-r = requests.post(f"{BASE}/subdomain/detail", headers=H, json={
-    "subdomain_node_id": "SUBDOMAIN_NODE_ID",
-})
-print(data(r))   # data: {"node_id": "...", "node_name": "..."}
-```
-
----
-
-## 5. 子领域下的工具列表 — `list`
-
-```python
-r = requests.post(f"{BASE}/list", headers=H, json={
-    "subdomain_node_id": "SUBDOMAIN_NODE_ID",   # 必填
-    "tag_ids": [],            # 可选：按标签 id 过滤
-    "sort_by": "popular",     # 可选：popular(按星数) / latest(按最近提交) / similarity；默认 popular
-    "sort_type": "desc",      # asc / desc
-    "page": 1,
-    "page_size": 10,
-})
-body = data(r)
-print("total:", body.get("total"))
-for it in body.get("items", []):
-    print(f"- {it['name']}  ★{it['star_count']}  key={it['tool_unique_key']}")
-    print(f"    {it.get('profile','')[:120]}")
-```
-
-返回 `data.items[]` 关键字段：`name` / `profile` / `tags` / `star_count` / `related_entry_count` / `last_commit_time` / `avatar_url` / `tool_unique_key`。
-
----
-
-## 6. 工具详情 — `detail`
-
-```python
-r = requests.get(f"{BASE}/detail", headers=H, params={
-    "tool_unique_key": "TOOL_UNIQUE_KEY",   # 必填
-})
-d = data(r)
-print(f"# {d['name']}  ★{d['star_count']} / fork {d['fork_count']}")
-print("repo:", d.get("repo_url"))
-print(d.get("overview", "")[:2000])
-```
-
-返回 `GetToolDetailResponse` 关键字段：`name` / `profile` / `version` / `star_count` / `fork_count` / `watch_count` / `key_points` / `overview` / `tutorial` / `related_entry_list` / `primary_language` / `license` / `mcp_url` / `docker_image_uri` / `repo_url` / `help_urls` / `sub_domains` / `tags`。
-
----
-
-## 7. 子领域标签 — `tags`
-
-```python
-r = requests.post(f"{BASE}/tags", headers=H, json={
-    "subdomain_node_ids": ["SUBDOMAIN_NODE_ID1", "SUBDOMAIN_NODE_ID2"],   # 必填
-})
-for it in data(r).get("items", []):
-    print(f"- {it['tag_name']}  [{it['tag_id']}]")
-```
-
----
-
-## 8. 工具混合检索 — `search/hybrid`
-
-用自然语言 `text` + 关键词权重 `keywords`(关键词→权重) 做 BM25 + 向量的混合召回。
-
-```python
-r = requests.post(f"{BASE}/search/hybrid", headers=H, json={
-    "text": "molecular dynamics simulation engine with GPU support",
-    "keywords": {"molecular dynamics": 1.0, "GPU": 0.6},  # 必填：关键词→权重
-    "language": "en-US",      # 可选；空则看 Content-Language，再空则 en-US
-    "k": 50,                  # 可选；默认 100，最大 500
-    "return_level": "basic",  # 可选：basic / standard / full / complete；非 full/complete 不回 score
-})
-body = data(r)
-print("total:", body.get("total"))
-for t in body.get("tools", []):
-    score = t.get("score")
-    score_str = f"{score:.3f}" if isinstance(score, (int, float)) else "-"   # score 可能为 null
-    print(f"- {t['tool_name']}  score={score_str}  key={t.get('tool_unique_key')}")
-```
-
-返回 `data.tools[]` 关键字段：`tool_name` / `tool_unique_key` / `domains` / `subdomains` / `tags` / `profile` / `repo_url` / `score` / `matched_chunks`。`score` 仅 `return_level=full/complete` 时出现。
-
----
-
-## curl 示例
+1. 明确输入格式、科学操作、运行环境及平台限制，以及获授权的检索和详情预算。分类浏览可帮助缩小检索词，但不会返回可执行工具记录。
+2. 搜索任务，再查看一个有希望的候选：
 
 ```bash
-AK="$BOHR_ACCESS_KEY"
-BASE="https://open.bohrium.com/openapi/v2/lkm/tool"
-
-# 工具混合检索（数据在 .data 下）
-curl -s -X POST "$BASE/search/hybrid" \
-  -H "Authorization: Bearer $AK" \
-  -H "Content-Type: application/json" \
-  -H "Content-Language: en-us" \
-  -d '{"text":"molecular dynamics simulation","keywords":{"molecular dynamics":1.0},"k":20}' \
-  | jq '.data.tools[] | {tool_name, score, tool_unique_key}'
-
-# 列出领域
-curl -s "$BASE/domain" \
-  -H "Authorization: Bearer $AK" -H "Content-Language: en-us" \
-  | jq '.data.items[] | {node_name, node_id, tool_num}'
+bohr wiki tools search "molecular dynamics trajectory analysis" --k 10 --lang en-US --yes -o json
+bohr wiki tools info <tool_unique_key> --yes -o json
 ```
 
----
+3. 从选中的搜索记录 `data.tools[].tool_unique_key` 填入 `<tool_unique_key>`。分类发现使用 `data.items[].node_id`，该节点 ID 不能作为工具键。搜索没有 `--domain` 过滤参数；将领域写进查询，不要编造参数。
+4. 查看返回的能力、仓库、教程和使用细节，核对候选能否处理用户输入，以及是否满足目标平台和许可证条件。返回命令属于参考资料，仅在任务范围包含执行或安装时才执行。
+5. 交付有理由的选择、来源链接、限制和下一步可执行动作。命中排名只完成发现，还未完成兼容性核验。详情缺失或无结果时保留限制；再查候选或详情需要已有预算余量。
 
-## 构造页面链接
+已知领域时，优先免费浏览，再考虑付费查询：
 
-把工具或子领域展示给人看时，附上 `https://www.bohrium.com` 上的可点击阅读链接（**不是** API host）。
-
-- **页面 Host**：`https://www.bohrium.com`
-- **语言前缀**：`zh-CN` → 无前缀；`en-US` → 加前缀 `/en`
-
-| 链接 | 模板 | id 来源 |
-|------|------|---------|
-| 工具详情 | `{lang}/sciencepedia/agent-tools/{tool_unique_key}` | `list` / `search/hybrid` / `detail` 的 `tool_unique_key` |
-| 子领域 | `{lang}/sciencepedia/agent-tools/c/{subdomain_node_id}` | `subdomain` 的 `node_id` |
-| 工具首页 | `{lang}/sciencepedia/agent-tools` | —（领域无独立页面，指向首页） |
-
-```text
-工具（en）：   https://www.bohrium.com/en/sciencepedia/agent-tools/openmanus
-子领域（zh）： https://www.bohrium.com/sciencepedia/agent-tools/c/subdomain-llm-frameworks
+```bash
+bohr wiki tools domains -o json
+bohr wiki tools subdomains --domain <domain_id> -o json
+bohr wiki tools list --domain <domain_id> -o json
 ```
 
-## 回答规范
+`domains`、`subdomains` 和 `list` 用于免费发现分类。`list --domain` 返回子分类记录，不是工具；它们的 node ID 是分类标识。先从混合检索取得唯一工具键，再读取工具详情。
 
-- 列出的每个工具/子领域，都用 markdown 链接呈现：`[名称](tool_url)`。
-- 推荐工具时，概括：是什么（`profile`）、热度（`star_count`/`fork_count`）、怎么跑（`mcp_url` / `docker_image_uri` / `tutorial`）。
-- 用 `Content-Language` 头控制展示语言（中文输出设 `zh-cn`）；少数检索接口也接受请求体里的 `language`。
-- 字段缺失或接口无法满足所需粒度时，要如实说明。
+按任务意图发现工具：
 
----
+```bash
+bohr billing pricing --resource tools -o json
+bohr wiki tools search "molecular dynamics trajectory analysis" --k 20 --lang en-US --yes -o json
+bohr wiki tools info <unique_tool_key> --yes -o json
+```
 
-## 常见问题
+混合检索每次 **0.01 CNY**，详情每次 **0.02 CNY**，优先使用 Wiki/Tool 共享的每月 1,000 次额度。即使额度可能使调用免费，确认门禁仍然适用。费用已获授权后才能添加 `--yes`。
 
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| 检索结果全英文（或全中文） | `Content-Language` / `language` 不对 | 设置头 `Content-Language: zh-cn` 或在检索体内传 `"language":"zh-CN"` |
-| `list` 的 `sort_by` 不生效 | 用了原始列名 | 合法值为 `popular` / `latest` / `similarity`（不是 `star_count`/`last_commit_time`）；未知值回退为 `popular` |
-| 阅读链接拼到了 `open.bohrium.com` 上 | 混淆了 API host 与页面 host | 页面链接用 `https://www.bohrium.com`（见“构造页面链接”） |
-| `search/hybrid` 报 `text is required` | 缺少 `text` | `text` 与 `keywords` 均为必填 |
-| `detail` 报 `330003` | `tool_unique_key` 不存在 | 先用 `search/hybrid` 拿到正确的 `tool_unique_key` |
-| `k` 过大被截断 | `search/hybrid` 的 `k` 上限 500 | 控制在 500 以内 |
-| `list` 报 `subdomain_node_id` 错 | 缺少必填的子领域 id | 先用 `subdomain` 拿到 `node_id` |
+运行时 notice 可能只给出剩余额度或支付渠道，而没有实际扣费金额。不能根据额度用量推算实际收费。
 
-## 搭配使用
+搜索可能根据 query 自动生成加权关键词。只有用户需要显式权重时，才将 `--keywords` 作为 JSON 对象提供。检索排名只是返回顺序，不是质量或兼容性保证。推荐执行工具前，根据返回来源核对仓库、许可证、安装要求和平台条件。
 
-- **tools** 检索/浏览工具（`domain` → `subdomain` → `list` → `detail`）
-- 先用 **wiki** / **paper-search** 了解某个方向，再用 **tools** 找对应的实现工具
-- 用 `search/hybrid` 做自然语言找工具
+除上述规范命令外，当前 CLI 没有独立的 summary、tags、subdomain-detail 或 tools-under-subdomain 接口。
+
+<a id="choose-the-payment-source"></a>
+
+## 选择支付来源
+
+不指定 `--payment-source` 时，CLI 不发送支付渠道偏好：网关优先使用光子，仅在明确光子不足时回退余额。获取费用授权时向用户说明此策略。限定单一来源时，使用 `--payment-source photon` 或 `--payment-source balance`。显式选择 photon 时，光子不足即停止；显式选择 balance 时直接使用余额。现有免费额度和豁免仍然适用。
+
+显式指定的渠道返回 `BILLING_INSUFFICIENT` 且 `retryable: false` 时，报告拒绝结果，等待用户为该渠道充值，或授权原命令使用另一渠道。显式选择余额但余额不足时，也会停止而不扣光子；只有获准后才能改用 `--payment-source photon`。`--yes` 确认执行，不代表授权切换支付来源。只有余额渠道已获授权时才使用 `--payment-source balance`。多步流程的后续计费调用应保持已选渠道；上次 CLI 调用的参数不会保存。`bohr api` 遵循同一规则。
+
+
+完整命令、标识符交接、当前参数、价格与能力边界见 [命令参考](references/commands.md)。

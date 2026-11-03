@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "bohrium",
-  "description": "Bohrium platform skills for Claude Code — compute jobs, datasets, images, paper search, PDF parsing, scholar lookup, and more via open.bohrium.com",
+  "description": "Bohrium scientific workflows for Claude Code through the bohr CLI and its version-matched embedded guides.",
   "owner": {
     "name": "DP Technology",
     "email": "support@dp.tech"
@@ -12,7 +12,7 @@
   "plugins": [
     {
       "name": "bohrium-skills",
-      "description": "17 Bohrium platform skills: job/node/dataset/file/database/image/project management, knowledge-base, paper & patent search, PDF parsing, scholar search, SciencePedia wiki, scientific tools library, web search, sandbox, large knowledge model, and AI science mentor.",
+      "description": "17 CLI-backed Bohrium skills for compute jobs, development nodes, datasets, files, scientific databases, images, projects, knowledge bases, papers and patents, PDFs, scholars, SciencePedia, scientific tools, web search, sandboxes, LKM, and Science Mentor. Requires the bohr CLI.",
       "category": "research",
       "source": "./",
       "strict": false,

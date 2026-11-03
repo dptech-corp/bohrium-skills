@@ -1,217 +1,51 @@
 ---
 name: bohrium-scholar-search
-description: "Search scholars and fetch scholar profile via open.bohrium.com. Use when: user asks to find/search/look up a scholar, researcher, or academic by name, affiliation, or research direction; or asks about a specific researcher's publications, citations, h-index, education, work experience, or research profile. NOT for: paper/patent content search (use bohrium-paper-search), knowledge base management, or file operations."
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr scholar search 和 bohr scholar info 检索学者并读取画像。用于姓名消歧、机构和研究方向筛选，以及科研成果和指标的身份核对。"
 ---
 
-# SKILL: Bohrium 学者搜索与画像查询
+<a id="bohrium-scholar-search"></a>
 
-## 概述
+# Bohrium 学者检索
 
-通过 Bohrium OpenAPI（`open.bohrium.com`）查询学者信息，包含两个核心接口：
+## 按任务选择路径
 
-| 接口 | 方法 | 路径 | 用途 |
-|------|------|------|------|
-| 学者搜索 | POST | `/openapi/v2/paper-server/scholar/search` | 按姓名/机构/研究方向等条件检索 |
-| 学者详情 | GET | `/openapi/v2/paper-server/scholar/info?scholarId=xxx` | 根据 scholarId 获取完整画像 |
+| 目标 | 路径 |
+|---|---|
+| 从姓名确定学者 | 搜索 → 消歧 → 读取选中画像 |
+| 找某领域或机构的学者 | 使用用户提供的学校或标签筛选 → 比较候选 |
+| 查看已知学者 | 将准确 scholar ID 直接传给 `info` |
 
-**典型用法：** 输入学者姓名 → 搜索候选列表 → 选中目标 `scholarId` → 拉取完整画像（发文量、引用、h-index、研究方向、教育/工作经历）。
+## 工作流：先确定身份，再归属成果
 
-**无 CLI 支持** — 全部通过 HTTP API 操作。
-
-## 认证配置
-
-BOHR_ACCESS_KEY 从 OpenClaw 配置文件 `~/.openclaw/openclaw.json` 中读取：
-
-```json
-"bohrium-scholar-search": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": {
-    "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY"
-  }
-}
-```
-
-OpenClaw 会自动将 `env.BOHR_ACCESS_KEY` 注入到运行环境。
-
-### 获取流程（运行时）
-
-```
-读取 os.environ["BOHR_ACCESS_KEY"]
-  ├─ 非空 → 直接使用
-  └─ 为空 → 提示用户：
-           「未在 OpenClaw 配置中检测到 BOHR_ACCESS_KEY，请在 ~/.openclaw/openclaw.json
-            的 bohrium-scholar-search.env.BOHR_ACCESS_KEY 中填入从 https://bohrium.dp.tech
-            个人设置页获取的 AccessKey，然后重启 OpenClaw 会话。」
-```
-
-**重要：** 不要把 AccessKey 另存到其他文件或写死到代码，统一通过 OpenClaw 环境变量注入。
-
-### 错误处理
-
-若 API 返回 `Invalid AccessKey`（code 2000）或 HTTP 401：
-1. 说明 OpenClaw 配置中的 Key 已失效或错误
-2. 提示用户：「您的 BOHR_ACCESS_KEY 已失效，请在 `~/.openclaw/openclaw.json` 中更新 `bohrium-scholar-search.env.BOHR_ACCESS_KEY` 并重启 OpenClaw 会话。」
-
-## 通用代码模板
-
-```python
-import os, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-if not AK:
-    raise RuntimeError(
-        "BOHR_ACCESS_KEY not found. Please configure it in ~/.openclaw/openclaw.json "
-        "under bohrium-scholar-search.env.BOHR_ACCESS_KEY."
-    )
-
-BASE = "https://open.bohrium.com/openapi/v2/paper-server"
-HEADERS_JSON = {"Authorization": f"Bearer {AK}", "Content-Type": "application/json"}
-HEADERS = {"Authorization": f"Bearer {AK}"}
-```
-
----
-
-## 标准工作流
-
-```
-用户提问（学者相关）
-  │
-  ├─ 已知 scholarId → 直接调 Scholar Info
-  └─ 未知 scholarId → 先调 Scholar Search
-       └─ 从返回的 items[].scholarId 取 ID → 再调 Scholar Info
-```
-
----
-
-## 学者搜索
-
-### 基本搜索
-
-```python
-r = requests.post(f"{BASE}/scholar/search", headers=HEADERS_JSON, json={
-    "name": "Yann LeCun",
-    "page": 1,
-    "pageSize": 5
-})
-data = r.json()
-for item in data["data"]["items"]:
-    print(f"[{item['scholarId']}] {item.get('nameEn','')} / {item.get('nameZh','')}")
-    print(f"  Org: {item.get('scholarOrgNameEn','')}")
-    print(f"  Papers: {item.get('paperNums',0)}, Citations: {item.get('citationNums',0)}, h-index: {item.get('hIndex',0)}")
-```
-
-### 带筛选条件
-
-```python
-r = requests.post(f"{BASE}/scholar/search", headers=HEADERS_JSON, json={
-    "name": "张三",
-    "school": "清华大学",
-    "affiliationZh": "清华大学",
-    "tags": "machine learning",
-    "page": 1,
-    "pageSize": 10
-})
-```
-
-### 请求参数
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `name` | string | 是 | 学者姓名关键词（1~99 字符） |
-| `school` | string | 否 | 学校/机构 |
-| `tags` | string | 否 | 研究兴趣标签 |
-| `affiliation` | string | 否 | 机构英文名 |
-| `affiliationZh` | string | 否 | 机构中文名 |
-| `page` | int | 否 | 页码，默认 1 |
-| `pageSize` | int | 否 | 每页条数，默认 10 |
-
-### 响应关键字段
-
-`data.items[]` 数组，每个元素包含：
-
-| 字段 | 说明 |
-|------|------|
-| `scholarId` | 学者唯一 ID，详情接口必填 |
-| `nameEn` / `nameZh` | 英文名 / 中文名 |
-| `paperNums` | 发文量 |
-| `citationNums` | 引用量 |
-| `hIndex` | h-index |
-| `scholarOrgNameEn` / `scholarOrgNameZh` | 所属机构英文/中文名 |
-| `isHighCited` | 是否为高被引学者 |
-
----
-
-## 学者详情
-
-用搜索结果中的 `scholarId` 查询完整画像：
-
-```python
-r = requests.get(
-    f"{BASE}/scholar/info",
-    headers=HEADERS,
-    params={"scholarId": scholar_id}
-)
-info = r.json()["data"]
-print(info.get("nameEn"), "|", info.get("nameZh"))
-print("Research:", info.get("researchDirection"))
-print("Education:", info.get("educationBackgroundZh") or info.get("educationBackground"))
-print("Work:", info.get("workExperienceZh") or info.get("workExperience"))
-```
-
-### 额外返回字段
-
-在搜索结果字段之上额外返回：
-
-| 字段 | 说明 |
-|------|------|
-| `researchDirection` | 研究方向数组 |
-| `educationBackground` / `educationBackgroundZh` | 教育经历（英/中） |
-| `workExperience` / `workExperienceZh` | 工作经历（英/中） |
-
----
-
-## 结果呈现建议
-
-将 API 返回格式化为用户友好的摘要，建议重点展示：
-
-- **姓名**：`nameEn` / `nameZh`
-- **机构**：`scholarOrgNameEn` / `scholarOrgNameZh`
-- **学术指标**：`paperNums` / `citationNums` / `hIndex`
-- **高被引**：`isHighCited`
-- **研究方向**：`researchDirection`
-- **教育经历**：优先 `educationBackgroundZh`，无则 `educationBackground`
-- **工作经历**：优先 `workExperienceZh`，无则 `workExperience`
-
-若搜索返回多个候选，先以摘要表格形式列出供用户确认，再查详情。
-
----
-
-## curl 示例
+1. 使用姓名搜索并限制结果数量。同名候选分别保留；仅在需求有依据时补充机构或研究筛选条件。
 
 ```bash
-AK="$BOHR_ACCESS_KEY"
-BASE="https://open.bohrium.com/openapi/v2/paper-server"
-
-# Step 1: 学者搜索
-curl -s -X POST "$BASE/scholar/search" \
-  -H "Authorization: Bearer $AK" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Yann LeCun","page":1,"pageSize":3}'
-
-# Step 2: 拉取详情
-curl -s "$BASE/scholar/info?scholarId=RETURNED_ID" \
-  -H "Authorization: Bearer $AK"
+bohr scholar search "Geoffrey Hinton" --page 1 --size 10 -o json
+bohr scholar info <scholar_id> -o json
 ```
 
----
+2. 将 `<scholar_id>` 替换为选中记录实际返回的学者标识。搜索数据由上游透传，先查看记录再选 JSON 路径；姓名和 DOI 都不能代替该 ID。
+3. 用详情中的机构和研究方向核对目标人物。如果信息冲突或仍有歧义，展示候选并取得消歧信息后再归属论文。
+4. 完成时给出已确认的 scholar ID 和有依据的画像信息。缺失字段保留为未知；引用量是返回时的快照，不能重建为引用历史。`info` 失败不能视为身份已核实；只有错误允许重试时才重试该读取。
 
-## 常见问题
+不知道学者 ID 时，先搜索：
 
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| `BOHR_ACCESS_KEY` 为空 | OpenClaw 未注入环境变量 | 检查 `~/.openclaw/openclaw.json` 中 `bohrium-scholar-search.env.BOHR_ACCESS_KEY` 是否填入 |
-| `Invalid AccessKey` / 401 | Key 已失效或错误 | 更新 `~/.openclaw/openclaw.json` 中的 AccessKey 并重启会话 |
-| 搜索返回空列表 | 1) 24 位无空格字符串会被误识别为内部 ID；2) 上游用户级限流 | 使用自然姓名而非 ID；稍后重试 |
-| 详情接口参数错误 | 缺 `scholarId` | 先调搜索接口取 `data.items[].scholarId` |
-| `name` 长度报错 | 超出 1~99 字符 | 截短姓名关键词 |
+```bash
+bohr scholar search "Geoffrey Hinton" --page 1 --size 10 -o json
+bohr scholar search "catalysis" --school "Tsinghua University" --tags "DFT,catalysis" -o json
+```
+
+搜索免费且只读。只有用户给出了条件，或未筛选的同名结果存在歧义时，才使用过滤参数。使用返回的学者 ID，不能仅靠显示名称匹配画像。
+
+读取选定画像：
+
+```bash
+bohr scholar info <scholar_id> -o json
+```
+
+归属论文或指标前，结合姓名、机构、研究方向及其他返回证据核对身份。学者 ID 不是论文 ID、作者姓名字符串或知识库文档 ID。
+
+论文记录使用 `bohr paper search`，专利使用 `bohr paper patent`。当前 scholar CLI 不修改画像，也没有独立的论文、教育经历或引用历史子命令；这些信息可能出现在可用的画像响应内。
+
+完整参数、从搜索到画像的 ID 交接和展示边界见 [命令参考](references/commands.md)。

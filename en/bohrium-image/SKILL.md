@@ -1,261 +1,149 @@
 ---
 name: bohrium-image
-description: "Manage Bohrium container images via bohr CLI or open.bohrium.com API. Use when: user asks about listing/pulling/creating/deleting Docker images on Bohrium, or finding available public images. NOT for: node management, job submission, or project management."
+compatibility: "Requires bohr CLI (npm @dptech-corp/bohr-cli); verified with 2.9.19. Account operations require Bohrium authentication and network access."
+description: >-
+  Discover, inspect, pull, push, build, commit, monitor, or delete Bohrium images with
+  `bohr image`. Use for container images, 镜像管理, public/private image lookup,
+  Docker pulls and pushes, Dockerfile builds, sandbox snapshots, build logs, image IDs,
+  and image lifecycle states.
 ---
 
-# SKILL: Bohrium Image Management
+# Bohrium Image
 
-## Overview
+## Choose the task
 
-Manage container images on the Bohrium platform. **Prefer `bohr` CLI**; fall back to the API for Dockerfile builds and version search.
+| Goal | Route |
+|---|---|
+| Reuse an existing image | List/search → get → keep the canonical registry address |
+| Build with local source files | Local build → returned `pushCommand` → validated push receipt |
+| Build Dockerfile text remotely | Remote build → terminal image status → inspect final image |
+| Save a sandbox rootfs | Storage gate below → commit → terminal status; mounted data is separate |
 
-Since 2023, Bohrium no longer supports VM jobs — container images are required.
+## Workflow: build locally, publish, then use the image
 
-## Authentication
-
-```json
-"bohrium-image": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": { "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY" }
-}
-```
-
-Only configure `BOHR_ACCESS_KEY` for this skill. Helper scripts handle any legacy CLI compatibility internally.
-
-When calling the `bohr` CLI directly, map `BOHR_ACCESS_KEY` to the legacy variable that the CLI reads:
+1. Confirm Docker context/daemon, Dockerfile/build context, unique short name, project and write intent. Local mode reserves a remote record/quota but does not push.
 
 ```bash
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
+bohr image build --mode local --dockerfile ./Dockerfile --context .   --name research-env:v1 --project-id <project_id> -o json
 ```
 
-## Prerequisites: Install bohr CLI
+2. Preserve the local-build result's `data.localImage`, `imageUrl`, `id` and `pushCommand`. With `uploaded=false`, the image is only built locally. Run the actual returned `pushCommand` in the same Docker daemon, Bohrium identity/profile and project; do not reconstruct a registry path.
+3. A successful push validates its final `data.id`, `imageUrl`, `status=1`, `digest` and `sizeBytes`. Use that final `imageUrl` with Job `--image_address` or Node `--image_path`; an image record ID or local tag is not the registry address.
+4. The local prepare record is not a remote build task: do not poll it with `status`/`build-log`. Remote build/commit uses the separate `0/1 → 2/3/4` lifecycle described below; its success status `2` must not be applied to a local push receipt.
+5. Complete with the published address and digest plus the selected consumer's requirements. If build/push is interrupted or prepare outcome is uncertain, reconcile the same name/record using the reference before reserving another one. A built local image alone is unfinished publication.
+
+Choose `build --mode local` for a Docker build with local context; run its
+returned push command separately. Default `build --mode remote` sends Dockerfile
+text only to the remote builder. `commit` snapshots a running sandbox container's
+root filesystem on the server; do not assume mounted volumes are included.
+
+Discover an existing image before creating one:
 
 ```bash
-# macOS
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_mac_curl.sh)"
-# Linux
-/bin/bash -c "$(curl -fsSL https://dp-public.oss-cn-beijing.aliyuncs.com/bohrctl/1.0.0/install_bohr_linux_curl.sh)"
-source ~/.bashrc && export PATH="$HOME/.bohrium:$PATH"
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
+bohr image list --limit 50 -o json
+bohr image search "DeePMD" -o json
+bohr image get <image_id> -o json
 ```
 
----
+`--limit` accepts `1-512` and defaults to `512`; use a smaller value when only
+a bounded catalog sample is needed.
 
-## List Images
+Pull copies a Bohrium image into the local Docker daemon. Confirm Docker is
+installed/running and the address belongs to the Bohrium registry:
 
 ```bash
-bohr image list                 # Custom images (table)
-bohr image list --json          # JSON
-
-# Public images by type
-bohr image list -t "Basic Image"
-bohr image list -t "DeePMD-kit"
-bohr image list -t "LAMMPS"
-bohr image list -t "ABACUS"
-bohr image list -t "CP2K"
-bohr image list -t "GROMACS"
-bohr image list -t "Uni-Mol"
+bohr image pull <bohrium_image_address> --timeout 30m -o json
 ```
 
-**JSON fields:** `imageId`, `name`, `url`, `status` (available/building), `creatorName`
-
----
-
-## Quick Reference: Public Images
-
-### Base Images
-
-| Scenario | Image |
-|----------|-------|
-| CPU | `registry.dp.tech/dptech/ubuntu:20.04-py3.10` |
-| CPU + Intel MPI | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022` |
-| GPU | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-cuda11.6` |
-| GPU + Intel MPI | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022-cuda11.6` |
-
-### Scientific Software
-
-| Software | Image |
-|----------|-------|
-| DeePMD-kit | `registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6` |
-| DPGEN | `registry.dp.tech/dptech/dpgen:0.10.6` |
-| LAMMPS | `registry.dp.tech/dptech/lammps:29Sep2021` |
-| GROMACS | `registry.dp.tech/dptech/gromacs:2022.2` |
-| Quantum-Espresso | `registry.dp.tech/dptech/quantum-espresso:7.1` |
-| CP2K | `registry.dp.tech/dptech/cp2k:7.1` |
-| ABACUS | `registry.dp.tech/dptech/abacus:3.0.0` |
-
-### Pre-installed Software (All Public Images)
-
-| Category | Software |
-|----------|----------|
-| Python | python3.10, pip, Anaconda, Jupyter Lab |
-| File tools | wget, curl, unzip, rsync, tree, git |
-| Editors | emacs, vim |
-| Build tools | cmake, build-essential (GNU) |
-| Monitoring | htop, ncdu, net-tools |
-| DP tools | Bohrium CLI, DP-Dispatcher, dpdata |
-
----
-
-## VM-to-Container Image Mapping
-
-| VM Image | Container Image |
-|----------|----------------|
-| `LBG_DeePMD-kit_2.1.4_v1` | `registry.dp.tech/dptech/deepmd-kit:2.1.5-cuda11.6` |
-| `LBG_DP-GEN_0.10.6_v3` | `registry.dp.tech/dptech/dpgen:0.10.6` |
-| `LBG_LAMMPS_stable_23Jun2022_v1` | `registry.dp.tech/dptech/lammps:29Sep2021` |
-| `gromacs-dp:2020.2` | `registry.dp.tech/dptech/gromacs:2022.2` |
-| `LBG_Quantum-Espresso_7.1` | `registry.dp.tech/dptech/quantum-espresso:7.1` |
-| `LBG_Common_v1/v2` | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-cuda11.6` |
-| `LBG_oneapi_2021_v1` | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022-cuda11.6` |
-
----
-
-## Pull Image to Local
+Build with local context and then run the returned `pushCommand` with the same
+Docker context/daemon, Bohrium profile and identity, project and short name:
 
 ```bash
-bohr image pull registry.dp.tech/dptech/deepmd-kit:3.0.0b3-cuda12.1
+bohr image build --mode local --dockerfile ./Dockerfile --context . \
+  --name my-image:v1 --project-id 1234 -o json
 ```
 
-> Requires Docker running locally. Only public and your own custom images are supported.
+This uses prepare to reserve a remote image record and quota; it is not offline.
+Local build does not submit remote compute or require `--yes`, and does not push.
+After local success, run `pushCommand`; do not poll `image status` or `build-log`
+with the prepare record ID. Use a unique name and do not run same-name operations
+concurrently. A known build failure attempts abort. If prepare does not return a
+reliable result, inspect the state first: even an error can leave a record, so
+do not assume it is absent or was cleaned up.
 
-### Manual Docker Pull (Alternative)
-
-Replace domain with `registry.bohrium.dp.tech` (not `registry.dp.tech`):
+Alternatively, push an existing Docker daemon image with your AccessKey. The command invokes
+the Docker CLI on `PATH`; it does not build an image or upload a Dockerfile or
+context. Prepare the image yourself with `docker build`, `docker load`, or
+`docker pull` first. The second argument is a
+build/commit-style short image name, and project ID comes from `--project-id` or
+`BOHR_PROJECT_ID`:
 
 ```bash
-docker login registry.bohrium.dp.tech
-docker pull registry.bohrium.dp.tech/dptech/ubuntu:22.04-py3.10-intel2022
-# Push is not supported
+docker build -t my-image:v1 .
+bohr image push my-image:v1 my-image:v1 --project-id 1234 --timeout 30m -o json
 ```
 
----
+Use only the prepare response's canonical `imageUrl` for the registry target;
+never construct a project/user path. The lifecycle and failure recovery are in
+[`references/commands.md`](references/commands.md).
 
-## Delete Custom Images
+## Rootfs gate before a sandbox snapshot commit
+
+Before every `bohr image commit`, run
+`bohr sandbox storage inspect <sandbox_id> -o json` immediately before submit.
+Do not rely on an 80% threshold after commit starts: commit apply may consume
+temporary rootfs faster than reactive expansion becomes Ready. Use the
+failure-data formula in [`references/commands.md`](references/commands.md),
+resize first when needed, and continue only after `status=ready`. If the
+expected uncompressed commit delta is unknown, do not treat it as zero or claim
+the capacity is safe. Storage resize is grow-only and cannot shrink a rootfs.
+This Agent preflight is not automatic CLI behavior and
+does not apply to `bohr image build --dockerfile`.
+
+Remote build and commit are resource operations charged from balance under the
+Sandbox pricing catalog. Inspect price shape and authorize spending first:
 
 ```bash
-bohr image delete YOUR_IMAGE_ID
-bohr image delete YOUR_IMAGE_ID YOUR_IMAGE_ID_2         # Batch
+bohr billing pricing --resource sandbox -o json
+bohr image build --mode remote --dockerfile ./Dockerfile --name project/image:v1 \
+  --project-id <project_id> --wait --yes -o json
+bohr image commit --sandbox-id <sandbox_id> --name project/snapshot:v1 \
+  --project-id <project_id> --wait --yes -o json
 ```
 
----
+Use immutable names rather than a mutable `latest` tag. Remote build sends only the
+selected Dockerfile text for a remote build, without local build context;
+commit snapshots the selected running sandbox container's root filesystem on the server.
+Neither uses a local Docker image. Confirm
+the exact local file, sandbox, owning project, name, and spending authorization.
 
-## Image Cache
+For remote builds and sandbox commits without `--wait`, capture the returned
+image ID and follow it with:
 
-| Scenario | Details |
-|----------|---------|
-| Public images | Persistent cache; no extra pull time |
-| New custom images | Cache builds in 10-30 min; wait before using |
-| Unused 30 days | Cache expires; re-pull on next use |
-| With cache | CPU ~20s boot, GPU ~40s boot |
-| Without cache | +10-30 min for image pull |
-
----
-
-## API Supplement (CLI Unsupported)
-
-### Search Public Image Versions
-
-```python
-import os, requests
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-HEADERS = {"Authorization": f"Bearer {AK}"}
-
-r = requests.get("https://open.bohrium.com/openapi/v2/image/public/version/search",
-    headers=HEADERS, params={"keyword": "deepmd", "page": 1, "pageSize": 5})
-# Returns: {items: [{version, resourceType, size, url, imageName}, ...]}
+```bash
+bohr image build-log <image_id> --follow
+bohr image status <image_id> -o json
+bohr image dockerfile <image_id>
 ```
 
-### Browse Public Images
+Creating (`0`) and pending (`1`) are non-terminal. Image status `2` is success,
+status `3` is failed, and status `4` is canceled. `--wait` stops on `2/3/4`;
+bound it with `--wait-timeout`. A local timeout does not prove the remote build
+stopped.
 
-```python
-r = requests.get("https://open.bohrium.com/openapi/v2/image/public",
-    headers=HEADERS, params={"page": 1, "pageSize": 10})
+Delete is destructive:
 
-r = requests.get(f"https://open.bohrium.com/openapi/v2/image/public/{image_id}/version",
-    headers=HEADERS, params={"page": 1, "pageSize": 10})
+```bash
+bohr image delete <image_id> --yes -o json
 ```
 
-### Build from Dockerfile
+The current CLI has no share/unshare or metadata-update command. Read
+[`references/commands.md`](references/commands.md) for the full command set,
+flags, local/remote effects, billing, and lifecycle completion.
 
-```python
-HEADERS_JSON = {**HEADERS, "Content-Type": "application/json"}
+## Resource payment boundary
 
-# Note: dockerfile field must be base64-encoded
-import base64
-dockerfile_content = "FROM ubuntu:22.04\nRUN apt-get update && apt-get install -y python3"
-dockerfile_b64 = base64.b64encode(dockerfile_content.encode()).decode()
-
-r = requests.post("https://open.bohrium.com/openapi/v2/image/private",
-    headers=HEADERS_JSON, json={
-        "name": "my-image", "projectId": YOUR_PROJECT_ID, "device": "container",
-        "desc": "Custom training image", "buildType": 1,
-        "dockerfile": dockerfile_b64,
-    })
-
-# Update image description
-requests.put(f"https://open.bohrium.com/openapi/v2/image/private/{image_id}",
-    headers=HEADERS_JSON, json={"desc": "updated"})
-
-# Validate Dockerfile (also requires base64)
-check_b64 = base64.b64encode(b"FROM ubuntu:22.04\nRUN apt-get update").decode()
-requests.post("https://open.bohrium.com/openapi/v2/image/dockerfile/check",
-    headers=HEADERS_JSON, json={"dockerfile": check_b64})
-
-# Get the last used image
-r = requests.get("https://open.bohrium.com/openapi/v2/image/last_used",
-    headers=HEADERS, params={"type": "public"})
-```
-
-### Private Image Management
-
-```python
-# List (must include device and type parameters)
-r = requests.get("https://open.bohrium.com/openapi/v2/image/private",
-    headers=HEADERS, params={"device": "container", "type": "private", "page": 1, "pageSize": 10})
-# Returns: {items: [{id, name, url, status, buildType, creatorName, projectName, ...}]}
-
-# Private image detail
-r = requests.get(f"https://open.bohrium.com/openapi/v2/image/private/{image_id}",
-    headers=HEADERS)
-
-# Share / unshare
-requests.post(f"https://open.bohrium.com/openapi/v2/image/{image_id}/share", headers=HEADERS_JSON)
-requests.delete(f"https://open.bohrium.com/openapi/v2/image/{image_id}/share?device=container", headers=HEADERS)
-```
-
----
-
-## Custom Image Creation
-
-After installing software on a container node, save the environment as a custom image via the Bohrium web UI. Only the system disk is saved; `/personal` and `/share` are excluded.
-
-## Quotas
-
-| Resource | Limit |
-|----------|-------|
-| Custom images | 10 per project |
-
-## Unavailable Endpoints
-
-| Endpoint | Version | Reason |
-|----------|---------|--------|
-| `GET v1/image/public` | v1 | Caught by `/:imageId` route |
-| `GET v1/image/private` | v1 | Same |
-| `POST v2/image/version/add` | v2 | Not registered |
-| `DELETE v2/image/version/{versionId}` | v2 | Not registered |
-
-## Troubleshooting
-
-| Problem | Cause | Solution |
-|---------|-------|----------|
-| `AccessKey Invalid` | Direct `bohr` calls are missing the legacy variable name | Run `export ACCESS_KEY="$BOHR_ACCESS_KEY"` and retry |
-| `bohr image pull` fails | Docker not running | Start Docker Desktop |
-| v2 private param error | Missing required params | Add `device=container&type=private` parameters |
-| `no permission` | Not image creator | Can only manage own images |
-| v1 `/public` parse error | Route conflict | Use v2 endpoints |
-| Wrong image address | Used name, not full URL | Must use `registry.dp.tech/dptech/xxx:tag` |
-| Slow custom image cache | Cache takes 10-30 min | Wait 30 min after build |
-| No Docker in container | Security restriction | Use VM image `LBG_Common_v2` |
-| Create returns decode err | dockerfile not base64 encoded | Use `base64.b64encode(content.encode()).decode()` |
+Resource actions marked balance-only keep their existing balance billing. The
+global `--payment-source` option does not enable photon billing for these
+resources; explicitly selecting `photon` on a balance-only action is rejected
+before execution. Use the existing resource pricing/authorization workflow.

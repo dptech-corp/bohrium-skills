@@ -1,242 +1,87 @@
 ---
 name: bohrium-node
-description: "Manage Bohrium dev nodes (containers/VMs) via open.bohrium.com API. Use when: user asks about creating/querying dev machines on Bohrium, checking available resources and pricing, or managing node lifecycle. NOT for: job submission, image management, or project management."
+compatibility: "需要 bohr CLI（npm 包 @dptech-corp/bohr-cli）；本 Skill 按 2.9.19 核验。账户操作需要 Bohrium 身份和网络访问。"
+description: "通过 bohr node 创建、查询、连接、重启、停止或删除交互式开发节点。用于开发机、长期 CPU/GPU 资源、机器价格、镜像、磁盘、自动关机、SSH 和节点生命周期；非交互批量计算使用 Job。"
 ---
 
-# SKILL: Bohrium 开发机 (Node) 管理
+<a id="bohrium-node"></a>
 
-## 概述
+# Bohrium 开发节点
 
-管理 Bohrium 平台的开发机（容器/虚拟机节点），通过 OpenAPI 完成查询和自动化操作。
+## 按任务选择路径
 
-开发机用于数据准备、编译调试、结果处理等场景，支持 Web Shell 和 SSH 两种连接方式。
+| 目标 | 路径 |
+|---|---|
+| 打开交互式开发环境 | 资源和价格 → 创建 → 等待运行 → 连接 |
+| 复用已有环境 | 确定 Node ID → 检查状态 → 停机时按授权重启 |
+| 结束使用 | 保存工作 → 停机 → 确认已停止；明确废弃时才删除 |
 
-## 认证配置
+## 工作流：创建、使用并停止开发机
 
-BOHR_ACCESS_KEY 从 OpenClaw 配置文件 `~/.openclaw/openclaw.json` 中读取：
-
-```json
-"bohrium-node": {
-  "enabled": true,
-  "apiKey": "YOUR_BOHR_ACCESS_KEY",
-  "env": {
-    "BOHR_ACCESS_KEY": "YOUR_BOHR_ACCESS_KEY"
-  }
-}
-```
-
-OpenClaw 会自动将 `env.BOHR_ACCESS_KEY` 注入到运行环境。Skill 只需要配置 `BOHR_ACCESS_KEY`；兼容旧 CLI 所需的映射由辅助脚本内部处理。
-
-直接调用 `bohr node ...` 命令时，先把 `BOHR_ACCESS_KEY` 映射给旧 CLI 读取的 `ACCESS_KEY`：
+1. 按下方费用预检选择项目、镜像、机型、磁盘和自动关机时间。获授权创建后，将 `data.id` 保存为 Node ID；从列表选择时使用 `data.items[].nodeId`。
+2. 在约定的等待预算内，用同一 Node ID 查询至 `data.status=2` 再连接；到期仍未就绪时保留该 ID，并报告就绪尚未确认：
 
 ```bash
-export PATH="$HOME/.bohrium:$PATH"
-export ACCESS_KEY="$BOHR_ACCESS_KEY"
+bohr node get <node_id> -o json
+bohr node connect <node_id>
 ```
 
-## 列出节点
+3. `get` 在 `data.requestedNodeId` 保留查询 ID，详情中的 `nodeId` 或 `machineId` 可能属于底层机器。生命周期及 SSH 操作继续使用原 Node ID。即使选择全局 JSON 输出，`connect` 仍启动交互式 SSH；应使用交互终端并保护连接凭据。
+4. 保存用户工作，按请求停止：
 
 ```bash
-python node_manager.py list
-python node_manager.py list --page 1 --page-size 20
+bohr node stop <node_id> -o json
+bohr node get <node_id> -o json
 ```
 
-**JSON 输出字段：**
+5. 完成要求目标环境实际可用；获授权停机后，还要从详情或列表观察到 `status=-1`，仅受理停机不算完成。启动或 SSH 失败时先检查原开发机，再决定是否创建另一台计费资源。重启可能恢复收费；删除是独立的破坏性决策。
 
-| 字段 | 说明 |
-|------|------|
-| `nodeId` | 节点 ID |
-| `nodeName` | 节点名称 |
-| `status` | Started / Paused / Pending / Waiting |
-| `cpu` / `memory` / `gpu` | 资源配置 |
-| `ip` | 公网 IP |
-| `imageName` | 使用的镜像 |
-| `cost` | 累计费用 |
-
----
-
-## 创建节点
+Node 是交互式、可能长期运行的计算资源。创建或重启前先查看机器、价格和资源：
 
 ```bash
-bohr node create
+bohr billing pricing --resource node -o json
+bohr machine list --scene node --choose-type all -o json
+bohr node resources -o json
 ```
 
-> 交互式创建，依次选择：项目 → 镜像 → 机器类型 → 节点名称 → 磁盘大小。
-
-**注意**：`bohr node create` 是交互式的，在自动化脚本中需要通过 API 创建（见下方 API 补充）。
-
-**推荐容器镜像：**
-
-| 场景 | 镜像地址 |
-|------|---------|
-| CPU 基础开发 | `registry.dp.tech/dptech/ubuntu:20.04-py3.10` |
-| CPU + Intel MPI | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022` |
-| GPU 基础开发 | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-cuda11.6` |
-| GPU + Intel MPI | `registry.dp.tech/dptech/ubuntu:20.04-py3.10-intel2022-cuda11.6` |
-
----
-
-## 连接节点
-
-### 免密 SSH（推荐）
+创建和重启仅使用余额支付。添加 `--yes` 前确认项目、机器、镜像、磁盘、自动关机和费用：
 
 ```bash
-bohr node connect YOUR_NODE_ID       # 通过 nodeId 直接 SSH 连接
+bohr node create --name dev-node --project-id <project_id> \
+  --image_path <image> --machine_type <machine> --disk_size 40 \
+  --turnoff_after 24 --yes -o json
 ```
 
-> 无需记忆 SSH 密码，bohr 自动处理认证。
+磁盘大小必填，只能是 **20、40、80、100 GB**。`--turnoff_after` 默认 `24` 小时，常用值为 `1`、`8`、`24`，`-1` 表示永不自动关机。无限期运行的资源需要尤其明确的费用意图。也可通过 JSON 配置文件输入，提交前先检查内容。
 
-### Web Shell
+始终保留创建返回的 ID 作为本次请求的 Node ID。后续详情可能另有内部 machine/node ID，不能静默替换生命周期命令中的创建 ID。
 
-通过 Bohrium Web 界面连接，点击节点卡片 → Connect → Open Web Shell，自动以 root 登录。
-
-### SSH（手动）
-
-通过 API 获取节点详情可获得 `ip`、`nodeUser`、`nodePwd` 信息：
-```bash
-ssh root@<domain_name>
-# 密码从 API 获取
-```
-
----
-
-## 停止/删除节点
+按 Node ID 跟踪和连接：
 
 ```bash
-bohr node stop YOUR_NODE_ID          # 停止节点（不计费，数据保留）
-bohr node delete YOUR_NODE_ID        # 删除节点（不可逆）
+bohr node list --started -o json
+bohr node get <node_id> -o json
+bohr node connect <node_id>
 ```
 
-> **重要**：节点启动后持续计费，不使用时请及时停止或删除。
+connect 会在本地启动交互式 SSH 进程。凭据和连接细节不应进入日志或总结。
 
----
+生命周期操作：
 
-## 节点存储与网络
-
-| 项目 | 说明 |
-|------|------|
-| **系统盘** | 创建时选择的磁盘大小（最大 100G），存放系统软件包 |
-| **个人数据盘 /personal** | 500GB/用户/项目，持久化存储，节点释放后数据保留 |
-| **项目共享盘 /share** | 1TB/项目，项目成员共享读写 |
-| **公网端口** | 50001-50005 默认开放公网访问 |
-| **GPU 驱动** | 默认 v525，不可自行安装或升级 |
-| **Docker** | 容器节点内**不支持**运行 Docker（安全限制） |
-
----
-
-## 挂载数据集
-
-创建容器节点时可选择挂载数据集，挂载后在节点内通过路径（如 `/bohr/my-dataset/v1`）直接访问。
-
-- 挂载数据集会额外增加 2-4 秒启动延迟（无论数量多少）
-- 通过 `df -a | grep bohr` 查看挂载点（`df -h` 会去重只显示一个）
-
----
-
-## 启动时间与镜像缓存
-
-| 场景 | 启动时间 |
-|------|---------|
-| 有镜像缓存的 CPU 机器 | ~20 秒 |
-| 有镜像缓存的 GPU 机器 | ~40 秒 |
-| 资源紧张时的 GPU 机器 | 1-5 分钟 |
-| 无镜像缓存（新建/过期） | 10-30 分钟（拉取镜像） |
-
-**镜像缓存规则：**
-- 公共镜像有持久化缓存，启动无需额外拉取
-- 自定义镜像构建后 10-30 分钟内缓存生成，建议等待后再使用
-- 自定义镜像 30 天未使用则缓存过期，下次启动需重新拉取
-- 计费从资源分配后开始，即使仍在拉取镜像
-
----
-
-## API 补充（CLI 不支持的操作）
-
-以下操作可通过 API 完成：
-
-```python
-import os, requests
-
-AK = os.environ.get("BOHR_ACCESS_KEY", "")
-BASE = "https://open.bohrium.com/openapi/v2/node"
-HEADERS = {"Authorization": f"Bearer {AK}"}
-HEADERS_JSON = {**HEADERS, "Content-Type": "application/json"}
-
-# ── 程序化创建节点（非交互式） ──
-r = requests.post(f"{BASE}/add", headers=HEADERS_JSON, json={
-    "projectId": YOUR_PROJECT_ID,
-    "name": "my-node",
-    "imageId": YOUR_BASE_IMAGE_ID,  # 从 bohr image list --json 获取
-    "machineConfig": {"type": 0, "value": 388, "label": "c2_m4_cpu"},
-    "diskSize": 20,
-})
-# 返回: {"code": 0, "data": {"machineId": YOUR_MACHINE_ID}}
-
-# ── 查询可用机器资源 ──
-r = requests.get(f"{BASE}/resources", headers=HEADERS)
-# 返回: {disks: [20,40,80,100], cpuList: [...], gpuList: [...]}
-# 其中 value 即 skuId，用于创建节点和查询价格
-
-# ── 查询资源价格 ──
-r = requests.get(f"{BASE}/resources/price",
-    headers=HEADERS, params={"skuId": 388, "projectId": YOUR_PROJECT_ID})
-# 返回: {"data": {"price": "0.4"}}  (元/小时)
-
-# ── 获取节点详情（含 SSH 密码） ──
-r = requests.get(f"{BASE}/{machine_id}", headers=HEADERS)
-# 返回: {nodeId, nodeName, status, ip, nodeUser, nodePwd, domainName, ...}
-
-# ── 重启节点（需先停止） ──
-requests.post(f"{BASE}/restart/{machine_id}", headers=HEADERS)
-
-# ── 修改节点名称 ──
-requests.post(f"{BASE}/modify/{machine_id}", headers=HEADERS_JSON,
-    json={"name": "new-name"})
-
-# ── 查看/绑定数据集 ──
-r = requests.get(f"{BASE}/ds", headers=HEADERS, params={"nodeId": node_id})
-requests.post(f"{BASE}/ds/bind", headers=HEADERS_JSON,
-    json={"nodeId": node_id, "datasetId": dataset_id})
+```bash
+bohr node stop <node_id> -o json
+bohr node restart <node_id> --turnoff_after 24 --yes -o json
+bohr node delete <node_id> --yes -o json
 ```
 
----
+stop 是写操作；restart 可能恢复计费；delete 是破坏性操作。核对返回状态，不能把请求受理当成生命周期完成。删除后确认唯一节点名称或 ID 已从 `bohr node list` 消失。`bohr node get` 在删除后可能短暂返回旧详情，仅凭旧记录不能证明节点仍在运行。
 
-## 节点状态码
+当前 CLI 没有独立的 start、rename 或 dataset-binding 子命令。
 
-| status | 含义 | bohr CLI 显示 |
-|--------|------|---------------|
-| 2 | 运行中 | Started |
-| -1 | 已停止/已释放 | Paused |
+完整命令、过滤条件、资源输入、计费边界和生命周期约束见 [命令参考](references/commands.md)。
 
-## 资源配额
+<a id="resource-payment-boundary"></a>
 
-| 资源 | 限制 |
-|------|------|
-| 节点数量 | 4 / (用户 × 项目) |
-| 系统盘 | 最大 100GB |
-| 个人数据盘 | 500GB / (用户 × 项目) |
-| 项目共享盘 | 1TB / 项目 |
+## 资源支付边界
 
-## SSH 与 Web Shell 环境差异
-
-| 连接方式 | 环境变量来源 |
-|---------|-------------|
-| Web Shell | 系统环境变量 + `/root/.bashrc` |
-| SSH | 仅 `/root/.bashrc`（会覆盖全局变量） |
-
-> 如果 SSH 和 Web Shell 中环境变量不一致，检查 `/root/.bashrc` 中的配置。
-
-## 常见问题
-
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| `AccessKey Invalid` | 直接调用 `bohr` 时未设置旧变量名 | `export ACCESS_KEY="$BOHR_ACCESS_KEY"` 后重试 |
-| `There is no resource for the selected machine` | 所选规格暂无库存 | 换一个规格或稍后重试 |
-| `record not found` | machineId 不存在或已删除 | 先通过 `python node_manager.py list` 确认有效 ID |
-| 重启失败 | 节点未处于 stopped 状态 | 先 `bohr node stop`，等变为 Paused 再用 API 重启 |
-| `nodeId` vs `machineId` | 列表返回两个 ID 字段 | CLI 用 `nodeId`；API 详情/操作用 `machineId`；数据集接口用 `nodeId` |
-| SSH 连接失败 | 镜像不含 SSH 组件 | DockerHub 公共镜像通常无 SSH，需手动安装 |
-| 域名连接失败 | 停机超 7 天域名过期 | 重启后等待 10-30 分钟 DNS 生效，期间用 Web Shell |
-| 终端响应慢 | VPN/网络问题或浏览器标签页内存 | 关闭 VPN 测试，刷新页面重连 |
-| 无法运行 Docker | 容器节点安全限制 | 如需 Docker 开发，使用虚拟机镜像 `LBG_Common_v2` 创建 VM 节点 |
-| 镜像拉取中 | 自定义镜像缓存未生成或已过期 | 等待 10-30 分钟缓存生成后再启动 |
+标记为 balance-only 的资源操作继续按原有规则从余额计费。全局 `--payment-source` 不会为这些资源启用光子支付；显式指定 `photon` 会在执行前被拒绝。按该资源既有的价格查询和费用授权流程操作。

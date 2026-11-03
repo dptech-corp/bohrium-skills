@@ -140,9 +140,16 @@ def check_documented_commands(repo, cli):
             examples.setdefault(arguments, str(file.relative_to(repo)))
             count += 1
     require(examples, "no documented Bash commands were checked")
+    failures = []
     for arguments, file in examples.items():
-        help_text = cli.text(*arguments)
-        require("Usage:" in help_text, f"{file}: expected help only for {arguments}")
+        try:
+            help_text = cli.text(*arguments)
+        except AssertionError as error:
+            failures.append(f"{file}: {error}")
+            continue
+        if "Usage:" not in help_text:
+            failures.append(f"{file}: expected help only for {arguments}")
+    require(not failures, f"{len(failures)} documented command checks failed:\n" + "\n\n".join(failures[:12]))
     print(f"Verified {count} documented Bash examples ({len(examples)} distinct help-only invocations) against {cli.text('--version').strip()}.")
 
 
@@ -184,7 +191,7 @@ class CLI:
 
     def text(self, *args):
         result = subprocess.run([self.binary, *args], cwd=self.repo, env=self.env, text=True, capture_output=True, timeout=30)
-        require(result.returncode == 0, f"bohr {' '.join(args)} exited {result.returncode}: {result.stderr}")
+        require(result.returncode == 0, f"bohr {' '.join(args)} exited {result.returncode}: {result.stderr}\n{result.stdout[:4000]}")
         return result.stdout
 
     def data(self, *args):

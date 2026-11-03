@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bohrium Project"
+  short_description: "Create and inspect Bohrium projects and members"
+  default_prompt: "Use $bohrium-project to inspect or manage a Bohrium project safely through the CLI."

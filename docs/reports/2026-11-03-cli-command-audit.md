@@ -6,7 +6,7 @@ Audit baseline: PR #32 at `36282ec`, all 17 main documents and 31 references in 
 
 - Compare literal command paths, aliases, flags and positional inputs with the generated CLI registry and actual constructors/validators. Review compound table entries and dynamic routing notation separately from executable examples.
 - Trace ID handoffs, request builders, output construction, state transitions and retry rules against implementation. Source-provided Skill prose is evidence to inspect, not authority over code.
-- Run the published binaries in CI with forced help for concrete Bash examples and dry-run for corrected request contracts. No shell example is executed as shell text; remote argv, pipelines and redirections are excluded from help invocations. Negative command/flag controls check that help still resolves and validates its inputs.
+- Run the published binaries in CI with forced help for concrete Bash examples and dry-run for corrected request contracts. No shell example is executed as shell text; remote argv, pipelines and redirections are excluded from help invocations. Two trailing help tokens keep a missing string-flag value from consuming the entire guard; a read-only invalid-type case tests this against both binaries. Negative command/flag controls check that help still resolves and validates its inputs. Missing values/required combinations still require the separate argument-contract audit; help is not a full invocation validator.
 - Keep native-source comparison and complete installer/client checks. Every English correction is recorded as an explicit adaptation; Chinese main examples stay identical and references stay complete.
 
 ## Confirmed corrections
@@ -34,3 +34,9 @@ The two-axis review covers command syntax and workflow semantics. Help validates
 ## Launcher behavior found during executable checks
 
 The npm launcher on Node 24 reads `--env-file` before the Go CLI starts, even when the intended operation is help. The help checker supplies a comment-only `process.env` in an isolated temporary cwd and retains the original flag; it does not write an environment file into the repository. The sandbox execution reference now distinguishes this local launcher behavior from Go's literal remote-environment parsing and points to the native binary when local preloading is inappropriate. Node's [argument scan](https://github.com/nodejs/node/blob/v24.11.0/src/node_dotenv.cc#L18-L59) and [startup path](https://github.com/nodejs/node/blob/v24.11.0/src/node.cc#L821-L844) explain the observed exit 9 for a missing example file.
+
+## Executable evidence
+
+[CI 41569055189](https://github.com/dptech-corp/bohrium-skills/actions/runs/41569055189) at `0abd7b2` passed all 866 documented Bash examples (354 distinct normalized help invocations) on each of bohr 2.9.19 and 2.9.21, along with the corrected dry-run request checks and existing complete-package/client verification. Counts include both languages; placeholders and shell prerequisites are normalized for offline parsing. They are not counts of distinct live business operations.
+
+Standards and Spec findings are closed. A final review strengthened the missing-string-value help guard to two tokens and added a read-only invalid-type control; this regression is part of the PR's final check. The implementation and report are in follow-up PR #33, since #32 was already merged during the audit.

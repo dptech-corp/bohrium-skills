@@ -118,14 +118,17 @@ def bash_help_arguments(text):
             require(arguments and arguments[0] == "bohr", "invalid bohr example")
             # These pinned native commands use Cobra's interspersed flag
             # parsing. Put help after the intact command path, after removing
-            # its overrides and the remote delimiter/argv. No RunE occurs.
-            yield (*arguments[1:], "--help")
+            # its overrides and the remote delimiter/argv. A missing string
+            # flag value may consume one help token, so force a second one.
+            yield (*arguments[1:], "--help", "--help")
         require(not pending, "unterminated quoted bohr example")
 
 
 def check_documented_commands(repo, cli):
     # A CLI that ignores tokens after --help would make this check vacuous.
     require("Usage:" in cli.text("image", "list", "--page", "1", "--help"), "published CLI did not resolve the positive help control")
+    missing_value = next(bash_help_arguments("```bash\nbohr image list --type\n```\n"))
+    require("Usage:" in cli.text(*missing_value), "missing flag value consumed the help guard")
     for invalid in (("image", "not-a-bohr-command", "--help"), ("image", "list", "--not-a-bohr-flag", "--help")):
         try:
             cli.text(*invalid)

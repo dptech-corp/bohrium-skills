@@ -2,7 +2,7 @@
 
 > **CLI 版 Skill 安装提示：** 本仓库当前 Skills 通过 `bohr` 执行业务。此文的 `bohrium-skills-cli` 只负责同步 Skill 文件，不安装 `bohr`，也不代用户登录。先安装 `@dptech-corp/bohr-cli@latest` 并完成 CLI 登录。
 >
-> npm 包和 GitHub Release 二进制内嵌发布时的 Skill 快照，旧版本不会随 GitHub 更新。获取本次 CLI 版内容，请使用 [README](../README.md#2-安装-skill) 的 GitHub 插件或 `bohr skill install` 方式；整套安装见下方源码安装。下文的 npm/Release 安装方式仅获取已发布快照，不能保证包含本次迁移。
+> npm 包和 GitHub Release 二进制内嵌发布时的 Skill 快照，旧版本不会随 GitHub 更新。`0.2.0` 包含当前 CLI 版 Skills；使用 `0.1.1` 等旧版本时，请升级或按 [README](../README.md#2-安装-skill) 从 GitHub 安装。
 
 `bohrium-skills-cli` 管理本仓库内嵌的整套 Bohrium AI Skills，将 `zh/` 或 `en/` 下的完整包同步到本地 agent 目录，包括 `SKILL.md`、`references/` 和源包已有的 `agents/openai.yaml`。主文档直接提供任务流程；无需先通过 `bohr guide` 取回正文。
 
@@ -55,11 +55,11 @@ go run ./cmd/bohrium-skills-cli install --lang zh
 npm install -g bohrium-skills-cli
 ```
 
-已发布的 `0.1.1` 快照安装完成后会自动运行 `bohrium-skills-cli install --lang zh --json`，按该旧版行为同步到 `~/.agents/skills`、`~/.claude/skills` 和 `~/.codex/skills`。它尚不包含本轮完整 CLI Skill 和迁移修复。
+`0.2.0` 安装完成后自动运行 `bohrium-skills-cli install --lang zh --json`，同步完整的 CLI 版 Skills。旧版 `0.1.1` 快照不包含这些内容，并按旧版行为同步到 `~/.agents/skills`、`~/.claude/skills` 和 `~/.codex/skills`。
 
-**当前源码及后续包含本轮修复的新发布版本**只写两个规范根：`~/.agents/skills`（Codex、DSH 共用）和 `~/.claude/skills`。规范目录完整安装后，旧 `.codex/skills` 中同名官方目录副本会先备份再退役，保留其他自定义 Skill。指向规范 `.agents` 的根别名保留；指向 Claude 或其他共享树的根别名明确报冲突，不沿链接删除共享内容。同名普通文件或指向普通文件的链接保留，不伪称已经备份迁移。
+**0.2.0** 只写两个规范根：`~/.agents/skills`（Codex、DSH 共用）和 `~/.claude/skills`。规范目录完整安装后，旧 `.codex/skills` 中同名官方目录副本会先备份再退役，保留其他自定义 Skill。指向规范 `.agents` 的根别名保留；指向 Claude 或其他共享树的根别名明确报冲突，不沿链接删除共享内容。同名普通文件或指向普通文件的链接保留，不伪称已经备份迁移。
 
-新备份目录带唯一后缀，同一秒内连续同步也不覆盖原备份。获取这些源码行为请使用上面的源码安装方式，不能假设上面的旧 npm 命令已经更新。
+新备份目录带唯一后缀，同一秒内连续同步也不覆盖原备份。
 
 **跳过安装后自动同步**（CI 或只想下载二进制时）：
 
@@ -70,7 +70,7 @@ BOHRIUM_SKILLS_CLI_NO_POSTINSTALL_SYNC=1 npm install -g bohrium-skills-cli
 **覆盖 release 仓库地址**（测试本地打包产物时）：
 
 ```bash
-BOHRIUM_SKILLS_CLI_RELEASE_REPO=https://github.com/OWNER/REPO npm install -g ./bohrium-skills-cli-0.1.0.tgz
+BOHRIUM_SKILLS_CLI_RELEASE_REPO=https://github.com/OWNER/REPO npm install -g ./bohrium-skills-cli-0.2.0.tgz
 ```
 
 ### GitHub Release 二进制安装
@@ -80,7 +80,7 @@ BOHRIUM_SKILLS_CLI_RELEASE_REPO=https://github.com/OWNER/REPO npm install -g ./b
 ```bash
 # macOS Apple Silicon
 curl -L -o bohrium-skills-cli \
-  https://github.com/dptech-corp/bohrium-skills/releases/download/v0.1.0/bohrium-skills-cli_darwin_arm64
+  https://github.com/dptech-corp/bohrium-skills/releases/download/v0.2.0/bohrium-skills-cli_darwin_arm64
 
 chmod +x bohrium-skills-cli
 mkdir -p ~/.local/bin

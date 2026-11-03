@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "bohrium-skills",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "17 CLI-backed Bohrium skills for compute jobs, development nodes, datasets, files, scientific databases, images, projects, knowledge bases, papers and patents, PDFs, scholars, SciencePedia, scientific tools, web search, sandboxes, LKM, and Science Mentor. Requires the bohr CLI.",
   "author": {
     "name": "DP Technology",

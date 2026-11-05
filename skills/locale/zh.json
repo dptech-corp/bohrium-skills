@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Bohrium 科研技能",
+    "description": "通过 Bohrium CLI 使用计算任务、论文、数据集等科研工作流。请先运行 bohrium-setup；需要单独安装 bohr 并登录。"
+  }
+}

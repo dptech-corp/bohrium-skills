@@ -1,0 +1,45 @@
+{
+  "name": "@dptech-corp/bohrium-dsh",
+  "version": "0.2.0",
+  "description": "Complete Bohrium scientific workflows for DeepSeek Harness, using the bohr CLI.",
+  "type": "module",
+  "license": "MIT",
+  "author": "DP Technology",
+  "homepage": "https://github.com/dptech-corp/bohrium-skills",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dptech-corp/bohrium-skills.git",
+    "directory": "skills"
+  },
+  "keywords": [
+    "bohrium",
+    "science",
+    "agent-skills",
+    "dsh"
+  ],
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.mjs",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "bohrium-*/**/*"
+  ],
+  "engines": {
+    "node": ">=22",
+    "dsh": "0.2.1-rc.5"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-skill-filesystem": "0.2.1-rc.5"
+  }
+}

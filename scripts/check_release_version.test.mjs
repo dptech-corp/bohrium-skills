@@ -12,3 +12,7 @@ test('different asset and npm versions fail before publication', () => {
 test('missing version cannot create a release', () => {
   assert.throws(() => checkedReleaseVersion(undefined, '1.2.3'), /missing/);
 });
+test('DSH bundle version cannot drift from the release', () => {
+  assert.equal(checkedReleaseVersion('v1.2.3', '1.2.3', '1.2.3'), '1.2.3');
+  assert.throws(() => checkedReleaseVersion('v1.2.3', '1.2.3', '1.2.4'), /DSH/);
+});

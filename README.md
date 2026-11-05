@@ -53,6 +53,12 @@ codex plugin add bohrium-skills@bohrium
 
 安装后请先跑 **bohrium-setup**（Codex/ChatGPT 的 onboarding skill）：让 agent 安装 `bohr`、完成登录并执行 `bohr doctor`，再使用其他 Bohrium Skill。
 
+### DSH 原生插件
+
+DSH 用户可以安装一个包含全部 17 个业务 Skill 和 `bohrium-setup` 的原生插件。插件包位于 `skills/`，复用同一份完整内容，不运行旧安装器。当前适配 DSH **0.2.1-rc.5**。
+
+安装、添加索引源、更新与卸载步骤见 [DSH 接入指南](docs/dsh.md)。插件仍需单独安装并登录 `bohr`；请先运行 `bohrium-setup`。索引需要用户主动添加，公开索引尚待运行发布 workflow 后生效。
+
 ### Codex、Claude Code 或 DSH
 
 获取本仓库，安装需要的 Skill，例如中文版论文检索：

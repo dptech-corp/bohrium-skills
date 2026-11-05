@@ -53,6 +53,12 @@ Or clone locally and point Codex at the repo root (contains `.agents/plugins/mar
 
 After install, run the **bohrium-setup** skill (Codex/ChatGPT onboarding skill) so the agent installs `bohr`, signs in, and runs `bohr doctor` before other Bohrium skills.
 
+### Native DSH plugin
+
+DSH users can install one native bundle containing all 17 workflow Skills and `bohrium-setup`. The independent package in `skills/` reuses the complete content and does not run the legacy installer. The supported DSH version is **0.2.1-rc.5**.
+
+See the [DSH guide](docs/dsh.md#english) for installation, index setup, updates, and removal. Install and sign in to `bohr` separately, then run `bohrium-setup`. Users must add the index themselves; the public index becomes available only after the publishing workflow runs.
+
 ### Codex, Claude Code, or DSH
 
 Clone this repository and install the Skill you need, such as English paper search:

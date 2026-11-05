@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Bohrium Skills",
+    "description": "Scientific computing, papers, datasets and other Bohrium workflows. Run bohrium-setup first; requires a separately installed and signed-in bohr CLI."
+  }
+}

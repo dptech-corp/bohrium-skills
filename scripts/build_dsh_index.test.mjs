@@ -49,3 +49,17 @@ test('index CLI emits a static site with a colocated icon and fails on incomplet
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test('compatibility accepts desktop prereleases in 0.2.x without admitting 0.3 prereleases', async () => {
+  const require = createRequire(path.join(process.env.DSH_TEST_PREFIX, 'package.json'));
+  const dependencyRequire = createRequire(require.resolve('@deepseek-ai/dsh-plugin-market-index'));
+  const semver = dependencyRequire('semver');
+  const index = buildIndex({ commit, publishTimestamp });
+  const range = index.plugins[0].versions[0].engines.dsh;
+  for (const version of ['0.2.1-rc.5', '0.2.2-rc.1', '0.2.2', '0.2.9']) {
+    assert.equal(semver.satisfies(version, range, { includePrerelease: true }), true, `must accept ${version}`);
+  }
+  for (const version of ['0.1.5-rc.2', '0.2.1-rc.4', '0.3.0-alpha.1', '0.3.0', '1.0.0']) {
+    assert.equal(semver.satisfies(version, range, { includePrerelease: true }), false, `must reject ${version}`);
+  }
+});

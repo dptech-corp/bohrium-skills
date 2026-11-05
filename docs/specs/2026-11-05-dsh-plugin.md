@@ -15,7 +15,7 @@ DSH 用户能将现有完整 Bohrium Skills 作为一个原生插件安装、启
 ## Requirements
 
 - 使用 `skills/` 本身作为独立 DSH 包，无安装脚本，不复制或修改 Skill 正文；复用 DSH 的 filesystem provider 解析和加载内容。
-- provider 只贡献包内 bundled Skills，保留项目及用户同名 Skill 的优先级，并在卸载时释放注册与监听资源；原生包兼容范围固定为已验证的 DSH 0.2.1-rc.5。
+- provider 只贡献包内 bundled Skills，保留项目及用户同名 Skill 的优先级，并在卸载时释放注册与监听资源；原生包兼容 DSH 0.2.x，从 0.2.1-rc.5 起（`>=0.2.1-rc.5 <0.3.0-0`），包含桌面版 0.2.2-rc.1；更旧版本与 0.3 以后的系列需单独验证。
 - 独立包名称为 `@dptech-corp/bohrium-dsh`，版本沿用仓库版本；提供英文、中文显示元数据及原创 SVG 图标。
 - 索引由构建脚本产生，使用 Git HTTPS 地址、完整 commit、`path: skills`、确切包版本和 Unix 秒时间戳。拒绝缺失或格式错误的 commit、时间戳和版本漂移。
 - CI 验证真正打包后的资源完整性、真实 registry 的加载和禁用/卸载语义、官方索引校验；手动 Pages workflow 负责 HTTPS 托管，不在开发过程中发布或修改线上设置。

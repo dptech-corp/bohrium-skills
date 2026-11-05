@@ -38,3 +38,15 @@
 - 未调用 Bohrium 业务 API、未发真实模型请求、未执行付费任务；不能将安装/加载验证视为真实业务验收。
 - 未发布 Pages 索引、未发布 npm、未打 tag，也未修改线上设置或用户现用 DSH profile。
 - 开发机验证完成后，代码与验证记录一起提交至工作分支，向 main 创建 PR；验证结果不表示已经合并或发布。
+
+## 公开索引与桌面版兼容修正
+
+PR #39 合并后，已启用 GitHub Pages 并发布 `https://dptech-corp.github.io/bohrium-skills/index.json`。首轮发布 workflow `41996862066` 成功，公开索引直接返回 HTTP 200，源固定到 main 合并提交 `c4f00a7b72e4780c30b93bed5e233c112864bf43` 的 `skills` 子目录，无需 npm release 或新 tag。
+
+桌面版 0.2.2-rc.1 的发现页已实际显示 Bohrium 条目与图标，但原来精确的 `engines.dsh: 0.2.1-rc.5` 导致安装按钮不可用。回归检查先复现对 0.2.2-rc.1 的错误拒绝，再将包与索引的共同兼容范围改为 `>=0.2.1-rc.5 <0.3.0-0`。上界排除 0.3.0 预览版，DSH 匹配规则使用 includePrerelease=true。
+
+兼容修正的开发机验证目录为 `/root/workspaces/bohrium-skills-dsh-compat-20261105`，分支 `fix/dsh-compatibility-20261105`，基线 `c4f00a7b72e4780c30b93bed5e233c112864bf43`。复用原有相同版本的验证依赖，9 项 Node 检查全通过；源输入只变更兼容元数据、相关回归与文档，无需重复运行未受影响的业务或 Go 回归。
+
+用户明确授权在 Mac 使用本机 DSH 验证。系统 CLI 已升级到 0.2.1-rc.5，Git 固定提交安装后发现并加载 18 个 Skills。另通过 `/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh`（实际桌面运行时 0.2.2-rc.1），使用独立 `DSH_HOME` 安装兼容修正后的 `.tgz` 并启动宿主：Skill catalog 完整，18 个 Skills 可见，setup/job/paper 正文与 job 参考文件可读取，模型与用户调用标志均为 true。该验证没有执行模型或 Bohrium 业务请求。
+
+本机原始证据位于 `/tmp/bohrium-dsh-local-20261105.IzmvpM/`：`result.json`（CLI）、`desktop-result.json`、`desktop-install.log`、`desktop-boot.log`。本地目录链接安装需按接入指南先安装开发依赖；正式索引使用 Git 固定 commit 安装，已验证该路径。

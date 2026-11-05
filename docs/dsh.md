@@ -2,7 +2,7 @@
 
 本仓库的 `skills/` 同时是独立的 DSH 原生插件包 `@dptech-corp/bohrium-dsh`，包含 17 个完整业务 Skill 和 `bohrium-setup`。它使用现有英文内容及参考文件，没有安装脚本，不运行旧的 `bohrium-skills-cli` 安装器，也不向用户 Skill 目录复制文件。
 
-当前适配 DSH **0.2.1-rc.5**，运行时复用宿主自带的同版本官方 filesystem provider。DSH 仍在预览期，其他版本请先在隔离 profile 验证；原有 `bohr skill install --target dsh` 路径继续可用。
+兼容范围为 **DSH 0.2.x，从 0.2.1-rc.5 起**（`>=0.2.1-rc.5 <0.3.0-0`），运行时复用宿主自带的 filesystem provider。已验证 CLI 0.2.1-rc.5 和桌面版 0.2.2-rc.1；0.3 及以后需要重新验证，原有 `bohr skill install --target dsh` 路径继续可用。
 
 ## 安装和首次使用
 
@@ -71,7 +71,7 @@ CI 针对实际 `npm pack` 产物检查完整文件，使用真实 Cordis/DSH re
 
 ## English
 
-The independent `@dptech-corp/bohrium-dsh` package lives in `skills/` and contains all 17 workflow Skills plus `bohrium-setup`, including their reference files. It has no install scripts, does not invoke the legacy installer, and does not copy files into user Skill directories. The supported DSH version is **0.2.1-rc.5**.
+The independent `@dptech-corp/bohrium-dsh` package lives in `skills/` and contains all 17 workflow Skills plus `bohrium-setup`, including their reference files. It has no install scripts, does not invoke the legacy installer, and does not copy files into user Skill directories. Supports **DSH 0.2.x from 0.2.1-rc.5** (`>=0.2.1-rc.5 <0.3.0-0`), including Desktop 0.2.2-rc.1; 0.3 and later require validation.
 
 Clone this repository, enter its root, and install from an absolute local path:
 

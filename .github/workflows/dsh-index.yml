@@ -1,0 +1,44 @@
+name: Publish DSH plugin index
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: dsh-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Validate bundle and index
+        env:
+          DSH_TEST_PREFIX: ${{ runner.temp }}/dsh-tools
+        run: |
+          npm install --prefix skills --ignore-scripts --package-lock=false --no-audit --no-fund
+          npm install --prefix "$DSH_TEST_PREFIX" --ignore-scripts --no-audit --no-fund @deepseek-ai/cordis@4.0.5 @deepseek-ai/dsh-skill@0.2.1-rc.5 @deepseek-ai/dsh-plugin-market-index@0.2.1-rc.5
+          node --test scripts/dsh_plugin.test.mjs scripts/build_dsh_index.test.mjs scripts/check_release_version.test.mjs
+      - name: Build immutable index from the checked-out main commit
+        run: |
+          node scripts/build_dsh_index.mjs --commit "$(git rev-parse HEAD)" --timestamp "$(git show -s --format=%ct HEAD)" --output _site/index.json
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@v4

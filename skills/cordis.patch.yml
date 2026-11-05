@@ -1,0 +1,4 @@
+- insert:
+    - id: bohrium-skills
+      name: '@dptech-corp/bohrium-dsh'
+      config: {}

@@ -1,5 +1,11 @@
 # 更新记录
 
+## 未发布
+
+- 新增 DSH 原生插件：复用完整 Skills 和 setup skill，支持独立安装、启用和移除。
+- 新增固定 Git commit 的 DSH 插件索引生成、手动 GitHub Pages 发布流程及接入说明。
+- 增加打包资源、真实 DSH registry 生命周期及索引格式检查。
+
 ## 0.2.0
 
 ### 重要变更

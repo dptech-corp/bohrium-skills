@@ -73,3 +73,7 @@ docs/SKILL-OPTIMIZATION.md
 docs/demo-reports/
 docs/superpowers/
 tests/
+
+# Local DSH bundle validation and generated index site
+node_modules/
+_site/

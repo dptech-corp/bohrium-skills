@@ -40,6 +40,13 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/skill-consumers" --no-audit --no-fund @openai/codex@0.164.0 @anthropic-ai/claude-code@2.1.309 @deepseek-ai/dsh-skill-filesystem@0.1.5-rc.2
           go build -o "$RUNNER_TEMP/bohrium-skills-installer" ./cmd/bohrium-skills-cli
           python3 scripts/check_skill_consumers.py --installer "$RUNNER_TEMP/bohrium-skills-installer" --tools-prefix "$RUNNER_TEMP/skill-consumers"
+      - name: Check DSH bundle, lifecycle, and plugin index
+        env:
+          DSH_TEST_PREFIX: ${{ runner.temp }}/dsh-tools
+        run: |
+          npm install --prefix skills --ignore-scripts --package-lock=false --no-audit --no-fund
+          npm install --prefix "$DSH_TEST_PREFIX" --ignore-scripts --no-audit --no-fund @deepseek-ai/cordis@4.0.5 @deepseek-ai/dsh-skill@0.2.1-rc.5 @deepseek-ai/dsh-plugin-market-index@0.2.1-rc.5
+          node --test scripts/dsh_plugin.test.mjs scripts/build_dsh_index.test.mjs
       - name: Inspect installer npm package contents
         run: |
           npm pack --dry-run --ignore-scripts --json > "$RUNNER_TEMP/skills-pack.json"

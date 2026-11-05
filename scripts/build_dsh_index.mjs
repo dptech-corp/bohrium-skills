@@ -28,7 +28,6 @@ export function buildIndex({ commit, publishTimestamp } = {}) {
         version: manifest.version,
         publishTimestamp,
         source: { type: 'git', url: 'https://github.com/dptech-corp/bohrium-skills', commit, path: 'skills' },
-        engines: { dsh: manifest.engines.dsh },
       }],
     }],
   };

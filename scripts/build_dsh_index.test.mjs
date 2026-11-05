@@ -20,7 +20,7 @@ test('index pins the independent bundle to a full Git commit and package directo
   assert.equal(plugin.versions[0].publishTimestamp, publishTimestamp);
   const pkg = JSON.parse(await fs.readFile(new URL('../skills/package.json', import.meta.url), 'utf8'));
   assert.equal(plugin.versions[0].version, pkg.version);
-  assert.deepEqual(plugin.versions[0].engines, { dsh: pkg.engines.dsh });
+  assert.equal(plugin.versions[0].engines, undefined);
   const require = createRequire(path.join(process.env.DSH_TEST_PREFIX, 'package.json'));
   const validator = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-plugin-market-index')));
   const parsed = validator.parseMarketIndex(index, 'https://dptech-corp.github.io/bohrium-skills/index.json');
@@ -50,16 +50,10 @@ test('index CLI emits a static site with a colocated icon and fails on incomplet
   }
 });
 
-test('compatibility accepts desktop prereleases in 0.2.x without admitting 0.3 prereleases', async () => {
-  const require = createRequire(path.join(process.env.DSH_TEST_PREFIX, 'package.json'));
-  const dependencyRequire = createRequire(require.resolve('@deepseek-ai/dsh-plugin-market-index'));
-  const semver = dependencyRequire('semver');
+test('external bundle and its public index impose no DSH runtime version gate', async () => {
+  const pkg = JSON.parse(await fs.readFile(new URL('../skills/package.json', import.meta.url), 'utf8'));
+  assert.equal(Object.hasOwn(pkg.engines ?? {}, 'dsh'), false, 'package must not restrict DSH versions');
+  assert.deepEqual(Object.keys(pkg.peerDependencies ?? {}).filter(name => name === '@deepseek-ai/dsh' || name.startsWith('@deepseek-ai/dsh-')), [], 'DSH peers must not create an implicit version gate');
   const index = buildIndex({ commit, publishTimestamp });
-  const range = index.plugins[0].versions[0].engines.dsh;
-  for (const version of ['0.2.1-rc.5', '0.2.2-rc.1', '0.2.2', '0.2.9']) {
-    assert.equal(semver.satisfies(version, range, { includePrerelease: true }), true, `must accept ${version}`);
-  }
-  for (const version of ['0.1.5-rc.2', '0.2.1-rc.4', '0.3.0-alpha.1', '0.3.0', '1.0.0']) {
-    assert.equal(semver.satisfies(version, range, { includePrerelease: true }), false, `must reject ${version}`);
-  }
+  assert.equal(Object.hasOwn(index.plugins[0].versions[0], 'engines'), false, 'index must not restrict DSH versions');
 });

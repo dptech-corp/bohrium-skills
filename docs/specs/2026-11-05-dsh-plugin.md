@@ -15,7 +15,7 @@ DSH 用户能将现有完整 Bohrium Skills 作为一个原生插件安装、启
 ## Requirements
 
 - 使用 `skills/` 本身作为独立 DSH 包，无安装脚本，不复制或修改 Skill 正文；复用 DSH 的 filesystem provider 解析和加载内容。
-- provider 只贡献包内 bundled Skills，保留项目及用户同名 Skill 的优先级，并在卸载时释放注册与监听资源；原生包兼容 DSH 0.2.x，从 0.2.1-rc.5 起（`>=0.2.1-rc.5 <0.3.0-0`），包含桌面版 0.2.2-rc.1；更旧版本与 0.3 以后的系列需单独验证。
+- provider 只贡献包内 bundled Skills，保留项目及用户同名 Skill 的优先级，并在卸载时释放注册与监听资源；独立外部插件及其索引不设置 DSH 版本门槛，也不通过 DSH peerDependencies 隐式限制版本。
 - 独立包名称为 `@dptech-corp/bohrium-dsh`，版本沿用仓库版本；提供英文、中文显示元数据及原创 SVG 图标。
 - 索引由构建脚本产生，使用 Git HTTPS 地址、完整 commit、`path: skills`、确切包版本和 Unix 秒时间戳。拒绝缺失或格式错误的 commit、时间戳和版本漂移。
 - CI 验证真正打包后的资源完整性、真实 registry 的加载和禁用/卸载语义、官方索引校验；手动 Pages workflow 负责 HTTPS 托管，不在开发过程中发布或修改线上设置。
@@ -29,7 +29,7 @@ DSH 用户能将现有完整 Bohrium Skills 作为一个原生插件安装、启
 - packed npm 产物包含 18 个 Skill 的完整文件树、入口、patch、locale、图标，没有旧安装器和生命周期脚本。
 - 真实 Cordis/DSH registry 安装插件后能按名加载完整正文及资源；释放插件后贡献消失；其他用户 Skill 不受影响。
 - 生成的索引经官方 validator 接受，源字段精确指向选定 commit 的 skills 子目录；错误输入失败。
-- 中文、英文 README 提供直接安装、索引开启/添加、setup、固定版本更新和卸载说明，准确标注预览兼容范围。
+- 中文、英文 README 提供直接安装、索引开启/添加、setup、固定版本更新和卸载说明，分别说明无 DSH 版本门槛与实际验证版本。
 - 本次没有对公开索引、npm 或用户正在使用的 DSH profile 做写操作。UI 渲染、真实业务请求和公开托管的结果与代码验证分开报告。
 
 ## Scope and non-goals

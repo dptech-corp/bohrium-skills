@@ -57,6 +57,10 @@ and the user's intent before the real submission.
 
 ## Search and trace the ingested corpus
 
+When the user supplies paper tags, pass each value unchanged with a separate `--tag`
+on `search` or `reasoning` to match any of them. Paper metadata includes the `tags` list.
+If the installed command lacks `--tag`, ask for a CLI update before running a tag-filtered search.
+
 Start from natural language when no identifier is known:
 
 ```bash

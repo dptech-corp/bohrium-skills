@@ -3574,9 +3574,15 @@
                     }
                   },
                   "filters": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
+                    "type": "object",
+                    "properties": {
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "论文标签，匹配任意一个值。"
+                      }
                     }
                   },
                   "reasoning_only": {
@@ -3638,9 +3644,15 @@
                     "type": "string"
                   },
                   "filters": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
+                    "type": "object",
+                    "properties": {
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "论文标签，匹配任意一个值。"
+                      }
                     }
                   },
                   "offset": {

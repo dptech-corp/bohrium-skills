@@ -547,6 +547,20 @@
       "old": "## Environment files and safe summaries\n\n",
       "new": "## Environment files and safe summaries\n\nWith the npm launcher on Node 24, Node also scans `--env-file` and loads the file locally before the Go CLI starts, including for `--help`. Node's dotenv rules are separate from the Go parsing rules below. Use the native `bohr` binary when the file must affect only the requested remote process rather than the local launcher environment.\n\n",
       "reason": "Record the Node 24 npm-launcher env-file preloading observed by published-binary help checks; native Go parsing remains separate."
+    },
+    {
+      "guide": "bohr-lkm",
+      "path": "SKILL.md",
+      "old": "Start from natural language when no identifier is known:",
+      "new": "When the user supplies paper tags, pass each value unchanged with a separate `--tag`\non `search` or `reasoning` to match any of them. Paper metadata includes the `tags` list.\nIf the installed command lacks `--tag`, ask for a CLI update before running a tag-filtered search.\n\nStart from natural language when no identifier is known:",
+      "reason": "Document optional paper tags for CLI installations with --tag support."
+    },
+    {
+      "guide": "bohr-lkm",
+      "path": "references/commands.md",
+      "old": "  `--doi` is repeatable (max 50). `--title` is a fuzzy filter. These filters AND.",
+      "new": "  `--doi` is repeatable (max 50). `--title` is a fuzzy filter. These filters AND.\n- `--tag <value>` filters papers in `search` and `reasoning`. Repeat the flag to\n  match any supplied tag. Paper metadata returns `tags` as a list.",
+      "reason": "Document optional paper tags for CLI installations with --tag support."
     }
   ]
 }

@@ -87,6 +87,8 @@ bohr lkm search <query> \
 - `--top-k` defaults to `10` (1-100); `--offset` defaults to `0` (max 2000).
 - `--paper-id` is a numeric string without a `paper:` prefix (repeatable, max 50).
   `--doi` is repeatable (max 50). `--title` is a fuzzy filter. These filters AND.
+- `--tag <value>` filters papers in `search` and `reasoning`. Repeat the flag to
+  match any supplied tag. Paper metadata returns `tags` as a list.
 - `--limit-publication-date` defaults to true and is sent only when false.
 - `--include-paper-enrich` is sent only when true. `--visibility` defaults to
   `public`.

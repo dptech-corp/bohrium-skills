@@ -6,8 +6,10 @@ export function checkedReleaseVersion(requested, packageVersion, dshVersion = pa
   if (!version || version !== packageVersion) {
     throw new Error(`Release version ${version || '(missing)'} does not match package.json ${packageVersion}; no assets should be published.`);
   }
-  if (dshVersion !== packageVersion) {
-    throw new Error(`DSH bundle version ${dshVersion} does not match package.json ${packageVersion}; no assets should be published.`);
+  for (const bundleVersion of [].concat(dshVersion)) {
+    if (bundleVersion !== packageVersion) {
+      throw new Error(`DSH bundle version ${bundleVersion} does not match package.json ${packageVersion}; no assets should be published.`);
+    }
   }
   return version;
 }
@@ -15,5 +17,6 @@ export function checkedReleaseVersion(requested, packageVersion, dshVersion = pa
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   const dsh = JSON.parse(fs.readFileSync(new URL('../skills/package.json', import.meta.url), 'utf8'));
-  console.log(checkedReleaseVersion(process.argv[2], pkg.version, dsh.version));
+  const cli = JSON.parse(fs.readFileSync(new URL('../dsh/bohr-cli/package.json', import.meta.url), 'utf8'));
+  console.log(checkedReleaseVersion(process.argv[2], pkg.version, [dsh.version, cli.version]));
 }

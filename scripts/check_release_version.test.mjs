@@ -15,4 +15,6 @@ test('missing version cannot create a release', () => {
 test('DSH bundle version cannot drift from the release', () => {
   assert.equal(checkedReleaseVersion('v1.2.3', '1.2.3', '1.2.3'), '1.2.3');
   assert.throws(() => checkedReleaseVersion('v1.2.3', '1.2.3', '1.2.4'), /DSH/);
+  assert.equal(checkedReleaseVersion('v1.2.3', '1.2.3', ['1.2.3', '1.2.3']), '1.2.3');
+  assert.throws(() => checkedReleaseVersion('v1.2.3', '1.2.3', ['1.2.3', '1.2.4']), /DSH/);
 });

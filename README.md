@@ -57,7 +57,7 @@ codex plugin add bohrium-skills@bohrium
 
 DSH 用户可以安装一个包含全部 17 个业务 Skill 和 `bohrium-setup` 的原生插件。插件包位于 `skills/`，复用同一份完整内容，不运行旧安装器。作为外部插件分发，不按 DSH 版本限制安装。
 
-安装、添加索引源、更新与卸载步骤见 [DSH 接入指南](docs/dsh.md)。插件仍需单独安装并登录 `bohr`；请先运行 `bohrium-setup`。索引需要用户主动添加，公开地址为 https://dptech-corp.github.io/bohrium-skills/index.json 。
+安装、添加索引源、更新与卸载步骤见 [DSH 接入指南](docs/dsh.md)。插件仍需单独安装并登录 `bohr`；请先运行 `bohrium-setup`。另有只提供 CLI 的独立包 `dsh/bohr-cli`，把 `bohr` 固定在 profile 内，安装命令与升级规则见同一指南。索引需要用户主动添加，公开地址为 https://dptech-corp.github.io/bohrium-skills/index.json 。
 
 ### Codex、Claude Code 或 DSH
 

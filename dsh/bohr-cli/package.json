@@ -1,0 +1,47 @@
+{
+  "name": "@dptech-corp/bohrium-dsh-bohr-cli",
+  "version": "0.2.0",
+  "description": "Bohrium CLI inside DeepSeek Harness: the profile's own bohr launcher and the guides it carries.",
+  "type": "module",
+  "license": "MIT",
+  "author": "DP Technology",
+  "homepage": "https://github.com/dptech-corp/bohrium-skills",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dptech-corp/bohrium-skills.git",
+    "directory": "dsh/bohr-cli"
+  },
+  "keywords": [
+    "bohrium",
+    "bohr",
+    "cli",
+    "dsh"
+  ],
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.mjs",
+    "cordis.patch.yml"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "optionalDependencies": {
+    "@dptech-corp/bohr-cli-darwin-amd64": "2.9.55",
+    "@dptech-corp/bohr-cli-darwin-arm64": "2.9.55",
+    "@dptech-corp/bohr-cli-linux-amd64": "2.9.55",
+    "@dptech-corp/bohr-cli-linux-arm64": "2.9.55",
+    "@dptech-corp/bohr-cli-windows-amd64": "2.9.55",
+    "@dptech-corp/bohr-cli-windows-arm64": "2.9.55"
+  },
+  "devDependencies": {
+    "yaml": "^2.8.0"
+  }
+}

@@ -57,7 +57,7 @@ After install, run the **bohrium-setup** skill (Codex/ChatGPT onboarding skill) 
 
 DSH users can install one native bundle containing all 17 workflow Skills and `bohrium-setup`. The independent package in `skills/` reuses the complete content and does not run the legacy installer. This external plugin does not restrict installation by DSH version.
 
-See the [DSH guide](docs/dsh.md#english) for installation, index setup, updates, and removal. Install and sign in to `bohr` separately, then run `bohrium-setup`. Users must add the public index themselves: https://dptech-corp.github.io/bohrium-skills/index.json .
+See the [DSH guide](docs/dsh.md#english) for installation, index setup, updates, and removal. Install and sign in to `bohr` separately, then run `bohrium-setup`. A second independent package, `dsh/bohr-cli`, pins `bohr` inside the profile; the same guide carries its install command and upgrade rule. Users must add the public index themselves: https://dptech-corp.github.io/bohrium-skills/index.json .
 
 ### Codex, Claude Code, or DSH
 

@@ -10,21 +10,26 @@ import { buildIndex } from './build_dsh_index.mjs';
 
 const commit = '0123456789abcdef0123456789abcdef01234567';
 const publishTimestamp = 1793865600;
+const bundles = [['skills', '@dptech-corp/bohrium-dsh'], ['dsh/bohr-cli', '@dptech-corp/bohrium-dsh-bohr-cli']];
 
-test('index pins the independent bundle to a full Git commit and package directory', async () => {
+test('index pins both bundles to a full Git commit and their own package directory', async () => {
   const index = buildIndex({ commit, publishTimestamp });
   assert.equal(index.format, 1);
-  const plugin = index.plugins[0];
-  assert.equal(plugin.name, '@dptech-corp/bohrium-dsh');
-  assert.deepEqual(plugin.versions[0].source, { type: 'git', url: 'https://github.com/dptech-corp/bohrium-skills', commit, path: 'skills' });
-  assert.equal(plugin.versions[0].publishTimestamp, publishTimestamp);
-  const pkg = JSON.parse(await fs.readFile(new URL('../skills/package.json', import.meta.url), 'utf8'));
-  assert.equal(plugin.versions[0].version, pkg.version);
-  assert.equal(plugin.versions[0].engines, undefined);
   const require = createRequire(path.join(process.env.DSH_TEST_PREFIX, 'package.json'));
   const validator = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-plugin-market-index')));
   const parsed = validator.parseMarketIndex(index, 'https://dptech-corp.github.io/bohrium-skills/index.json');
-  assert.equal(parsed.plugins[0].name, plugin.name);
+  assert.deepEqual(parsed.plugins.map((plugin) => plugin.name), bundles.map(([, name]) => name));
+  for (const [directory, name] of bundles) {
+    const plugin = index.plugins.find((item) => item.name === name);
+    assert.deepEqual(plugin.versions[0].source, { type: 'git', url: 'https://github.com/dptech-corp/bohrium-skills', commit, path: directory });
+    assert.equal(plugin.versions[0].publishTimestamp, publishTimestamp);
+    assert.equal(plugin.repository.directory, directory);
+    const pkg = JSON.parse(await fs.readFile(new URL(`../${directory}/package.json`, import.meta.url), 'utf8'));
+    assert.equal(plugin.versions[0].version, pkg.version);
+    assert.equal(plugin.versions[0].engines, undefined);
+  }
+  // Only the skills bundle ships an icon; the CLI bundle has none to copy.
+  assert.deepEqual(index.plugins.map((plugin) => plugin.icon), ['icon.svg', undefined]);
 });
 
 test('index refuses moving refs and invalid timestamps', () => {
@@ -50,10 +55,14 @@ test('index CLI emits a static site with a colocated icon and fails on incomplet
   }
 });
 
-test('external bundle and its public index impose no DSH runtime version gate', async () => {
-  const pkg = JSON.parse(await fs.readFile(new URL('../skills/package.json', import.meta.url), 'utf8'));
-  assert.equal(Object.hasOwn(pkg.engines ?? {}, 'dsh'), false, 'package must not restrict DSH versions');
-  assert.deepEqual(Object.keys(pkg.peerDependencies ?? {}).filter(name => name === '@deepseek-ai/dsh' || name.startsWith('@deepseek-ai/dsh-')), [], 'DSH peers must not create an implicit version gate');
+test('external bundles and their public index impose no DSH runtime version gate', async () => {
+  for (const [directory] of bundles) {
+    const pkg = JSON.parse(await fs.readFile(new URL(`../${directory}/package.json`, import.meta.url), 'utf8'));
+    assert.equal(Object.hasOwn(pkg.engines ?? {}, 'dsh'), false, `${directory} package must not restrict DSH versions`);
+    assert.deepEqual(Object.keys(pkg.peerDependencies ?? {}).filter(name => name === '@deepseek-ai/dsh' || name.startsWith('@deepseek-ai/dsh-')), [], 'DSH peers must not create an implicit version gate');
+  }
   const index = buildIndex({ commit, publishTimestamp });
-  assert.equal(Object.hasOwn(index.plugins[0].versions[0], 'engines'), false, 'index must not restrict DSH versions');
+  for (const plugin of index.plugins) {
+    assert.equal(Object.hasOwn(plugin.versions[0], 'engines'), false, 'index must not restrict DSH versions');
+  }
 });

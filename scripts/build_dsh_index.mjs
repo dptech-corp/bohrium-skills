@@ -5,13 +5,16 @@ import { parseArgs } from 'node:util';
 import { checkedReleaseVersion } from './check_release_version.mjs';
 
 const manifest = JSON.parse(fs.readFileSync(new URL('../skills/package.json', import.meta.url), 'utf8'));
+const adapter = JSON.parse(fs.readFileSync(new URL('../dsh/bohr-cli/package.json', import.meta.url), 'utf8'));
 const root = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
-/** Build a format-1 index with an immutable Git source for the standalone bundle. */
+/** Build a format-1 index with an immutable Git source for every package in this repository. */
 export function buildIndex({ commit, publishTimestamp } = {}) {
   if (typeof commit !== 'string' || !/^[0-9a-f]{40}$/.test(commit)) throw new Error('commit must be a full 40-character lowercase Git SHA');
   if (!Number.isSafeInteger(publishTimestamp) || publishTimestamp <= 0 || publishTimestamp > 100_000_000_000) throw new Error('timestamp must be positive Unix seconds');
   checkedReleaseVersion(manifest.version, root.version, manifest.version);
+  checkedReleaseVersion(adapter.version, root.version);
+  const source = (directory) => ({ type: 'git', url: 'https://github.com/dptech-corp/bohrium-skills', commit, path: directory });
   return {
     format: 1,
     title: { en: 'Bohrium plugins', zh: 'Bohrium 插件' },
@@ -27,7 +30,19 @@ export function buildIndex({ commit, publishTimestamp } = {}) {
       versions: [{
         version: manifest.version,
         publishTimestamp,
-        source: { type: 'git', url: 'https://github.com/dptech-corp/bohrium-skills', commit, path: 'skills' },
+        source: source('skills'),
+      }],
+    }, {
+      name: adapter.name,
+      title: { en: 'Bohrium CLI', zh: 'Bohrium CLI' },
+      description: { en: adapter.description, zh: '在本 profile 内安装当前宿主的 Bohrium CLI 二进制，并读取它自带的指南；伴生程序按需另外安装。' },
+      author: adapter.author,
+      homepage: adapter.homepage,
+      repository: { url: 'https://github.com/dptech-corp/bohrium-skills', directory: 'dsh/bohr-cli' },
+      versions: [{
+        version: adapter.version,
+        publishTimestamp,
+        source: source('dsh/bohr-cli'),
       }],
     }],
   };

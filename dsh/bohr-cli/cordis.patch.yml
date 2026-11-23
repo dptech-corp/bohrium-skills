@@ -1,0 +1,7 @@
+# Layer installed when a profile adds this bundle. The row names the package, so
+# it resolves through the profile's own node_modules; the native CLI that backs
+# it comes from the platform package this bundle depends on.
+- insert:
+    - id: bohr-cli
+      name: '@dptech-corp/bohrium-dsh-bohr-cli'
+      config: {}

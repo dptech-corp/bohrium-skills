@@ -2,6 +2,8 @@
 
 本仓库的 `skills/` 同时是独立的 DSH 原生插件包 `@dptech-corp/bohrium-dsh`，包含 17 个完整业务 Skill 和 `bohrium-setup`。它使用现有英文内容及参考文件，没有安装脚本，不运行旧的 `bohrium-skills-cli` 安装器，也不向用户 Skill 目录复制文件。
 
+仓库另有只提供 CLI 的独立包 `dsh/bohr-cli`（`@dptech-corp/bohrium-dsh-bohr-cli`），把 `bohr` 固定在 profile 内，见[下文](#bohrium-cli-内置包dshbohr-cli)。
+
 这是独立的外部插件，包与索引均不设置 DSH 版本门槛。已实测 CLI 0.2.1-rc.5 和桌面版 0.2.2-rc.1；实测版本仅用于记录验证范围。原有 `bohr skill install --target dsh` 路径继续可用。
 
 ## 安装和首次使用
@@ -30,11 +32,28 @@ dsh plugin --profile web add "git+https://github.com/dptech-corp/bohrium-skills.
 
 例如：让 Agent 先检查 Bohrium 环境，再读取 `bohrium-job`，解释如何查看一个已知任务的状态。真实业务请求需要可用账号、网络和相应授权。
 
+## Bohrium CLI 内置包（`dsh/bohr-cli`）
+
+上面的插件假定 `bohr` 由用户自己安装。需要把 CLI 固定在 profile 内时用这个独立包：它依赖六个已发布、无生命周期脚本的平台分包（六个锁同一精确版本，当前 `2.9.55`），按宿主 os/arch 只装一个，因此普通安装不会被 pnpm 的构建脚本策略拦住，也不会被同一 npm 前缀里旧的全局 `bohr` 遮蔽。
+
+```bash
+commit="$(git rev-parse HEAD)"
+dsh plugin --profile web add "git+https://github.com/dptech-corp/bohrium-skills.git#${commit}&path:/dsh/bohr-cli"
+```
+
+装好后入口提供该 profile 内二进制的绝对路径 `DSH_BOHR_CLI`，通过宿主自带的 shell 工具调用：`"$DSH_BOHR_CLI" version -o json`、`"$DSH_BOHR_CLI" guide list -o json`。它不注册新工具，沿用宿主原有权限路径；另注册一个同名 Skill `bohr-cli`，内容只指向 `bohr guide`。两个插件可在同一 profile 共存：`skills/` 负责业务 Skill，本包负责 CLI，禁用或卸载其中一个不影响另一个。
+
+升级规则：六个平台分包必须锁同一个精确版本，该版本等于真正的 CLI 发布版本；升级只在同一个公开仓提交里改这六行，再重新固定索引 commit。索引固定 commit，已装 profile 不随 npm 自动前进；改动这六行后需要在开发机与本机重新走一遍默认安装验收。
+
+伴生程序（Trisol、Wenyon，macOS 另有 Lobster Web）不在这个包里，需要时按 CLI 自己的路径安装，例如 `bohr extension install <tool>`，macOS 的 Lobster Web 用 `bohr agents local install`。没有伴生程序时主 CLI 仍可用。
+
+平台范围：只装当前宿主的分包，宿主没有对应分包时入口只告警并跳过注册，不让整个 profile 失败。
+
 ## 通过索引发现
 
 DSH 默认不附带索引源。需要先在 Plugins 页面开启实验性的 **Custom plugin indexes**，再进入 **Discover → Add index source** 添加索引 URL。只有添加了该源的用户，才能从这份索引搜索 Bohrium。
 
-仓库提供手动 **Publish DSH plugin index** workflow，验证主干内容后构建 `index.json` 与 `icon.svg`，再通过 GitHub Pages 发布。首次使用需在仓库 Pages 设置中选 GitHub Actions 作为发布来源；确认仓库没有其他 Pages 站点需要共用后再运行。workflow 的 deployment URL 加 `index.json` 即实际索引地址。默认项目站点通常是：
+仓库提供手动 **Publish DSH plugin index** workflow，验证主干内容后构建 `index.json` 与 `icon.svg`，再通过 GitHub Pages 发布。索引为 `skills/` 和 `dsh/bohr-cli` 各生成一条固定 commit 的 Git 条目，安装串形如 `git+https://github.com/dptech-corp/bohrium-skills.git#<commit>&path:/dsh/bohr-cli`。首次使用需在仓库 Pages 设置中选 GitHub Actions 作为发布来源；确认仓库没有其他 Pages 站点需要共用后再运行。workflow 的 deployment URL 加 `index.json` 即实际索引地址。默认项目站点通常是：
 
 ```text
 https://dptech-corp.github.io/bohrium-skills/index.json
@@ -67,7 +86,7 @@ dsh plugin --profile web remove @dptech-corp/bohrium-dsh
 
 ## 验证范围
 
-CI 针对实际 `npm pack` 产物检查完整文件，使用真实 Cordis/DSH registry 验证发现、按名加载、资源路径、用户覆盖以及禁用和重新启用，使用官方索引 validator 校验生成结果。测试不调用业务 API，也不证明浏览器图标已正确渲染、公共 Pages 已上线或真实付费任务已经完成；这些结果需分别记录。
+CI 针对实际 `npm pack` 产物检查完整文件，使用真实 Cordis/DSH registry 验证发现、按名加载、资源路径、用户覆盖以及禁用和重新启用，使用官方索引 validator 校验生成结果。`dsh/bohr-cli` 同样按实际打包产物检查，并在同一真实 registry 上验证与 `skills/` 共存。平台实测只覆盖 darwin-arm64（CLI 与桌面版两个宿主的默认安装路径）和 linux-amd64（开发机实际安装并运行二进制）；Windows 各架构、darwin-amd64 与 linux-arm64 未实跑，只有 registry 元数据核对。测试不调用业务 API，也不证明浏览器图标已正确渲染、公共 Pages 已上线或真实付费任务已经完成；这些结果需分别记录。
 
 ## English
 
@@ -89,7 +108,18 @@ dsh plugin --profile web add "git+https://github.com/dptech-corp/bohrium-skills.
 
 Replace `web` with the intended profile. Check Plugins for activation errors, restart when requested, and open a new session. Run `bohrium-setup` first to install and sign in to `bohr` separately. The plugin does not authorize spending or changes.
 
-For discovery, enable experimental **Custom plugin indexes**, then use **Discover → Add index source**. The manual **Publish DSH plugin index** workflow validates main and deploys a static index through GitHub Pages. Configure Pages to use GitHub Actions first, and ensure it will not replace an existing site. Use the actual deployment URL followed by `index.json`. The expected default URL is `https://dptech-corp.github.io/bohrium-skills/index.json`; it is available only after deployment. DSH does not ship this source by default.
+The independent package `dsh/bohr-cli` (`@dptech-corp/bohrium-dsh-bohr-cli`) provides the CLI itself; the bundle above assumes the user installs `bohr` separately. It depends on the six published platform packages, which ship no lifecycle scripts (one exact version across all six, currently `2.9.55`), so a normal install pulls exactly one binary for the current host and no script the build policy has to approve, and a legacy global `bohr` in the same npm prefix cannot mask it.
+
+```bash
+commit="$(git rev-parse HEAD)"
+dsh plugin --profile web add "git+https://github.com/dptech-corp/bohrium-skills.git#${commit}&path:/dsh/bohr-cli"
+```
+
+The entry exposes that profile-local binary as an absolute `DSH_BOHR_CLI` for the host's own shell tool — `"$DSH_BOHR_CLI" version -o json`, `"$DSH_BOHR_CLI" guide list -o json` — registers no tool, so approvals stay on the host's path, and contributes one `bohr-cli` Skill that only points at `bohr guide`. Both bundles can be enabled in one profile and disable or unmount independently.
+
+Upgrade rule: all six platform packages keep one exact pin equal to the released CLI version; a bump changes those six lines in one public commit and re-pins the index commit. Installed profiles do not follow npm automatically, and a bump needs the default-install acceptance run again. Companion programs (Trisol, Wenyon, and Lobster Web on macOS) are not part of this bundle: install them with `bohr extension install <tool>`, or `bohr agents local install` for Lobster Web on macOS. Only the platform package of the current host is installed; a host without one gets a warning and a skipped registration instead of a failed profile.
+
+For discovery, enable experimental **Custom plugin indexes**, then use **Discover → Add index source**. The manual **Publish DSH plugin index** workflow validates main and deploys a static index through GitHub Pages; the index carries one immutable Git entry each for `skills/` and `dsh/bohr-cli`. Configure Pages to use GitHub Actions first, and ensure it will not replace an existing site. Use the actual deployment URL followed by `index.json`. The expected default URL is `https://dptech-corp.github.io/bohrium-skills/index.json`; it is available only after deployment. DSH does not ship this source by default.
 
 Disable the bundle through Plugins. To update a Git installation, install a verified public commit using the command above and restart DSH; Git sources do not use npm update detection. Remove it with:
 
@@ -97,4 +127,4 @@ Disable the bundle through Plugins. To update a Git installation, install a veri
 dsh plugin --profile web remove @dptech-corp/bohrium-dsh
 ```
 
-Personal/project Skills remain intact, including same-name Skills previously installed directly. CI validates the packed content, real registry lifecycle, and official index format. Public hosting, rendered UI, and real business requests are separate acceptance checks.
+Personal/project Skills remain intact, including same-name Skills previously installed directly. CI validates the packed content, real registry lifecycle, and official index format, and the CLI bundle is checked from its packed output and mounted next to the skills bundle in one real registry. Platform runs cover darwin-arm64 (default install on the CLI and Desktop hosts) and linux-amd64 (installed and run on the development machine); Windows architectures, darwin-amd64, and linux-arm64 are registry-metadata checks only. Public hosting, rendered UI, and real business requests are separate acceptance checks.

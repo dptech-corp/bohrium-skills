@@ -3723,6 +3723,63 @@
         }
       }
     },
+    "/openapi/v2/lkm/papers/tags": {
+      "get": {
+        "tags": [
+          "大知识模型 (bohrium-lkm)"
+        ],
+        "summary": "列出可用的论文标签",
+        "description": "返回可用于论文搜索的标签及英文说明。免费。",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "tags"
+                          ],
+                          "properties": {
+                            "tags": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "tag",
+                                  "description"
+                                ],
+                                "properties": {
+                                  "tag": {
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "type": "string",
+                                    "description": "标签的英文说明"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi/v2/lkm/papers/reference": {
       "post": {
         "tags": [

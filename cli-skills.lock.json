@@ -552,15 +552,15 @@
       "guide": "bohr-lkm",
       "path": "SKILL.md",
       "old": "Start from natural language when no identifier is known:",
-      "new": "When the user supplies paper tags, pass each value unchanged with a separate `--tag`\non `search` or `reasoning` to match any of them. Paper metadata includes the `tags` list.\nIf the installed command lacks `--tag`, ask for a CLI update before running a tag-filtered search.\n\nStart from natural language when no identifier is known:",
-      "reason": "Document optional paper tags for CLI installations with --tag support."
+      "new": "When you need to discover a paper tag, run `bohr lkm tags -o json`. Each entry in\n`data.tags` contains the exact `tag` value and its English `description`. Listing tags is free.\nIf `bohr lkm tags` is unavailable, update the CLI to use the catalog.\n\nWhen the user supplies paper tags, pass each value unchanged with a separate `--tag`\non `search` or `reasoning` to match any of them. Paper metadata includes the `tags` list.\nIf the installed command lacks `--tag`, ask for a CLI update before running a tag-filtered search.\n\nStart from natural language when no identifier is known:",
+      "reason": "Document paper tag discovery and filtering for CLI installations that support them."
     },
     {
       "guide": "bohr-lkm",
       "path": "references/commands.md",
       "old": "  `--doi` is repeatable (max 50). `--title` is a fuzzy filter. These filters AND.",
-      "new": "  `--doi` is repeatable (max 50). `--title` is a fuzzy filter. These filters AND.\n- `--tag <value>` filters papers in `search` and `reasoning`. Repeat the flag to\n  match any supplied tag. Paper metadata returns `tags` as a list.",
-      "reason": "Document optional paper tags for CLI installations with --tag support."
+      "new": "  `--doi` is repeatable (max 50). `--title` is a fuzzy filter. These filters AND.\n- `bohr lkm tags -o json` lists available paper tags and their English descriptions for free.\n- `--tag <value>` filters papers in `search` and `reasoning`. Repeat the flag to\n  match any supplied tag. Paper metadata returns `tags` as a list.",
+      "reason": "Document paper tag discovery and filtering for CLI installations that support them."
     }
   ]
 }

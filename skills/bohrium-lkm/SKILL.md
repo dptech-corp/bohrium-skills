@@ -57,6 +57,10 @@ and the user's intent before the real submission.
 
 ## Search and trace the ingested corpus
 
+When you need to discover a paper tag, run `bohr lkm tags -o json`. Each entry in
+`data.tags` contains the exact `tag` value and its English `description`. Listing tags is free.
+If `bohr lkm tags` is unavailable, update the CLI to use the catalog.
+
 When the user supplies paper tags, pass each value unchanged with a separate `--tag`
 on `search` or `reasoning` to match any of them. Paper metadata includes the `tags` list.
 If the installed command lacks `--tag`, ask for a CLI update before running a tag-filtered search.
